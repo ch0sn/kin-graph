@@ -1,7 +1,7 @@
 # KinGraph 🌳
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE) 
-[![GitHub Repo stars](https://img.shields.io/github/stars/your-username/kin-graph?style=social)]()
+[![GitHub Repo stars](https://img.shields.io/github/stars/ch0sn/kin-graph?style=social)]()
 
 **KinGraph** is a modern, open-source genealogy web application designed for the mobile-first era. 
 
