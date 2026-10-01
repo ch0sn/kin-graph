@@ -12,7 +12,7 @@ import {
   type PersonId,
 } from '../model'
 
-export const PERSON_WIDTH = 184
+export const PERSON_WIDTH = 232
 export const PERSON_HEIGHT = 76
 export const UNION_SIZE = 10
 /** Horizontal space between partners, where the union dot sits. */

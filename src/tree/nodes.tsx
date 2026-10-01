@@ -31,11 +31,18 @@ export function PersonNode({ data, selected }: NodeProps<PersonNodeType>) {
       <Avatar person={person} highlight={isManager} />
       <div className="min-w-0">
         {label && (
-          <p className="truncate text-[10px] font-semibold tracking-[0.12em] text-stone-400 uppercase">
+          <p
+            title={label}
+            className="truncate text-[10px] font-semibold tracking-[0.12em] text-stone-400 uppercase"
+          >
             {label}
           </p>
         )}
-        <p className="truncate font-serif text-[15px] leading-tight text-stone-900">
+        {/* Long names wrap onto a second line rather than being cut off. */}
+        <p
+          title={fullName(person)}
+          className="line-clamp-2 font-serif text-[15px] leading-tight break-words text-stone-900"
+        >
           {fullName(person)}
         </p>
         {years && <p className="text-xs text-stone-500 tabular-nums">{years}</p>}
