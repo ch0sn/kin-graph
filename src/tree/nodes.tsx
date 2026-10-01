@@ -1,7 +1,8 @@
 import { Handle, Position, type NodeProps } from '@xyflow/react'
 import { motion } from 'motion/react'
-import { fullName, lifeYears, type Gender } from '../model'
+import { fullName, type Gender } from '../model'
 import { Avatar } from '../ui/Avatar'
+import { LifeLine } from '../ui/LifeLine'
 import { useTreeDisplay } from './display'
 import type { PersonNode as PersonNodeType, UnionNode as UnionNodeType } from './familyLayout'
 
@@ -20,7 +21,6 @@ const GENDER_BORDERS: Partial<Record<Gender, string>> = {
 export function PersonNode({ data, selected }: NodeProps<PersonNodeType>) {
   const { person, label, isManager, entranceDelay = 0 } = data
   const { highlightGender } = useTreeDisplay()
-  const years = lifeYears(person)
   const genderBorder = highlightGender && person.gender ? GENDER_BORDERS[person.gender] : undefined
   const border =
     genderBorder ??
@@ -70,7 +70,7 @@ export function PersonNode({ data, selected }: NodeProps<PersonNodeType>) {
           >
             {fullName(person)}
           </p>
-          {years && <p className="text-xs text-stone-500 tabular-nums">{years}</p>}
+          <LifeLine person={person} className="text-xs" />
         </div>
       </motion.div>
     </div>

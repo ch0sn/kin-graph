@@ -9,7 +9,6 @@ import {
   fullName,
   GraphError,
   isOngoing,
-  lifeYears,
   parentIdsOf,
   partnershipsOf,
   partnerOf,
@@ -24,6 +23,7 @@ import {
   type PersonId,
 } from '../model'
 import { Avatar } from '../ui/Avatar'
+import { LifeLine } from '../ui/LifeLine'
 import { Button, CheckboxGroup, Segmented, type Option } from '../ui/fields'
 import { PersonForm } from './PersonForm'
 import { emptyValues, valuesFromPerson } from './personValues'
@@ -166,9 +166,7 @@ function SheetBody({
                 <h2 className="truncate font-serif text-2xl leading-tight text-stone-900">
                   {fullName(person)}
                 </h2>
-                {lifeYears(person) && (
-                  <p className="text-sm text-stone-500 tabular-nums">{lifeYears(person)}</p>
-                )}
+                <LifeLine person={person} detailed className="text-sm" />
               </div>
               <button
                 type="button"
