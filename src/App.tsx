@@ -107,6 +107,10 @@ function TreeScreen({
             key={graph.managerId}
             graph={graph}
             siblingOrder={settings.siblingOrder}
+            highlightGender={settings.highlightGender}
+            onToggleHighlightGender={() =>
+              onSettingsChange({ highlightGender: !settings.highlightGender })
+            }
             selectedId={selectedId}
             onSelect={setSelectedId}
           />

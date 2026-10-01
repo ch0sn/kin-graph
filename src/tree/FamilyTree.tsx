@@ -8,6 +8,7 @@ import {
   useStore,
   type XYPosition,
 } from '@xyflow/react'
+import { Mars, Venus } from 'lucide-react'
 import { animate, useReducedMotion, type AnimationPlaybackControls } from 'motion/react'
 import { useCallback, useEffect, useMemo, useRef, useState, type ComponentProps } from 'react'
 import type { FamilyGraph, PersonId } from '../model'
@@ -19,6 +20,7 @@ import {
   type FamilyLayout,
   type TreeNode,
 } from './familyLayout'
+import { TreeDisplayContext } from './display'
 import { FamilyEdge } from './edges'
 import { PersonNode, UnionNode } from './nodes'
 import type { SiblingOrder } from './siblingOrder'
@@ -34,6 +36,9 @@ const SELECTED_VIEWPORT_Y = 0.28
 interface FamilyTreeProps {
   graph: FamilyGraph
   siblingOrder: SiblingOrder
+  /** Colours card borders by gender. */
+  highlightGender: boolean
+  onToggleHighlightGender: () => void
   selectedId: PersonId | null
   onSelect: (id: PersonId | null) => void
 }
@@ -46,7 +51,15 @@ export function FamilyTree(props: FamilyTreeProps) {
   )
 }
 
-function FamilyTreeCanvas({ graph, siblingOrder, selectedId, onSelect }: FamilyTreeProps) {
+function FamilyTreeCanvas({
+  graph,
+  siblingOrder,
+  highlightGender,
+  onToggleHighlightGender,
+  selectedId,
+  onSelect,
+}: FamilyTreeProps) {
+  const display = useMemo(() => ({ highlightGender }), [highlightGender])
   /** The latest layout, i.e. where everything is heading. */
   const [layout, setLayout] = useState<FamilyLayout | null>(null)
   /** What's on screen, part-way through a transition between layouts. */
@@ -117,30 +130,54 @@ function FamilyTreeCanvas({ graph, siblingOrder, selectedId, onSelect }: FamilyT
   if (!layout) return null
 
   return (
-    <ReactFlow
-      nodes={nodes}
-      edges={layout.edges}
-      nodeTypes={nodeTypes}
-      edgeTypes={edgeTypes}
-      onInit={() => centerOn(graph.managerId, { duration: 0 })}
-      onNodeClick={(_, node) => {
-        if (node.type === 'person') onSelect(node.id)
-      }}
-      onPaneClick={() => onSelect(null)}
-      nodesDraggable={false}
-      nodesConnectable={false}
-      minZoom={0.2}
-      maxZoom={1.5}
-      proOptions={{ hideAttribution: true }}
-    >
-      <Background variant={BackgroundVariant.Dots} gap={24} size={1.5} color="#d6d3d1" />
-      <Panel position="bottom-right" className="flex gap-2">
-        <ToolbarButton onClick={() => fitView({ padding: 0.15, duration: 600 })}>
-          Whole tree
-        </ToolbarButton>
-        <ToolbarButton onClick={() => centerOn(graph.managerId)}>Focus on you</ToolbarButton>
-      </Panel>
-    </ReactFlow>
+    <TreeDisplayContext.Provider value={display}>
+      <ReactFlow
+        nodes={nodes}
+        edges={layout.edges}
+        nodeTypes={nodeTypes}
+        edgeTypes={edgeTypes}
+        onInit={() => centerOn(graph.managerId, { duration: 0 })}
+        onNodeClick={(_, node) => {
+          if (node.type === 'person') onSelect(node.id)
+        }}
+        onPaneClick={() => onSelect(null)}
+        nodesDraggable={false}
+        nodesConnectable={false}
+        minZoom={0.2}
+        maxZoom={1.5}
+        proOptions={{ hideAttribution: true }}
+      >
+        <Background variant={BackgroundVariant.Dots} gap={24} size={1.5} color="#d6d3d1" />
+        <Panel position="bottom-right" className="flex gap-2">
+          <button
+            type="button"
+            aria-label="Highlight male and female"
+            aria-pressed={highlightGender}
+            title={highlightGender ? 'Hide male and female colours' : 'Highlight male and female'}
+            onClick={onToggleHighlightGender}
+            className={[
+              'flex items-center gap-0.5 rounded-full border px-3 py-2 shadow-sm backdrop-blur transition active:scale-95',
+              highlightGender
+                ? 'border-stone-900 bg-stone-900'
+                : 'border-stone-200 bg-white/90 hover:bg-white',
+            ].join(' ')}
+          >
+            <Mars
+              className={`size-4 ${highlightGender ? 'text-blue-400' : 'text-stone-500'}`}
+              aria-hidden
+            />
+            <Venus
+              className={`size-4 ${highlightGender ? 'text-red-400' : 'text-stone-500'}`}
+              aria-hidden
+            />
+          </button>
+          <ToolbarButton onClick={() => fitView({ padding: 0.15, duration: 600 })}>
+            Whole tree
+          </ToolbarButton>
+          <ToolbarButton onClick={() => centerOn(graph.managerId)}>Focus on you</ToolbarButton>
+        </Panel>
+      </ReactFlow>
+    </TreeDisplayContext.Provider>
   )
 }
 

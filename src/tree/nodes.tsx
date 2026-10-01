@@ -1,7 +1,8 @@
 import { Handle, Position, type NodeProps } from '@xyflow/react'
 import { motion } from 'motion/react'
-import { fullName, lifeYears } from '../model'
+import { fullName, lifeYears, type Gender } from '../model'
 import { Avatar } from '../ui/Avatar'
+import { useTreeDisplay } from './display'
 import type { PersonNode as PersonNodeType, UnionNode as UnionNodeType } from './familyLayout'
 
 /*
@@ -10,9 +11,24 @@ import type { PersonNode as PersonNodeType, UnionNode as UnionNodeType } from '.
  * inside it animates in, so lines meet the cards exactly.
  */
 
+/** Card borders when highlighting gender; people without one keep the usual border. */
+const GENDER_BORDERS: Partial<Record<Gender, string>> = {
+  male: 'border-2 border-blue-500',
+  female: 'border-2 border-red-500',
+}
+
 export function PersonNode({ data, selected }: NodeProps<PersonNodeType>) {
   const { person, label, isManager, entranceDelay = 0 } = data
+  const { highlightGender } = useTreeDisplay()
   const years = lifeYears(person)
+  const genderBorder = highlightGender && person.gender ? GENDER_BORDERS[person.gender] : undefined
+  const border =
+    genderBorder ??
+    (isManager
+      ? 'border-amber-300'
+      : selected
+        ? 'border-stone-400'
+        : 'border-stone-200 hover:border-stone-300')
 
   return (
     <div className="relative size-full">
@@ -26,11 +42,12 @@ export function PersonNode({ data, selected }: NodeProps<PersonNodeType>) {
         transition={{ type: 'spring', stiffness: 260, damping: 24, delay: entranceDelay }}
         className={[
           'flex size-full items-center gap-3 rounded-2xl border bg-white px-3 shadow-sm transition-[box-shadow,border-color]',
-          isManager ? 'border-amber-300' : 'border-stone-200 hover:border-stone-300 hover:shadow-md',
+          border,
+          !isManager && 'hover:shadow-md',
           selected
             ? isManager
               ? 'shadow-md ring-4 ring-amber-300/70'
-              : 'border-stone-400 shadow-md ring-4 ring-stone-300/60'
+              : 'shadow-md ring-4 ring-stone-300/60'
             : isManager && 'ring-4 ring-amber-100',
         ]
           .filter(Boolean)
