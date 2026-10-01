@@ -8,7 +8,6 @@ import {
   addSibling,
   fullName,
   GraphError,
-  initials,
   isOngoing,
   lifeYears,
   parentIdsOf,
@@ -24,6 +23,7 @@ import {
   type Person,
   type PersonId,
 } from '../model'
+import { Avatar } from '../ui/Avatar'
 import { Button, CheckboxGroup, Segmented, type Option } from '../ui/fields'
 import { PersonForm } from './PersonForm'
 import { emptyValues, valuesFromPerson } from './personValues'
@@ -155,15 +155,7 @@ function SheetBody({
         {mode.view === 'details' && (
           <div className="flex flex-col gap-5">
             <header className="flex items-center gap-4 pt-1">
-              <div
-                className={[
-                  'flex size-14 shrink-0 items-center justify-center rounded-full font-serif text-xl',
-                  isManager ? 'bg-amber-100 text-amber-900' : 'bg-stone-100 text-stone-600',
-                ].join(' ')}
-                aria-hidden
-              >
-                {initials(person)}
-              </div>
+              <Avatar person={person} size="md" highlight={isManager} />
               <div className="min-w-0 flex-1">
                 {label && (
                   <p className="text-[11px] font-semibold tracking-[0.12em] text-stone-400 uppercase">

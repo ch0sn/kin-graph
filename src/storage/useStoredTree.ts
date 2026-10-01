@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useState } from 'react'
 import type { FamilyGraph } from '../model'
 import { createAutosaver, type SaveState } from './autosave'
+import { photoIdsOf } from './backup'
 import * as db from './db'
+import { prunePhotos } from './photos'
 
 export type TreeState =
   | { status: 'loading' }
@@ -53,8 +55,15 @@ export function useStoredTree(): StoredTree {
     const reload = () =>
       db.loadTree().then((loaded) => {
         if (!cancelled) setTree(loaded)
+        return loaded
       })
-    void reload()
+    void reload().then((loaded) => {
+      // Tidy away photos of people who were removed or re-photographed. A
+      // damaged tree may still refer to its photos, so leave those alone.
+      if (loaded.status === 'damaged') return
+      const keep = new Set(loaded.status === 'ready' ? photoIdsOf(loaded.graph) : [])
+      prunePhotos(keep).catch(() => {})
+    })
 
     // Pick up saves made in other tabs, unless this tab has unsaved edits
     // that are about to overwrite them anyway.
@@ -108,6 +117,7 @@ export function useStoredTree(): StoredTree {
   const clearTree = useCallback(async () => {
     autosaver.cancel()
     await db.clearTree()
+    await prunePhotos(new Set(), { olderThanMs: 0 }).catch(() => {})
     notifyTabs('cleared')
     setTree({ status: 'empty' })
     setSaveState('saved')

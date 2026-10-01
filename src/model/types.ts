@@ -15,6 +15,10 @@ export interface Person {
   gender?: Gender
   birthDate?: FuzzyDate
   deathDate?: FuzzyDate
+  /** Known to have died, even if the date isn't known. Implied by `deathDate`. */
+  deceased?: boolean
+  /** A photo kept in the device's photo store; see `src/storage/photos.ts`. */
+  photoId?: string
   /**
    * Stands in for a parent who isn't recorded yet, so that siblings can be
    * linked through them. Filled in place when the real parent is added.

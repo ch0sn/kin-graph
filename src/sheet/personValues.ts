@@ -1,18 +1,31 @@
-import { isFuzzyDate, type Gender, type NewPerson, type Person } from '../model'
+import { isDeceased, isFuzzyDate, type Gender, type NewPerson, type Person } from '../model'
 
-/** The person form's fields, as typed. */
+/** The person form's fields, as entered. */
 export interface PersonValues {
   givenName: string
   familyName: string
   gender: Gender | ''
   birthDate: string
+  deceased: boolean
+  /** Only used when `deceased` is ticked. */
   deathDate: string
+  /** The stored photo, or '' for none. A newly chosen photo is stored on submit. */
+  photoId: string
 }
 
 export type PersonErrors = Partial<Record<keyof PersonValues, string>>
 
 export function emptyValues(overrides: Partial<PersonValues> = {}): PersonValues {
-  return { givenName: '', familyName: '', gender: '', birthDate: '', deathDate: '', ...overrides }
+  return {
+    givenName: '',
+    familyName: '',
+    gender: '',
+    birthDate: '',
+    deceased: false,
+    deathDate: '',
+    photoId: '',
+    ...overrides,
+  }
 }
 
 export function valuesFromPerson(person: Person): PersonValues {
@@ -21,16 +34,18 @@ export function valuesFromPerson(person: Person): PersonValues {
     familyName: person.familyName ?? '',
     gender: person.gender ?? '',
     birthDate: person.birthDate ?? '',
+    deceased: isDeceased(person),
     deathDate: person.deathDate ?? '',
+    photoId: person.photoId ?? '',
   }
 }
 
-const DATE_HINT = 'Use YYYY, YYYY-MM or YYYY-MM-DD'
+const DATE_HINT = 'Choose a date, or a four-digit year'
 
 export function validate(values: PersonValues): PersonErrors {
   const errors: PersonErrors = {}
   const birth = values.birthDate.trim()
-  const death = values.deathDate.trim()
+  const death = values.deceased ? values.deathDate.trim() : ''
   if (!values.givenName.trim()) errors.givenName = 'A first name is needed'
   if (birth && !isFuzzyDate(birth)) errors.birthDate = DATE_HINT
   if (death && !isFuzzyDate(death)) errors.deathDate = DATE_HINT
@@ -55,6 +70,8 @@ export function toPersonFields(values: PersonValues): NewPerson {
     familyName: optional(values.familyName),
     gender: values.gender || undefined,
     birthDate: optional(values.birthDate),
-    deathDate: optional(values.deathDate),
+    deceased: values.deceased || undefined,
+    deathDate: values.deceased ? optional(values.deathDate) : undefined,
+    photoId: values.photoId || undefined,
   }
 }

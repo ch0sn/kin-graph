@@ -11,7 +11,7 @@ import {
 } from '../model'
 
 export const TREE_FORMAT = 'kingraph-tree'
-export const TREE_VERSION = 1
+export const TREE_VERSION = 2
 
 /** How a tree is stored on this device and written to backup files. */
 export interface TreeDocument {
@@ -19,6 +19,8 @@ export interface TreeDocument {
   version: number
   savedAt: string
   graph: FamilyGraph
+  /** Backups only: photos by id, as data URLs. On the device they're stored separately. */
+  photos?: Record<string, string>
 }
 
 /** Thrown when stored or imported data isn't a usable family tree. */
@@ -26,21 +28,49 @@ export class TreeFileError extends Error {
   override name = 'TreeFileError'
 }
 
-export function toDocument(graph: FamilyGraph, now = new Date()): TreeDocument {
-  return { format: TREE_FORMAT, version: TREE_VERSION, savedAt: now.toISOString(), graph }
+export function toDocument(
+  graph: FamilyGraph,
+  now = new Date(),
+  photos?: Record<string, string>,
+): TreeDocument {
+  return {
+    format: TREE_FORMAT,
+    version: TREE_VERSION,
+    savedAt: now.toISOString(),
+    graph,
+    ...(photos && { photos }),
+  }
 }
 
 /**
  * Upgrades a document from version `n` to `n + 1`. Add an entry whenever the
  * format changes so older saved trees and backups keep opening.
  */
-const MIGRATIONS: Record<number, (doc: Record<string, unknown>) => Record<string, unknown>> = {}
+const MIGRATIONS: Record<number, (doc: Record<string, unknown>) => Record<string, unknown>> = {
+  // v2 added optional `deceased` and `photoId` to people and `photos` to backups.
+  1: (doc) => ({ ...doc, version: 2 }),
+}
 
 /**
  * Checks that data loaded from storage or a backup file is a valid family
  * tree and returns a clean copy of it, keeping only known fields.
  */
 export function parseTreeDocument(data: unknown): FamilyGraph {
+  return parseGraph(migrate(data).graph)
+}
+
+export interface Backup {
+  graph: FamilyGraph
+  photos: Map<string, Blob>
+}
+
+/** Like `parseTreeDocument`, plus the photos a backup file carries. */
+export function parseBackup(data: unknown): Backup {
+  const doc = migrate(data)
+  return { graph: parseGraph(doc.graph), photos: parsePhotos(doc.photos) }
+}
+
+function migrate(data: unknown): Record<string, unknown> {
   if (!isRecord(data) || data.format !== TREE_FORMAT) {
     throw new TreeFileError('This isn’t a KinGraph family tree file.')
   }
@@ -56,7 +86,25 @@ export function parseTreeDocument(data: unknown): FamilyGraph {
 
   let doc = data
   for (let v = version; v < TREE_VERSION; v++) doc = MIGRATIONS[v](doc)
-  return parseGraph(doc.graph)
+  return doc
+}
+
+/** Photos are small JPEGs made by `preparePhoto`; anything far larger isn't ours. */
+const MAX_PHOTO_BYTES = 2 * 1024 * 1024
+const PHOTO_DATA_URL = /^data:(image\/(?:jpeg|png|webp));base64,([A-Za-z0-9+/]+={0,2})$/
+
+function parsePhotos(raw: unknown): Map<string, Blob> {
+  const photos = new Map<string, Blob>()
+  if (raw === undefined) return photos
+  if (!isRecord(raw)) throw damaged('its photos are malformed.')
+  for (const [id, dataUrl] of Object.entries(raw)) {
+    const match = typeof dataUrl === 'string' ? PHOTO_DATA_URL.exec(dataUrl) : null
+    if (!match) throw damaged('a photo isn’t a supported image.')
+    const [, type, base64] = match
+    if ((base64.length * 3) / 4 > MAX_PHOTO_BYTES) throw damaged('a photo is too large.')
+    photos.set(id, new Blob([Uint8Array.from(atob(base64), (c) => c.charCodeAt(0))], { type }))
+  }
+  return photos
 }
 
 // --- Validation ---------------------------------------------------------------
@@ -129,8 +177,13 @@ function parsePerson(key: string, value: unknown): Person {
   if (value.familyName !== undefined && typeof value.familyName !== 'string') {
     throw damaged(`${value.givenName}’s last name isn’t text.`)
   }
-  if (value.isPlaceholder !== undefined && typeof value.isPlaceholder !== 'boolean') {
-    throw damaged(`${value.givenName} has an invalid placeholder flag.`)
+  for (const flag of ['isPlaceholder', 'deceased'] as const) {
+    if (value[flag] !== undefined && typeof value[flag] !== 'boolean') {
+      throw damaged(`${value.givenName} has an invalid ${flag} flag.`)
+    }
+  }
+  if (value.photoId !== undefined && typeof value.photoId !== 'string') {
+    throw damaged(`${value.givenName}’s photo reference is invalid.`)
   }
   return {
     id: key,
@@ -142,7 +195,9 @@ function parsePerson(key: string, value: unknown): Person {
         : oneOf(value.gender, GENDERS, `${value.givenName} has an unknown gender value.`),
     birthDate: optionalDate(value.birthDate),
     deathDate: optionalDate(value.deathDate),
-    isPlaceholder: value.isPlaceholder || undefined,
+    deceased: value.deceased === true || undefined,
+    photoId: value.photoId,
+    isPlaceholder: value.isPlaceholder === true || undefined,
   }
 }
 

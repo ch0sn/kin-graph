@@ -1,6 +1,7 @@
 import { useRef, useState, type ReactNode } from 'react'
 import type { FamilyGraph } from '../model'
 import { readBackupFile } from './backup'
+import { putPhotos } from './photos'
 import { TreeFileError } from './treeDocument'
 
 export interface BackupPicker {
@@ -29,7 +30,9 @@ export function useBackupPicker(onPicked: (graph: FamilyGraph) => void): BackupP
         event.target.value = ''
         if (!file) return
         try {
-          const graph = await readBackupFile(file)
+          const { graph, photos } = await readBackupFile(file)
+          // Photos go into the store first so the tree shows them straight away.
+          await putPhotos(photos)
           setError(null)
           onPicked(graph)
         } catch (e) {

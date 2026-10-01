@@ -1,6 +1,7 @@
 import { Handle, Position, type NodeProps } from '@xyflow/react'
 import { motion } from 'motion/react'
-import { fullName, initials, lifeYears } from '../model'
+import { fullName, lifeYears } from '../model'
+import { Avatar } from '../ui/Avatar'
 import type { PersonNode as PersonNodeType, UnionNode as UnionNodeType } from './familyLayout'
 
 export function PersonNode({ data, selected }: NodeProps<PersonNodeType>) {
@@ -27,15 +28,7 @@ export function PersonNode({ data, selected }: NodeProps<PersonNodeType>) {
       <Handle id="top" type="target" position={Position.Top} className="handle" />
       <Handle id="left" type="source" position={Position.Left} className="handle" />
       <Handle id="right" type="source" position={Position.Right} className="handle" />
-      <div
-        className={[
-          'flex size-11 shrink-0 items-center justify-center rounded-full font-serif text-lg',
-          isManager ? 'bg-amber-100 text-amber-900' : 'bg-stone-100 text-stone-600',
-        ].join(' ')}
-        aria-hidden
-      >
-        {initials(person)}
-      </div>
+      <Avatar person={person} highlight={isManager} />
       <div className="min-w-0">
         {label && (
           <p className="truncate text-[10px] font-semibold tracking-[0.12em] text-stone-400 uppercase">

@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { sampleFamily } from '../data/sampleFamily'
 import { addSibling, createGraph, type FamilyGraph } from '../model'
 import {
+  parseBackup,
   parseTreeDocument,
   toDocument,
   TREE_FORMAT,
@@ -34,6 +35,21 @@ describe('toDocument / parseTreeDocument', () => {
       format: TREE_FORMAT,
       version: TREE_VERSION,
       savedAt: '2026-10-01T12:00:00.000Z',
+    })
+  })
+
+  it('opens version 1 files, from before photos and the deceased flag', () => {
+    const graph = sampleFamily()
+    expect(parseTreeDocument({ ...json(graph), version: 1 })).toEqual(graph)
+  })
+
+  it('keeps the deceased flag and photo references', () => {
+    const graph = sampleFamily()
+    const id = graph.managerId
+    graph.people[id] = { ...graph.people[id], deceased: true, photoId: 'face-1' }
+    expect(parseTreeDocument(json(graph)).people[id]).toMatchObject({
+      deceased: true,
+      photoId: 'face-1',
     })
   })
 
@@ -139,6 +155,31 @@ describe('parseTreeDocument rejects', () => {
     const link = loop.graph.parentLinks[0]
     loop.graph.parentLinks.push({ parentId: link.childId, childId: link.parentId, kind: 'adoptive' })
     rejects(loop, /own ancestor/)
+  })
+
+  it('invalid flags and photo references', () => {
+    const withPerson = (patch: object) => {
+      const doc = json()
+      Object.assign(doc.graph.people[doc.graph.managerId], patch)
+      return doc
+    }
+    rejects(withPerson({ deceased: 'yes' }), /invalid deceased flag/)
+    rejects(withPerson({ photoId: 7 }), /photo reference is invalid/)
+  })
+
+  it('photos that are not small images', () => {
+    const withPhotos = (photos: unknown) => ({ ...json(), photos })
+    expect(() => parseBackup(withPhotos([]))).toThrow(/photos are malformed/)
+    expect(() => parseBackup(withPhotos({ a: 'data:text/html;base64,PGI+' }))).toThrow(
+      /supported image/,
+    )
+    expect(() => parseBackup(withPhotos({ a: 'https://example.com/face.jpg' }))).toThrow(
+      /supported image/,
+    )
+    const huge = 'A'.repeat(3 * 1024 * 1024)
+    expect(() => parseBackup(withPhotos({ a: `data:image/jpeg;base64,${huge}` }))).toThrow(
+      /too large/,
+    )
   })
 
   it('missing lists', () => {

@@ -22,11 +22,18 @@ describe('lifeYears', () => {
     expect(lifeYears({ id: '1', givenName: 'A', deathDate: '1902-01' })).toBe('d. 1902')
     expect(lifeYears({ id: '1', givenName: 'A' })).toBeNull()
   })
+
+  it('marks people who died on an unknown date', () => {
+    expect(lifeYears({ id: '1', givenName: 'A', birthDate: '1934', deceased: true })).toBe(
+      '1934 – ?',
+    )
+    expect(lifeYears({ id: '1', givenName: 'A', deceased: true })).toBe('Deceased')
+  })
 })
 
 describe('initials', () => {
   it('uses the first letter of each name', () => {
-    expect(initials({ id: '1', givenName: 'grace', familyName: 'Ellis' })).toBe('GE')
-    expect(initials({ id: '1', givenName: 'Cher' })).toBe('C')
+    expect(initials({ givenName: 'grace', familyName: 'Ellis' })).toBe('GE')
+    expect(initials({ givenName: 'Cher' })).toBe('C')
   })
 })

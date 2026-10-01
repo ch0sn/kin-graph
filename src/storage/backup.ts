@@ -1,5 +1,6 @@
 import { fullName, type FamilyGraph } from '../model'
-import { parseTreeDocument, toDocument, TreeFileError } from './treeDocument'
+import { loadPhotos } from './photos'
+import { parseBackup, toDocument, TreeFileError, type Backup } from './treeDocument'
 
 /** e.g. "kingraph-alex-morgan-2026-10-01.json", dated in local time. */
 export function backupFileName(graph: FamilyGraph, now = new Date()): string {
@@ -15,15 +16,29 @@ export function backupFileName(graph: FamilyGraph, now = new Date()): string {
   return ['kingraph', slug, date].filter(Boolean).join('-') + '.json'
 }
 
-export function createBackup(graph: FamilyGraph, now = new Date()): Blob {
-  return new Blob([JSON.stringify(toDocument(graph, now), null, 2)], {
-    type: 'application/json',
-  })
+export function photoIdsOf(graph: FamilyGraph): string[] {
+  return Object.values(graph.people).flatMap((p) => (p.photoId ? [p.photoId] : []))
 }
 
-/** Saves a backup file through the browser's normal download. */
-export function downloadBackup(graph: FamilyGraph): void {
-  const url = URL.createObjectURL(createBackup(graph))
+/** A backup file holding the tree and the photos its people use. */
+export async function createBackup(
+  graph: FamilyGraph,
+  photos: Map<string, Blob>,
+  now = new Date(),
+): Promise<Blob> {
+  const embedded: Record<string, string> = {}
+  for (const id of photoIdsOf(graph)) {
+    const photo = photos.get(id)
+    if (photo) embedded[id] = await toDataUrl(photo)
+  }
+  const doc = toDocument(graph, now, Object.keys(embedded).length > 0 ? embedded : undefined)
+  return new Blob([JSON.stringify(doc, null, 2)], { type: 'application/json' })
+}
+
+/** Saves a backup file, photos included, through the browser's normal download. */
+export async function downloadBackup(graph: FamilyGraph): Promise<void> {
+  const file = await createBackup(graph, await loadPhotos(photoIdsOf(graph)))
+  const url = URL.createObjectURL(file)
   const link = document.createElement('a')
   link.href = url
   link.download = backupFileName(graph)
@@ -32,12 +47,22 @@ export function downloadBackup(graph: FamilyGraph): void {
 }
 
 /** Reads a backup file, throwing a TreeFileError if it isn't a valid tree. */
-export async function readBackupFile(file: Blob): Promise<FamilyGraph> {
+export async function readBackupFile(file: Blob): Promise<Backup> {
   let data: unknown
   try {
     data = JSON.parse(await file.text())
   } catch {
     throw new TreeFileError('This isn’t a KinGraph family tree file.')
   }
-  return parseTreeDocument(data)
+  return parseBackup(data)
+}
+
+async function toDataUrl(blob: Blob): Promise<string> {
+  const bytes = new Uint8Array(await blob.arrayBuffer())
+  let binary = ''
+  // Convert in chunks; spreading a large array into one call can overflow the stack.
+  for (let i = 0; i < bytes.length; i += 0x8000) {
+    binary += String.fromCharCode(...bytes.subarray(i, i + 0x8000))
+  }
+  return `data:${blob.type || 'image/jpeg'};base64,${btoa(binary)}`
 }

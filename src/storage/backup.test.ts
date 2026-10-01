@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { sampleFamily } from '../data/sampleFamily'
-import { createGraph } from '../model'
+import { createGraph, updatePerson } from '../model'
 import { backupFileName, createBackup, readBackupFile } from './backup'
 import { TreeFileError } from './treeDocument'
 
@@ -22,10 +22,30 @@ describe('backupFileName', () => {
   })
 })
 
-describe('readBackupFile', () => {
-  it('reads back a backup', async () => {
+describe('createBackup / readBackupFile', () => {
+  it('reads back a backup without photos', async () => {
     const graph = sampleFamily()
-    expect(await readBackupFile(createBackup(graph))).toEqual(graph)
+    const backup = await readBackupFile(await createBackup(graph, new Map()))
+    expect(backup.graph).toEqual(graph)
+    expect(backup.photos.size).toBe(0)
+  })
+
+  it('carries the photos people use, byte for byte', async () => {
+    const graph = sampleFamily()
+    const withPhoto = updatePerson(graph, graph.managerId, { photoId: 'face-1' })
+    const bytes = Uint8Array.from({ length: 70_000 }, (_, i) => i % 256)
+    const photos = new Map([
+      ['face-1', new Blob([bytes], { type: 'image/jpeg' })],
+      ['unused', new Blob(['x'], { type: 'image/jpeg' })],
+    ])
+
+    const file = await createBackup(withPhoto, photos)
+    const backup = await readBackupFile(file)
+
+    expect([...backup.photos.keys()]).toEqual(['face-1'])
+    const restored = backup.photos.get('face-1')!
+    expect(restored.type).toBe('image/jpeg')
+    expect(new Uint8Array(await restored.arrayBuffer())).toEqual(bytes)
   })
 
   it('rejects files that are not JSON or not KinGraph trees', async () => {

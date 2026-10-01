@@ -55,6 +55,7 @@ interface AppMenuProps {
 export function AppMenu({ graph, persisted, onReplace, onStartOver, onShowIntro }: AppMenuProps) {
   const [open, setOpen] = useState(false)
   const [pending, setPending] = useState<Pending>(null)
+  const [exportError, setExportError] = useState<string | null>(null)
   const picker = useBackupPicker((imported) => setPending({ kind: 'import', graph: imported }))
   const menuRef = useRef<HTMLDivElement>(null)
 
@@ -103,7 +104,15 @@ export function AppMenu({ graph, persisted, onReplace, onStartOver, onShowIntro 
             transition={{ duration: 0.12 }}
             className="absolute top-full right-0 z-30 mt-2 w-72 origin-top-right rounded-2xl border border-stone-200 bg-white p-1.5 shadow-xl"
           >
-            <MenuItem icon={<Download />} onClick={choose(() => downloadBackup(graph))} autoFocus>
+            <MenuItem
+              icon={<Download />}
+              onClick={choose(() =>
+                downloadBackup(graph).catch(() =>
+                  setExportError('The backup couldn’t be created. Please try again.'),
+                ),
+              )}
+              autoFocus
+            >
               Export backup
             </MenuItem>
             <MenuItem icon={<Upload />} onClick={choose(picker.open)}>
@@ -170,6 +179,16 @@ export function AppMenu({ graph, persisted, onReplace, onStartOver, onShowIntro 
         onCancel={picker.clearError}
       >
         {picker.error}
+      </ConfirmDialog>
+
+      <ConfirmDialog
+        open={exportError !== null}
+        title="Couldn’t export a backup"
+        confirmLabel="OK"
+        onConfirm={() => setExportError(null)}
+        onCancel={() => setExportError(null)}
+      >
+        {exportError}
       </ConfirmDialog>
     </div>
   )
