@@ -5,6 +5,7 @@ import {
   addChild,
   addPartner,
   addSibling,
+  childIdsOf,
   createGraph,
   parentIdsOf,
   partnerIdsOf,
@@ -93,6 +94,18 @@ describe('layoutFamily', () => {
     const emmaIsLeft = positions.get(emma)!.x < positions.get(alex)!.x
     const emmasSideIsLeft = positions.get(joan)!.x < positions.get(mary)!.x
     expect(emmaIsLeft).toBe(emmasSideIsLeft)
+  })
+
+  it('orders siblings oldest first, left to right', async () => {
+    // In a fuller tree ELK's crossing minimisation is free to reverse siblings.
+    let graph = sampleFamily()
+    graph = addChild(graph, graph.managerId, { givenName: 'Ella', birthDate: '2023' }).graph
+    const positions = await personPositions(graph)
+    const children = childIdsOf(graph, graph.managerId).map((id) => graph.people[id])
+    const leftToRight = children
+      .sort((a, b) => positions.get(a.id)!.x - positions.get(b.id)!.x)
+      .map((p) => p.birthDate)
+    expect(leftToRight).toEqual(children.map((p) => p.birthDate).sort())
   })
 
   it('hides placeholder parents but keeps their children together', async () => {

@@ -5,22 +5,33 @@ import {
   ReactFlow,
   ReactFlowProvider,
   useReactFlow,
+  useStore,
+  type XYPosition,
 } from '@xyflow/react'
-import { useCallback, useEffect, useState, type ComponentProps } from 'react'
-import type { FamilyGraph } from '../model'
+import { animate, useReducedMotion, type AnimationPlaybackControls } from 'motion/react'
+import { useCallback, useEffect, useMemo, useRef, useState, type ComponentProps } from 'react'
+import type { FamilyGraph, PersonId } from '../model'
 import { elk } from './elk'
 import {
   layoutFamily,
   PERSON_HEIGHT,
   PERSON_WIDTH,
   type FamilyLayout,
+  type TreeNode,
 } from './familyLayout'
 import { PersonNode, UnionNode } from './nodes'
 
 const nodeTypes = { person: PersonNode, union: UnionNode }
 
+/** Seconds each step away from the manager delays an element's first entrance. */
+const ENTRANCE_STAGGER = 0.06
+/** Where a selected person is placed, as a fraction of the height from the top, clear of the sheet. */
+const SELECTED_VIEWPORT_Y = 0.28
+
 interface FamilyTreeProps {
   graph: FamilyGraph
+  selectedId: PersonId | null
+  onSelect: (id: PersonId | null) => void
 }
 
 export function FamilyTree(props: FamilyTreeProps) {
@@ -31,41 +42,86 @@ export function FamilyTree(props: FamilyTreeProps) {
   )
 }
 
-function FamilyTreeCanvas({ graph }: FamilyTreeProps) {
+function FamilyTreeCanvas({ graph, selectedId, onSelect }: FamilyTreeProps) {
+  /** The latest layout, i.e. where everything is heading. */
   const [layout, setLayout] = useState<FamilyLayout | null>(null)
-  const { fitView, setCenter } = useReactFlow()
+  /** What's on screen, part-way through a transition between layouts. */
+  const [shownNodes, setShownNodes] = useState<TreeNode[]>([])
+  const shownRef = useRef<TreeNode[]>([])
+  const reduceMotion = useReducedMotion()
+  const { fitView, getZoom, setCenter } = useReactFlow()
+  const viewportHeight = useStore((s) => s.height)
 
   useEffect(() => {
     let cancelled = false
+    let tween: AnimationPlaybackControls | undefined
     layoutFamily(graph, elk).then((next) => {
-      if (!cancelled) setLayout(next)
+      if (cancelled) return
+      const isFirst = shownRef.current.length === 0
+      const target = withEntranceDelays(next, isFirst)
+      setLayout(target)
+
+      // Move people from where they are now to their new spots; newcomers
+      // appear in place and animate in.
+      const from = new Map(shownRef.current.map((n) => [n.id, n.position]))
+      const show = (t: number) => {
+        const frame = target.nodes.map((n) => {
+          const start = from.get(n.id)
+          return start ? { ...n, position: lerp(start, n.position, t) } : n
+        })
+        shownRef.current = frame
+        setShownNodes(frame)
+      }
+      if (isFirst || reduceMotion) show(1)
+      else tween = animate(0, 1, { duration: 0.5, ease: [0.22, 1, 0.36, 1], onUpdate: show })
     })
     return () => {
       cancelled = true
+      tween?.stop()
     }
-  }, [graph])
+  }, [graph, reduceMotion])
 
-  const focusManager = useCallback(
-    (duration = 600) => {
-      const manager = layout?.nodes.find((n) => n.id === graph.managerId)
-      if (!manager) return
+  const nodes = useMemo(
+    () => shownNodes.map((n) => ({ ...n, selected: n.id === selectedId })),
+    [shownNodes, selectedId],
+  )
+
+  const centerOn = useCallback(
+    (id: PersonId, { zoom = 1, offsetY = 0, duration = 600 } = {}) => {
+      const node = layout?.nodes.find((n) => n.id === id)
+      if (!node) return
       setCenter(
-        manager.position.x + PERSON_WIDTH / 2,
-        manager.position.y + PERSON_HEIGHT / 2,
-        { zoom: 1, duration },
+        node.position.x + PERSON_WIDTH / 2,
+        node.position.y + PERSON_HEIGHT / 2 + offsetY / zoom,
+        { zoom, duration },
       )
     },
-    [graph.managerId, layout, setCenter],
+    [layout, setCenter],
   )
+
+  // Keep the selected person in view above the sheet, including after edits
+  // move them.
+  useEffect(() => {
+    if (!selectedId) return
+    centerOn(selectedId, {
+      zoom: Math.max(getZoom(), 0.8),
+      offsetY: viewportHeight * (0.5 - SELECTED_VIEWPORT_Y),
+      duration: 500,
+    })
+  }, [selectedId, centerOn, getZoom, viewportHeight])
 
   if (!layout) return null
 
   return (
     <ReactFlow
-      nodes={layout.nodes}
+      nodes={nodes}
       edges={layout.edges}
       nodeTypes={nodeTypes}
-      onInit={() => focusManager(0)}
+      onInit={() => centerOn(graph.managerId, { duration: 0 })}
+      onNodeClick={(_, node) => {
+        if (node.type === 'person') onSelect(node.id)
+      }}
+      onPaneClick={() => onSelect(null)}
       nodesDraggable={false}
       nodesConnectable={false}
       minZoom={0.2}
@@ -77,10 +133,32 @@ function FamilyTreeCanvas({ graph }: FamilyTreeProps) {
         <ToolbarButton onClick={() => fitView({ padding: 0.15, duration: 600 })}>
           Whole tree
         </ToolbarButton>
-        <ToolbarButton onClick={() => focusManager()}>Focus on you</ToolbarButton>
+        <ToolbarButton onClick={() => centerOn(graph.managerId)}>Focus on you</ToolbarButton>
       </Panel>
     </ReactFlow>
   )
+}
+
+/** Stagger the first render outward from the manager; later additions appear at once. */
+function withEntranceDelays(layout: FamilyLayout, isFirst: boolean): FamilyLayout {
+  const nodes = layout.nodes.map(
+    (n) =>
+      ({
+        ...n,
+        data: { ...n.data, entranceDelay: isFirst ? n.data.distance * ENTRANCE_STAGGER : 0 },
+      }) as TreeNode,
+  )
+  const delayOf = new Map(nodes.map((n) => [n.id, n.data.entranceDelay ?? 0]))
+  const edges = layout.edges.map((e) => {
+    // Edges fade in once both of their ends have appeared.
+    const delay = Math.max(delayOf.get(e.source) ?? 0, delayOf.get(e.target) ?? 0)
+    return { ...e, style: { animationDelay: `${delay}s` } }
+  })
+  return { nodes, edges }
+}
+
+function lerp(from: XYPosition, to: XYPosition, t: number): XYPosition {
+  return { x: from.x + (to.x - from.x) * t, y: from.y + (to.y - from.y) * t }
 }
 
 function ToolbarButton(props: ComponentProps<'button'>) {

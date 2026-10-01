@@ -1,27 +1,28 @@
 import { Handle, Position, type NodeProps } from '@xyflow/react'
 import { motion } from 'motion/react'
-import type { Person } from '../model'
-import {
-  ENTRANCE_STAGGER as STAGGER,
-  type PersonNode as PersonNodeType,
-  type UnionNode as UnionNodeType,
-} from './familyLayout'
+import { fullName, initials, lifeYears } from '../model'
+import type { PersonNode as PersonNodeType, UnionNode as UnionNodeType } from './familyLayout'
 
-export function PersonNode({ data }: NodeProps<PersonNodeType>) {
-  const { person, label, isManager, distance } = data
+export function PersonNode({ data, selected }: NodeProps<PersonNodeType>) {
+  const { person, label, isManager, entranceDelay = 0 } = data
   const years = lifeYears(person)
 
   return (
     <motion.div
       initial={{ opacity: 0, scale: 0.92, y: 8 }}
       animate={{ opacity: 1, scale: 1, y: 0 }}
-      transition={{ type: 'spring', stiffness: 260, damping: 24, delay: distance * STAGGER }}
+      transition={{ type: 'spring', stiffness: 260, damping: 24, delay: entranceDelay }}
       className={[
-        'flex h-full w-full items-center gap-3 rounded-2xl border bg-white px-3 shadow-sm',
-        isManager
-          ? 'border-amber-300 ring-4 ring-amber-100'
-          : 'border-stone-200 hover:border-stone-300 hover:shadow-md',
-      ].join(' ')}
+        'flex h-full w-full items-center gap-3 rounded-2xl border bg-white px-3 shadow-sm transition-[box-shadow,border-color]',
+        isManager ? 'border-amber-300' : 'border-stone-200 hover:border-stone-300 hover:shadow-md',
+        selected
+          ? isManager
+            ? 'shadow-md ring-4 ring-amber-300/70'
+            : 'border-stone-400 shadow-md ring-4 ring-stone-300/60'
+          : isManager && 'ring-4 ring-amber-100',
+      ]
+        .filter(Boolean)
+        .join(' ')}
     >
       <Handle id="top" type="target" position={Position.Top} className="handle" />
       <Handle id="left" type="source" position={Position.Left} className="handle" />
@@ -56,7 +57,7 @@ export function UnionNode({ data }: NodeProps<UnionNodeType>) {
     <motion.div
       initial={{ opacity: 0, scale: 0 }}
       animate={{ opacity: 1, scale: 1 }}
-      transition={{ delay: data.distance * STAGGER }}
+      transition={{ delay: data.entranceDelay ?? 0 }}
       className="size-full rounded-full border-2 border-stone-300 bg-stone-50"
     >
       <Handle id="top" type="target" position={Position.Top} className="handle" />
@@ -65,24 +66,4 @@ export function UnionNode({ data }: NodeProps<UnionNodeType>) {
       <Handle id="bottom" type="source" position={Position.Bottom} className="handle" />
     </motion.div>
   )
-}
-
-function fullName(person: Person): string {
-  return [person.givenName, person.familyName].filter(Boolean).join(' ')
-}
-
-function initials(person: Person): string {
-  return [person.givenName, person.familyName]
-    .map((name) => name?.trim().charAt(0) ?? '')
-    .join('')
-    .toUpperCase()
-}
-
-function lifeYears(person: Person): string | null {
-  const born = person.birthDate?.slice(0, 4)
-  const died = person.deathDate?.slice(0, 4)
-  if (born && died) return `${born} – ${died}`
-  if (born) return `b. ${born}`
-  if (died) return `d. ${died}`
-  return null
 }

@@ -17,8 +17,6 @@ export const PERSON_HEIGHT = 76
 export const UNION_SIZE = 10
 /** Horizontal space between partners, where the union dot sits. */
 export const PARTNER_GAP = 48
-/** Seconds each step away from the manager delays an element's entrance. */
-export const ENTRANCE_STAGGER = 0.06
 
 /**
  * A couple (or single parent) and the children they share. Every child hangs
@@ -47,10 +45,13 @@ export interface PersonNodeData extends Record<string, unknown> {
   isManager: boolean
   /** Steps from the manager through parent, child and partner links. */
   distance: number
+  /** Seconds to wait before animating in; set by the view, not the layout. */
+  entranceDelay?: number
 }
 
 export interface UnionNodeData extends Record<string, unknown> {
   distance: number
+  entranceDelay?: number
 }
 
 export type PersonNode = Node<PersonNodeData, 'person'>
@@ -68,7 +69,10 @@ const LAYOUT_OPTIONS: LayoutOptions = {
   'elk.spacing.nodeNode': '32',
   'elk.layered.spacing.nodeNodeBetweenLayers': '64',
   'elk.layered.nodePlacement.strategy': 'NETWORK_SIMPLEX',
+  // Blocks are passed oldest first; keeping that order puts siblings oldest
+  // on the left, as family trees are conventionally read.
   'elk.layered.considerModelOrder.strategy': 'NODES_AND_EDGES',
+  'elk.layered.crossingMinimization.forceNodeModelOrder': 'true',
 }
 
 const MAX_FLIP_PASSES = 3
@@ -394,13 +398,6 @@ function toReactFlow(
         className: nonBiological ? 'edge-nonbiological' : undefined,
       })
     }
-  }
-
-  // Edges fade in once both of their ends have appeared.
-  const delayOf = new Map(nodes.map((n) => [n.id, n.data.distance * ENTRANCE_STAGGER]))
-  for (const edge of edges) {
-    const delay = Math.max(delayOf.get(edge.source) ?? 0, delayOf.get(edge.target) ?? 0)
-    edge.style = { animationDelay: `${delay}s` }
   }
 
   return { nodes, edges }
