@@ -48,7 +48,7 @@ export function ConfirmDialog({
         // A click on the dialog element itself is a click on the backdrop.
         if (e.target === e.currentTarget) onCancel()
       }}
-      className="m-auto w-[min(26rem,calc(100%-2rem))] rounded-3xl border border-stone-200 bg-white p-0 text-stone-900 shadow-2xl backdrop:bg-stone-900/30 backdrop:backdrop-blur-[2px] open:animate-[dialog-in_160ms_ease-out]"
+      className="m-auto w-[min(26rem,calc(100%-2rem))] rounded-3xl border border-stone-200 bg-white p-0 text-stone-900 shadow-2xl backdrop:bg-black/30 backdrop:backdrop-blur-[2px] open:animate-[dialog-in_160ms_ease-out]"
     >
       <div className="flex flex-col gap-3 p-6">
         <h2 id="confirm-dialog-title" className="font-serif text-xl leading-tight">

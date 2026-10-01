@@ -2,6 +2,7 @@ import { motion, MotionConfig } from 'motion/react'
 import { useCallback, useState } from 'react'
 import { AppMenu, SaveIndicator } from './app/AppMenu'
 import { SettingsDialog } from './app/SettingsDialog'
+import { useTheme } from './app/theme'
 import type { FamilyGraph, PersonId } from './model'
 import { DamagedTree } from './onboarding/DamagedTree'
 import { Onboarding } from './onboarding/Onboarding'
@@ -20,6 +21,7 @@ function App() {
   const stored = useStoredTree()
   const [onboarded, setOnboarded] = useOnboarded()
   const [settings, updateSettings] = useSettings()
+  useTheme(settings?.theme ?? null)
   const [replayingIntro, setReplayingIntro] = useState(false)
   const { tree } = stored
 

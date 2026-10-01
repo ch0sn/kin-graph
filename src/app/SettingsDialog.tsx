@@ -2,11 +2,14 @@ import {
   ChartNoAxesColumnDecreasing,
   ChartNoAxesColumnIncreasing,
   Mars,
+  Monitor,
+  Moon,
+  Sun,
   Venus,
   type LucideIcon,
 } from 'lucide-react'
 import { useEffect, useRef } from 'react'
-import type { Settings } from '../storage/settings'
+import type { Settings, Theme } from '../storage/settings'
 import { DEFAULT_SIBLING_ORDER, type SiblingOrder } from '../tree/siblingOrder'
 import { Button } from '../ui/fields'
 
@@ -35,6 +38,12 @@ const SIBLING_OPTIONS: { value: SiblingOrder; label: string; hint: string; icon:
     hint: 'Then boys, each oldest to youngest.',
     icon: Venus,
   },
+]
+
+const THEME_OPTIONS: { value: Theme; label: string; icon: LucideIcon }[] = [
+  { value: 'system', label: 'System', icon: Monitor },
+  { value: 'light', label: 'Light', icon: Sun },
+  { value: 'dark', label: 'Dark', icon: Moon },
 ]
 
 interface SettingsDialogProps {
@@ -66,12 +75,46 @@ export function SettingsDialog({ open, settings, onChange, onClose }: SettingsDi
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose()
       }}
-      className="m-auto w-[min(26rem,calc(100%-2rem))] rounded-3xl border border-stone-200 bg-white p-0 text-stone-900 shadow-2xl backdrop:bg-stone-900/20 open:animate-[dialog-in_160ms_ease-out]"
+      className="m-auto w-[min(26rem,calc(100%-2rem))] rounded-3xl border border-stone-200 bg-white p-0 text-stone-900 shadow-2xl backdrop:bg-black/20 open:animate-[dialog-in_160ms_ease-out]"
     >
-      <div className="flex flex-col gap-5 p-6">
+      <div className="flex max-h-[85dvh] flex-col gap-6 overflow-y-auto p-6">
         <h2 id="settings-title" className="font-serif text-2xl leading-tight">
           Settings
         </h2>
+
+        <fieldset className="flex flex-col gap-2">
+          <legend className="mb-2.5 text-sm font-semibold text-stone-900">Appearance</legend>
+          <div className="grid grid-cols-3 gap-2">
+            {THEME_OPTIONS.map(({ value, label, icon: Icon }) => {
+              const checked = settings.theme === value
+              return (
+                <label
+                  key={value}
+                  className={[
+                    'flex cursor-pointer flex-col items-center gap-1.5 rounded-2xl border px-2 py-3 text-sm font-medium transition',
+                    'has-[:focus-visible]:ring-4 has-[:focus-visible]:ring-stone-200',
+                    checked
+                      ? 'border-stone-900 bg-stone-50 text-stone-900'
+                      : 'border-stone-200 text-stone-600 hover:border-stone-300',
+                  ].join(' ')}
+                >
+                  <input
+                    type="radio"
+                    name="theme"
+                    className="sr-only"
+                    checked={checked}
+                    onChange={() => onChange({ theme: value })}
+                  />
+                  <Icon className="size-5" aria-hidden />
+                  {label}
+                </label>
+              )
+            })}
+          </div>
+          <p className="mt-1 text-xs text-stone-500">
+            System follows your phone or computer’s light or dark setting.
+          </p>
+        </fieldset>
 
         <fieldset className="flex flex-col gap-2">
           <legend className="text-sm font-semibold text-stone-900">Sibling order</legend>

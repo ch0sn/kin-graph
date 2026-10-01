@@ -35,7 +35,7 @@ export function PhotoCropDialog({ source, initialCrop, onConfirm, onCancel }: Ph
         e.preventDefault()
         onCancel()
       }}
-      className="m-auto w-[min(24rem,calc(100%-2rem))] rounded-3xl border border-stone-200 bg-white p-0 text-stone-900 shadow-2xl backdrop:bg-stone-900/40 backdrop:backdrop-blur-[2px] open:animate-[dialog-in_160ms_ease-out]"
+      className="m-auto w-[min(24rem,calc(100%-2rem))] rounded-3xl border border-stone-200 bg-white p-0 text-stone-900 shadow-2xl backdrop:bg-black/40 backdrop:backdrop-blur-[2px] open:animate-[dialog-in_160ms_ease-out]"
     >
       {/* Remount per image so each starts from its own initial crop. */}
       {source && initialCrop && (
@@ -160,7 +160,7 @@ function Cropper({
         onPointerUp={onPointerEnd}
         onPointerCancel={onPointerEnd}
         onKeyDown={onKeyDown}
-        className="relative aspect-square w-full cursor-grab touch-none overflow-hidden rounded-2xl bg-stone-900 select-none focus-visible:ring-4 focus-visible:ring-stone-300 focus-visible:outline-none active:cursor-grabbing"
+        className="relative aspect-square w-full cursor-grab touch-none overflow-hidden rounded-2xl bg-black select-none focus-visible:ring-4 focus-visible:ring-stone-300 focus-visible:outline-none active:cursor-grabbing"
       >
         <img
           src={source.url}
@@ -175,7 +175,7 @@ function Cropper({
           }}
         />
         {/* Dim everything outside the circle the photo is shown in. */}
-        <div className="pointer-events-none absolute inset-0 rounded-full shadow-[0_0_0_999px_rgb(28_25_23/0.55)] ring-2 ring-white/80" />
+        <div className="pointer-events-none absolute inset-0 rounded-full shadow-[0_0_0_999px_rgb(28_25_23/0.55)] ring-2 ring-[rgb(255_255_255/0.8)]" />
       </div>
 
       <div className="flex items-center gap-3 text-stone-500">

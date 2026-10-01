@@ -147,7 +147,7 @@ function FamilyTreeCanvas({
         maxZoom={1.5}
         proOptions={{ hideAttribution: true }}
       >
-        <Background variant={BackgroundVariant.Dots} gap={24} size={1.5} color="#d6d3d1" />
+        <Background variant={BackgroundVariant.Dots} gap={24} size={1.5} color="var(--color-stone-300)" />
         <Panel position="bottom-right" className="flex gap-2">
           <button
             type="button"
