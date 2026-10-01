@@ -26,25 +26,38 @@ export interface Age {
   approximate: boolean
 }
 
-/** How old a living person is today, or null if they've died or their birth date isn't known. */
+/**
+ * How old a living person is today, or the age someone who has died reached.
+ * Null when the birth date, or a death date for someone who has died, isn't
+ * known.
+ */
 export function ageOf(person: Person, today = new Date()): Age | null {
-  if (!person.birthDate || isDeceased(person)) return null
-  const [year, month, day] = person.birthDate.split('-').map(Number)
-  const now = { year: today.getFullYear(), month: today.getMonth() + 1, day: today.getDate() }
+  if (!person.birthDate) return null
+  if (isDeceased(person)) {
+    return person.deathDate ? ageBetween(person.birthDate, person.deathDate) : null
+  }
+  const pad = (n: number) => String(n).padStart(2, '0')
+  const now = `${today.getFullYear()}-${pad(today.getMonth() + 1)}-${pad(today.getDate())}`
+  return ageBetween(person.birthDate, now)
+}
 
-  let years = now.year - year
-  let approximate = month === undefined
-  if (month !== undefined) {
-    if (now.month < month) years--
-    else if (now.month === month) {
-      if (day === undefined) approximate = true
-      else if (now.day < day) years--
-    }
+/** Whole years between two dates, as precisely as the less precise one allows. */
+function ageBetween(from: FuzzyDate, to: FuzzyDate): Age | null {
+  const [fromYear, fromMonth, fromDay] = from.split('-').map(Number)
+  const [toYear, toMonth, toDay] = to.split('-').map(Number)
+
+  let years = toYear - fromYear
+  let approximate = false
+  if (fromMonth === undefined || toMonth === undefined) approximate = true
+  else if (toMonth < fromMonth) years--
+  else if (toMonth === fromMonth) {
+    if (fromDay === undefined || toDay === undefined) approximate = true
+    else if (toDay < fromDay) years--
   }
   if (years < 0) return null
 
-  if (years === 0 && day !== undefined) {
-    const months = (now.year - year) * 12 + now.month - month - (now.day < day ? 1 : 0)
+  if (years === 0 && fromDay !== undefined && toDay !== undefined) {
+    const months = (toYear - fromYear) * 12 + toMonth - fromMonth - (toDay < fromDay ? 1 : 0)
     return { years, months, approximate: false }
   }
   return { years, approximate }

@@ -57,10 +57,18 @@ describe('ageOf / formatAge', () => {
     expect(age('2026')).toBe('<1')
   })
 
-  it('has no age for the deceased, the undated or the not yet born', () => {
-    expect(age('1934-05-19', { deathDate: '2015' })).toBeNull()
+  it('gives the age reached by people who have died', () => {
+    expect(age('1934-05-19', { deathDate: '2015-08-02' })).toBe('81')
+    expect(age('1934-05-19', { deathDate: '2015-03-02' })).toBe('80')
+    expect(age('1934-05-19', { deathDate: '2015' })).toBe('~81')
+    expect(age('1910', { deathDate: '1989' })).toBe('~79')
+    expect(age('2001-03-10', { deathDate: '2001-07-01' })).toBe('3 mo')
+  })
+
+  it('has no age without the dates to work it out', () => {
     expect(age('1934', { deceased: true })).toBeNull()
     expect(ageOf({ id: '1', givenName: 'A' }, today)).toBeNull()
+    expect(ageOf({ id: '1', givenName: 'A', deathDate: '1990' }, today)).toBeNull()
     expect(age('2027-01-01')).toBeNull()
   })
 })
