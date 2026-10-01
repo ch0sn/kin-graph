@@ -1,3 +1,5 @@
+import { roundCrop, squareCrop, type Crop, type ImageSize } from './crop'
+
 /** Photos are shown in small circles, so a 320px square is plenty even on 3× screens. */
 export const PHOTO_SIZE = 320
 const JPEG_QUALITY = 0.85
@@ -6,29 +8,44 @@ export class PhotoError extends Error {
   override name = 'PhotoError'
 }
 
-/**
- * The largest square to take from an image. Portraits are cropped nearer the
- * top, where a face usually is; landscapes are cropped from the centre.
- */
-export function squareCrop(width: number, height: number) {
-  const side = Math.min(width, height)
-  return {
-    sx: Math.round((width - side) / 2),
-    sy: Math.round((height - side) * 0.25),
-    side,
-  }
+const UNREADABLE = 'This image couldn’t be opened. Try a JPEG or PNG photo.'
+
+/** A chosen image file, ready to be cropped. */
+export interface PhotoSource extends ImageSize {
+  file: Blob
+  /** An object URL for showing the image; revoke it when done. */
+  url: string
 }
 
-/** Crops and shrinks a chosen image to a small square JPEG, on the device. */
-export async function preparePhoto(file: Blob): Promise<Blob> {
+export async function loadPhotoSource(file: Blob): Promise<PhotoSource> {
+  const url = URL.createObjectURL(file)
+  const image = new Image()
+  image.src = url
+  try {
+    await image.decode()
+  } catch {
+    URL.revokeObjectURL(url)
+    throw new PhotoError(UNREADABLE)
+  }
+  // Browsers apply the photo's own rotation (EXIF) to these dimensions, as
+  // createImageBitmap does below with `imageOrientation: 'from-image'`.
+  return { file, url, width: image.naturalWidth, height: image.naturalHeight }
+}
+
+/**
+ * Cuts the chosen square out of an image and shrinks it to a small JPEG, on
+ * the device. Without a crop, takes the largest square, nearer the top for
+ * portraits.
+ */
+export async function preparePhoto(file: Blob, crop?: Crop): Promise<Blob> {
   let bitmap: ImageBitmap
   try {
     bitmap = await createImageBitmap(file, { imageOrientation: 'from-image' })
   } catch {
-    throw new PhotoError('This image couldn’t be opened. Try a JPEG or PNG photo.')
+    throw new PhotoError(UNREADABLE)
   }
 
-  const { sx, sy, side } = squareCrop(bitmap.width, bitmap.height)
+  const { sx, sy, side } = roundCrop(crop ?? squareCrop(bitmap.width, bitmap.height), bitmap)
   const size = Math.min(PHOTO_SIZE, side)
   const canvas = document.createElement('canvas')
   canvas.width = size

@@ -2,8 +2,15 @@ import { Camera, Mars, TriangleAlert, Venus } from 'lucide-react'
 import { AnimatePresence, motion } from 'motion/react'
 import { useEffect, useId, useRef, useState, type FormEvent, type ReactNode } from 'react'
 import type { Gender, NewPerson } from '../model'
+import { squareCrop, type Crop } from '../photos/crop'
+import { PhotoCropDialog } from '../photos/PhotoCropDialog'
 import { storePhoto } from '../photos/photoCache'
-import { PhotoError, preparePhoto } from '../photos/preparePhoto'
+import {
+  loadPhotoSource,
+  PhotoError,
+  preparePhoto,
+  type PhotoSource,
+} from '../photos/preparePhoto'
 import { Avatar } from '../ui/Avatar'
 import { DateField } from '../ui/DateField'
 import { Button, Field, TextInput } from '../ui/fields'
@@ -21,6 +28,14 @@ interface PersonFormProps {
   children?: ReactNode
 }
 
+interface ChosenPhoto {
+  blob: Blob
+  url: string
+  /** The original image and the crop taken from it, for adjusting later. */
+  source: PhotoSource
+  crop: Crop
+}
+
 export function PersonForm({
   initial,
   submitLabel,
@@ -31,27 +46,54 @@ export function PersonForm({
 }: PersonFormProps) {
   const [values, setValues] = useState(initial)
   const [errors, setErrors] = useState<PersonErrors>({})
-  /** A photo chosen in this form that isn't stored yet. */
-  const [newPhoto, setNewPhoto] = useState<{ blob: Blob; url: string } | null>(null)
+  /** A photo chosen in this form that isn't stored yet; its crop can still change. */
+  const [newPhoto, setNewPhoto] = useState<ChosenPhoto | null>(null)
+  /** The image being positioned in the crop dialog, if it's open. */
+  const [cropping, setCropping] = useState<{ source: PhotoSource; crop: Crop } | null>(null)
   const [photoError, setPhotoError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const fileInput = useRef<HTMLInputElement>(null)
 
+  // Release image memory once a photo or its original are no longer needed.
   useEffect(() => () => void (newPhoto && URL.revokeObjectURL(newPhoto.url)), [newPhoto])
+  const source = newPhoto?.source
+  useEffect(() => () => void (source && URL.revokeObjectURL(source.url)), [source])
 
   const update = <K extends keyof PersonValues>(field: K, value: PersonValues[K]) => {
     setValues((v) => ({ ...v, [field]: value }))
     setErrors((e) => ({ ...e, [field]: undefined }))
   }
 
+  const showPhotoError = (e: unknown) =>
+    setPhotoError(e instanceof PhotoError ? e.message : 'This image couldn’t be used.')
+
   const choosePhoto = async (file: File) => {
     try {
-      const blob = await preparePhoto(file)
-      setNewPhoto({ blob, url: URL.createObjectURL(blob) })
+      const picked = await loadPhotoSource(file)
+      setCropping({ source: picked, crop: squareCrop(picked.width, picked.height) })
       setPhotoError(null)
     } catch (e) {
-      setPhotoError(e instanceof PhotoError ? e.message : 'This image couldn’t be used.')
+      showPhotoError(e)
     }
+  }
+
+  const confirmCrop = async (crop: Crop) => {
+    if (!cropping) return
+    const picked = cropping.source
+    setCropping(null)
+    try {
+      const blob = await preparePhoto(picked.file, crop)
+      setNewPhoto({ blob, url: URL.createObjectURL(blob), source: picked, crop })
+    } catch (e) {
+      showPhotoError(e)
+      if (picked !== source) URL.revokeObjectURL(picked.url)
+    }
+  }
+
+  const cancelCrop = () => {
+    // A newly picked image that was never used can go; one being re-adjusted stays.
+    if (cropping && cropping.source !== source) URL.revokeObjectURL(cropping.source.url)
+    setCropping(null)
   }
 
   const removePhoto = () => {
@@ -112,9 +154,18 @@ export function PersonForm({
           )}
         </button>
         <div className="flex min-w-0 flex-col items-start gap-1">
-          <div className="flex gap-1">
-            <Button variant="ghost" className="-ml-3 px-3 py-1.5" onClick={() => fileInput.current?.click()}>
-              {hasPhoto ? 'Change photo' : 'Add a photo'}
+          <div className="-ml-3 flex flex-wrap gap-1">
+            {newPhoto && (
+              <Button
+                variant="ghost"
+                className="px-3 py-1.5"
+                onClick={() => setCropping({ source: newPhoto.source, crop: newPhoto.crop })}
+              >
+                Adjust
+              </Button>
+            )}
+            <Button variant="ghost" className="px-3 py-1.5" onClick={() => fileInput.current?.click()}>
+              {hasPhoto ? 'Change' : 'Add a photo'}
             </Button>
             {hasPhoto && (
               <Button
@@ -141,6 +192,12 @@ export function PersonForm({
             e.target.value = ''
             if (file) void choosePhoto(file)
           }}
+        />
+        <PhotoCropDialog
+          source={cropping?.source ?? null}
+          initialCrop={cropping?.crop ?? null}
+          onConfirm={(crop) => void confirmCrop(crop)}
+          onCancel={cancelCrop}
         />
       </div>
 

@@ -73,7 +73,8 @@ function Sheet({
 
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose()
+      // A modal dialog on top (e.g. photo cropping) handles its own Escape.
+      if (e.key === 'Escape' && !document.querySelector('dialog[open]')) onClose()
     }
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
