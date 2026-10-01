@@ -475,6 +475,7 @@ function toReactFlow(
   const blockOf = blockIndex(blocks)
   const nodes: TreeNode[] = []
   const edges: Edge[] = []
+  const families: Family[] = []
 
   for (const block of blocks) {
     const origin = positions.get(block.id)!
@@ -502,9 +503,15 @@ function toReactFlow(
     const ended = union.partnership !== undefined && !isOngoing(union.partnership)
 
     let childSource: { source: string; sourceHandle: string }
+    /** Where the children's lines start, and the bottom of the row they start in. */
+    let from: { x: number; y: number; rowBottom: number }
     if (parents.length === 1) {
       // A single parent's children hang straight from them.
       childSource = { source: parents[0], sourceHandle: 'bottom' }
+      const block = blockOf.get(parents[0])!
+      const origin = positions.get(block.id)!
+      const x = origin.x + slotX(block.memberIds.indexOf(parents[0]))
+      from = { x, y: origin.y + PERSON_HEIGHT, rowBottom: origin.y + PERSON_HEIGHT }
     } else {
       const block = parents.length > 0 ? blockOf.get(parents[0])! : undefined
       const position = block
@@ -523,6 +530,11 @@ function toReactFlow(
         data: { distance },
       })
       childSource = { source: union.id, sourceHandle: 'bottom' }
+      from = {
+        x: position.x + UNION_SIZE / 2,
+        y: position.y + UNION_SIZE,
+        rowBottom: block ? positions.get(block.id)!.y + PERSON_HEIGHT : position.y + UNION_SIZE,
+      }
 
       for (const parentId of parents) {
         const order = block!.memberIds
@@ -548,17 +560,79 @@ function toReactFlow(
           union.parentIds.includes(l.parentId) &&
           l.kind !== 'biological',
       )
-      edges.push({
+      const edge: FamilyEdge = {
         id: `${union.id}->${childId}`,
+        type: 'family',
         ...childSource,
         target: childId,
         targetHandle: 'top',
         className: nonBiological ? 'edge-nonbiological' : undefined,
-      })
+        data: { busOffset: 0 },
+      }
+      edges.push(edge)
+
+      // Group the lines by the row the child is in; each group shares one bus.
+      const child = nodes.find((n) => n.id === childId)!
+      const childTop = child.position.y
+      let family = families.find((f) => f.unionId === union.id && f.childTop === childTop)
+      if (!family) {
+        family = { unionId: union.id, from, childTop, childXs: [], edges: [] }
+        families.push(family)
+      }
+      family.childXs.push(child.position.x + PERSON_WIDTH / 2)
+      family.edges.push(edge)
     }
   }
 
+  assignBusLanes(families)
   return { nodes, edges }
+}
+
+export type FamilyEdge = Edge<{ busOffset: number }, 'family'>
+
+/** One family's lines down to the children in one row. */
+interface Family {
+  unionId: string
+  from: { x: number; y: number; rowBottom: number }
+  childTop: number
+  childXs: number[]
+  edges: FamilyEdge[]
+}
+
+/** Keeps buses of different families this far apart where they'd overlap. */
+const BUS_CLEARANCE = 16
+
+/**
+ * Children's lines run straight down from their parents to a horizontal bus
+ * in the gap between the rows, then straight down to each child, so they
+ * never pass behind a card. Families whose buses would overlap in the same
+ * gap get separate levels, so their lines don't merge.
+ */
+function assignBusLanes(families: Family[]) {
+  const gaps = new Map<number, Family[]>()
+  for (const family of families) {
+    gaps.set(family.childTop, [...(gaps.get(family.childTop) ?? []), family])
+  }
+
+  for (const [childTop, group] of gaps) {
+    const gapTop = Math.max(...group.map((f) => f.from.rowBottom))
+    const span = (f: Family) => [Math.min(f.from.x, ...f.childXs), Math.max(f.from.x, ...f.childXs)]
+    // Greedy interval colouring: each family takes the first level free along its span.
+    const laneEnds: number[] = []
+    const lanes = new Map<Family, number>()
+    for (const family of group.toSorted((a, b) => span(a)[0] - span(b)[0])) {
+      const [start, end] = span(family)
+      let lane = laneEnds.findIndex((laneEnd) => laneEnd + BUS_CLEARANCE <= start)
+      if (lane === -1) lane = laneEnds.length
+      laneEnds[lane] = end
+      lanes.set(family, lane)
+    }
+    const step = (childTop - gapTop) / (laneEnds.length + 1)
+    for (const [family, lane] of lanes) {
+      const busY = gapTop + step * (lane + 1)
+      for (const edge of family.edges) edge.data = { busOffset: childTop - busY }
+    }
+  }
 }
 
 function otherParent(parents: PersonId[], parentId: PersonId): PersonId {

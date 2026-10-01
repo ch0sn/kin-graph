@@ -19,10 +19,12 @@ import {
   type FamilyLayout,
   type TreeNode,
 } from './familyLayout'
+import { FamilyEdge } from './edges'
 import { PersonNode, UnionNode } from './nodes'
 import type { SiblingOrder } from './siblingOrder'
 
 const nodeTypes = { person: PersonNode, union: UnionNode }
+const edgeTypes = { family: FamilyEdge }
 
 /** Seconds each step away from the manager delays an element's first entrance. */
 const ENTRANCE_STAGGER = 0.06
@@ -119,6 +121,7 @@ function FamilyTreeCanvas({ graph, siblingOrder, selectedId, onSelect }: FamilyT
       nodes={nodes}
       edges={layout.edges}
       nodeTypes={nodeTypes}
+      edgeTypes={edgeTypes}
       onInit={() => centerOn(graph.managerId, { duration: 0 })}
       onNodeClick={(_, node) => {
         if (node.type === 'person') onSelect(node.id)

@@ -48,7 +48,13 @@ body {
   stroke-dasharray: 5 4;
 }
 
+/* Invisible, zero-size attachment points so lines meet card edges exactly. */
 .react-flow .handle {
+  width: 0;
+  height: 0;
+  min-width: 0;
+  min-height: 0;
+  border: 0;
   opacity: 0;
   pointer-events: none;
 }
