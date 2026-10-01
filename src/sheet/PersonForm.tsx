@@ -1,7 +1,7 @@
 import { TriangleAlert } from 'lucide-react'
 import { useState, type FormEvent, type ReactNode } from 'react'
 import type { NewPerson } from '../model'
-import { Button, Field, Segmented, TextInput } from './fields'
+import { Button, Field, Segmented, TextInput } from '../ui/fields'
 import { toPersonFields, validate, type PersonErrors, type PersonValues } from './personValues'
 
 interface PersonFormProps {
@@ -10,7 +10,8 @@ interface PersonFormProps {
   /** An error from applying the change, e.g. a rejected relationship. */
   error: string | null
   onSubmit: (person: NewPerson) => void
-  onCancel: () => void
+  /** Shows a Cancel button when given. */
+  onCancel?: () => void
   /** Relationship-specific options, shown below the person's details. */
   children?: ReactNode
 }
@@ -108,9 +109,11 @@ export function PersonForm({
         </p>
       )}
       <div className="flex justify-end gap-2 pt-1">
-        <Button variant="ghost" onClick={onCancel}>
-          Cancel
-        </Button>
+        {onCancel && (
+          <Button variant="ghost" onClick={onCancel}>
+            Cancel
+          </Button>
+        )}
         <Button variant="primary" type="submit">
           {submitLabel}
         </Button>

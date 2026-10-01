@@ -23,7 +23,7 @@ KinGraph is built with modern web standards for performance and maintainability:
 *   **Styling:** Tailwind CSS (for clean, scalable design)
 *   **Visualization:** [React Flow](https://reactflow.dev/) (for the graph engine)
 *   **Animations:** Framer Motion (for spring-physics UI effects)
-*   **Backend/DB:** Supabase (PostgreSQL + Auth)
+*   **Storage:** Local-first. Your tree is saved in your browser (IndexedDB) on your device, nothing is uploaded, and you can export or import JSON backups.
 
 ### 🚀 Getting Started
 
@@ -31,7 +31,7 @@ To get a local copy up and running, follow these simple steps:
 
 1.  Clone the repo
     ```sh
-    git clone https://github.com/your-username/kin-graph.git
+    git clone https://github.com/ch0sn/kin-graph.git
     ```
 2.  Install NPM packages
     ```sh

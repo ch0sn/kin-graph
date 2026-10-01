@@ -24,7 +24,7 @@ import {
   type Person,
   type PersonId,
 } from '../model'
-import { Button, CheckboxGroup, Segmented, type Option } from './fields'
+import { Button, CheckboxGroup, Segmented, type Option } from '../ui/fields'
 import { PersonForm } from './PersonForm'
 import { emptyValues, valuesFromPerson } from './personValues'
 
