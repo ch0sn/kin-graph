@@ -11,6 +11,7 @@ import {
   type Person,
   type PersonId,
 } from '../model'
+import { compareSiblings, DEFAULT_SIBLING_ORDER, type SiblingOrder } from './siblingOrder'
 
 export const PERSON_WIDTH = 232
 export const PERSON_HEIGHT = 76
@@ -37,6 +38,8 @@ export interface Union {
 interface Block {
   id: string
   memberIds: PersonId[]
+  /** The member whose place among their siblings decides where the block goes. */
+  keyId: PersonId
 }
 
 export interface PersonNodeData extends Record<string, unknown> {
@@ -69,15 +72,17 @@ const LAYOUT_OPTIONS: LayoutOptions = {
   'elk.spacing.nodeNode': '32',
   'elk.layered.spacing.nodeNodeBetweenLayers': '64',
   'elk.layered.nodePlacement.strategy': 'NETWORK_SIMPLEX',
-  // Blocks are passed oldest first; keeping that order puts siblings oldest
-  // on the left, as family trees are conventionally read.
+  // Blocks are passed in sibling order, which ELK uses to break ties. The
+  // final order is set by orderSiblings.
   'elk.layered.considerModelOrder.strategy': 'NODES_AND_EDGES',
-  'elk.layered.crossingMinimization.forceNodeModelOrder': 'true',
 }
 
 const MAX_FLIP_PASSES = 3
 
-export function deriveUnions(graph: FamilyGraph): Union[] {
+export function deriveUnions(
+  graph: FamilyGraph,
+  compare = compareSiblings(DEFAULT_SIBLING_ORDER),
+): Union[] {
   const unions = new Map<string, Union>()
   const unionOf = (parentIds: readonly PersonId[]) => {
     const sorted = [...parentIds].sort()
@@ -93,7 +98,7 @@ export function deriveUnions(graph: FamilyGraph): Union[] {
   for (const partnership of graph.partnerships) {
     unionOf(partnership.partnerIds).partnership = partnership
   }
-  for (const child of byBirth(Object.values(graph.people))) {
+  for (const child of Object.values(graph.people).sort(compare)) {
     const parentIds = parentIdsOf(graph, child.id)
     if (parentIds.length > 0) unionOf(parentIds).childIds.push(child.id)
   }
@@ -106,11 +111,18 @@ export function deriveUnions(graph: FamilyGraph): Union[] {
  * hang from the union. Placeholder parents aren't drawn; their children
  * still hang together from a free-standing union.
  */
-export async function layoutFamily(graph: FamilyGraph, elk: ELK): Promise<FamilyLayout> {
+export async function layoutFamily(
+  graph: FamilyGraph,
+  elk: ELK,
+  { siblingOrder = DEFAULT_SIBLING_ORDER }: { siblingOrder?: SiblingOrder } = {},
+): Promise<FamilyLayout> {
   const isVisible = (id: PersonId) => !graph.people[id]?.isPlaceholder
-  const unions = deriveUnions(graph)
-  let blocks = partnerBlocks(graph, unions, isVisible)
+  const compare = compareSiblings(siblingOrder)
+  const unions = deriveUnions(graph, compare)
+  const distances = distancesFrom(graph, graph.managerId)
+  let blocks = partnerBlocks(graph, unions, isVisible, compare, distances)
 
+  // First let ELK find an arrangement with few crossing lines.
   let positions = await runElk(elk, blocks, unions, isVisible)
   // ELK can't reorder people inside a block, so flip any couple whose members
   // sit on the wrong side of their own parents and lay out again.
@@ -121,17 +133,36 @@ export async function layoutFamily(graph: FamilyGraph, elk: ELK): Promise<Family
     positions = await runElk(elk, blocks, unions, isVisible)
   }
 
-  return toReactFlow(graph, blocks, unions, positions, isVisible)
+  // ELK doesn't keep siblings in a chosen order, so put them in order
+  // ourselves and have ELK lay out exactly that order.
+  const order = orderSiblings(blocks, unions, positions, isVisible)
+  positions = await runElk(elk, blocks, unions, isVisible, order)
+  const flipped = flipBlocksTowardParents(blocks, unions, positions, isVisible)
+  if (flipped !== blocks) {
+    blocks = flipped
+    positions = await runElk(elk, blocks, unions, isVisible, order)
+  }
+
+  return toReactFlow(graph, blocks, unions, positions, isVisible, distances)
 }
 
 // --- Blocks -----------------------------------------------------------------
 
+/**
+ * Groups partners into blocks, ordered for the layout by sibling order.
+ * ELK keeps that order within each generation, so it decides how brothers
+ * and sisters line up.
+ */
 function partnerBlocks(
   graph: FamilyGraph,
   unions: Union[],
   isVisible: (id: PersonId) => boolean,
+  compare: (a: Person, b: Person) => number,
+  distances: Map<PersonId, number>,
 ): Block[] {
-  const people = byBirth(Object.values(graph.people).filter((p) => isVisible(p.id)))
+  const people = Object.values(graph.people)
+    .filter((p) => isVisible(p.id))
+    .sort(compare)
   const neighbours = new Map<PersonId, Set<PersonId>>(people.map((p) => [p.id, new Set()]))
   for (const union of unions) {
     const parents = union.parentIds.filter(isVisible)
@@ -151,9 +182,131 @@ function partnerBlocks(
     const memberIds = chain(start, neighbours)
     for (const id of component) if (!memberIds.includes(id)) memberIds.push(id)
     memberIds.forEach((id) => placed.add(id))
-    blocks.push({ id: `block:${memberIds.join('+')}`, memberIds })
+    blocks.push({ id: `block:${memberIds.join('+')}`, memberIds, keyId: memberIds[0] })
   }
-  return blocks
+
+  // A couple takes its place among the siblings of one partner: one who is a
+  // child in the tree, so someone who married in doesn't decide the order,
+  // and of those the one closest to the manager, since this is their tree.
+  const rank = new Map(people.map((p, i) => [p.id, i]))
+  const hasParents = (id: PersonId) => parentIdsOf(graph, id).some(isVisible)
+  const closeness = (id: PersonId) => distances.get(id) ?? Infinity
+  for (const block of blocks) {
+    const children = block.memberIds.filter(hasParents)
+    ;[block.keyId] = (children.length > 0 ? children : block.memberIds).toSorted(
+      (a, b) => closeness(a) - closeness(b) || rank.get(a)! - rank.get(b)!,
+    )
+  }
+  return blocks.sort((a, b) => rank.get(a.keyId)! - rank.get(b.keyId)!)
+}
+
+/** Something ELK places in a generation's row: a block or a free-standing union. */
+interface RowItem {
+  id: string
+  width: number
+  /** Where the first layout put it. */
+  x: number
+  y: number
+  /** The family it's a child of, if any; siblings share one. */
+  parentUnion?: Union
+  /** Its position among its siblings, in sibling order. */
+  siblingRank: number
+  /** Items in the row below that hang from it. */
+  childIds: string[]
+}
+
+/**
+ * Takes ELK's first arrangement and returns the order to keep, as positions
+ * per item. Going down generation by generation, each row follows its
+ * parents and each family's children are put in sibling order, in the
+ * places they already took up. Then, going back up, people whose parents
+ * aren't in the tree (often in-laws) move over their children.
+ */
+function orderSiblings(
+  blocks: Block[],
+  unions: Union[],
+  positions: Positions,
+  isVisible: (id: PersonId) => boolean,
+): Positions {
+  const blockOf = blockIndex(blocks)
+  const unionOfChild = new Map(unions.flatMap((u) => u.childIds.map((id) => [id, u] as const)))
+  const sourceOf = (union: Union) => {
+    const parents = union.parentIds.filter(isVisible)
+    return parents.length > 0 ? blockOf.get(parents[0])!.id : union.id
+  }
+
+  const items = new Map<string, RowItem>()
+  for (const block of blocks) {
+    const parentUnion = unionOfChild.get(block.keyId)
+    items.set(block.id, {
+      id: block.id,
+      width: blockWidth(block),
+      ...positions.get(block.id)!,
+      parentUnion,
+      siblingRank: parentUnion ? parentUnion.childIds.indexOf(block.keyId) : 0,
+      childIds: [],
+    })
+  }
+  for (const union of unions) {
+    if (positions.has(union.id)) {
+      items.set(union.id, {
+        id: union.id,
+        width: UNION_SIZE,
+        ...positions.get(union.id)!,
+        siblingRank: 0,
+        childIds: [],
+      })
+    }
+  }
+  for (const item of items.values()) {
+    if (item.parentUnion) items.get(sourceOf(item.parentUnion))?.childIds.push(item.id)
+  }
+
+  // Estimated left edges as rows are rearranged, in the first layout's coordinates.
+  const estimate = new Map([...items.values()].map((item) => [item.id, item.x]))
+  const centre = (item: RowItem) => estimate.get(item.id)! + item.width / 2
+  const anchorOf = (union: Union) => {
+    const source = items.get(sourceOf(union))
+    if (!source) return undefined
+    const parents = union.parentIds.filter(isVisible)
+    return parents.length > 0
+      ? estimate.get(source.id)! + unionAnchorX(blockOf.get(parents[0])!, parents)
+      : centre(source)
+  }
+
+  const rows = new Map<number, RowItem[]>()
+  for (const item of items.values()) rows.set(item.y, [...(rows.get(item.y) ?? []), item])
+  const rowsTopDown = [...rows.entries()].sort(([a], [b]) => a - b).map(([, row]) => row)
+
+  /** Orders a row by `target`, keeping each family's children in sibling order. */
+  const arrange = (row: RowItem[], target: (item: RowItem) => number) => {
+    const slots = row.map((item) => item.x).sort((a, b) => a - b)
+    const ordered = row.toSorted((a, b) => target(a) - target(b) || a.x - b.x)
+    const families = new Map<Union, number[]>()
+    ordered.forEach((item, i) => {
+      if (item.parentUnion) families.set(item.parentUnion, [...(families.get(item.parentUnion) ?? []), i])
+    })
+    for (const indexes of families.values()) {
+      const siblings = indexes.map((i) => ordered[i]).sort((a, b) => a.siblingRank - b.siblingRank)
+      indexes.forEach((i, k) => (ordered[i] = siblings[k]))
+    }
+    ordered.forEach((item, i) => estimate.set(item.id, slots[i]))
+  }
+
+  for (const row of rowsTopDown) {
+    arrange(row, (item) => (item.parentUnion && anchorOf(item.parentUnion)) ?? centre(item))
+  }
+  const isRootWithChildren = (item: RowItem) => !item.parentUnion && item.childIds.length > 0
+  for (const row of rowsTopDown.toReversed()) {
+    if (!row.some(isRootWithChildren)) continue
+    arrange(row, (item) => {
+      if (!isRootWithChildren(item)) return centre(item)
+      const below = item.childIds.map((id) => centre(items.get(id)!))
+      return below.reduce((sum, x) => sum + x, 0) / below.length
+    })
+  }
+
+  return new Map([...items.values()].map((item) => [item.id, { x: estimate.get(item.id)!, y: item.y }]))
 }
 
 function collect(start: PersonId, neighbours: Map<PersonId, Set<PersonId>>): PersonId[] {
@@ -203,6 +356,8 @@ async function runElk(
   blocks: Block[],
   unions: Union[],
   isVisible: (id: PersonId) => boolean,
+  /** When given, ELK keeps the order of these positions within each row. */
+  order?: Positions,
 ): Promise<Positions> {
   const blockOf = blockIndex(blocks)
   const inPort = (personId: PersonId) => `${blockOf.get(personId)!.id}:in:${personId}`
@@ -227,7 +382,7 @@ async function runElk(
       ports.get(block.id)!.push(port(source, unionAnchorX(block, parents), PERSON_HEIGHT, 'SOUTH'))
     } else {
       source = union.id
-      freeUnions.push({ id: union.id, width: UNION_SIZE, height: UNION_SIZE })
+      freeUnions.push({ id: union.id, width: UNION_SIZE, height: UNION_SIZE, ...order?.get(union.id) })
     }
     for (const childId of union.childIds) {
       if (!isVisible(childId)) continue
@@ -237,7 +392,9 @@ async function runElk(
 
   const laidOut = await elk.layout({
     id: 'family',
-    layoutOptions: LAYOUT_OPTIONS,
+    layoutOptions: order
+      ? { ...LAYOUT_OPTIONS, 'elk.layered.crossingMinimization.strategy': 'INTERACTIVE' }
+      : LAYOUT_OPTIONS,
     children: [
       ...blocks.map((block) => ({
         id: block.id,
@@ -245,6 +402,7 @@ async function runElk(
         height: PERSON_HEIGHT,
         ports: ports.get(block.id),
         layoutOptions: { 'elk.portConstraints': 'FIXED_POS' },
+        ...order?.get(block.id),
       })),
       ...freeUnions,
     ],
@@ -312,9 +470,9 @@ function toReactFlow(
   unions: Union[],
   positions: Positions,
   isVisible: (id: PersonId) => boolean,
+  distances: Map<PersonId, number>,
 ): FamilyLayout {
   const blockOf = blockIndex(blocks)
-  const distances = distancesFrom(graph, graph.managerId)
   const nodes: TreeNode[] = []
   const edges: Edge[] = []
 
@@ -408,15 +566,6 @@ function otherParent(parents: PersonId[], parentId: PersonId): PersonId {
 }
 
 // --- Helpers ----------------------------------------------------------------
-
-/** Oldest first; people without a birth date keep their relative order at the end. */
-function byBirth(people: Person[]): Person[] {
-  return [...people].sort((a, b) => {
-    if (!a.birthDate) return b.birthDate ? 1 : 0
-    if (!b.birthDate) return -1
-    return a.birthDate.localeCompare(b.birthDate)
-  })
-}
 
 function distancesFrom(graph: FamilyGraph, startId: PersonId): Map<PersonId, number> {
   const distances = new Map([[startId, 0]])

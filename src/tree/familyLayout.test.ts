@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest'
 import { sampleFamily } from '../data/sampleFamily'
 import {
   addChild,
+  addParent,
   addPartner,
   addSibling,
   childIdsOf,
@@ -19,11 +20,12 @@ import {
   PERSON_WIDTH,
   type PersonNode,
 } from './familyLayout'
+import type { SiblingOrder } from './siblingOrder'
 
 const elk = new ELK()
 
-async function personPositions(graph: FamilyGraph) {
-  const { nodes } = await layoutFamily(graph, elk)
+async function personPositions(graph: FamilyGraph, siblingOrder?: SiblingOrder) {
+  const { nodes } = await layoutFamily(graph, elk, { siblingOrder })
   return new Map(
     nodes.filter((n): n is PersonNode => n.type === 'person').map((n) => [n.id, n.position]),
   )
@@ -96,16 +98,43 @@ describe('layoutFamily', () => {
     expect(emmaIsLeft).toBe(emmasSideIsLeft)
   })
 
-  it('orders siblings oldest first, left to right', async () => {
-    // In a fuller tree ELK's crossing minimisation is free to reverse siblings.
+  it.each<[SiblingOrder, string[]]>([
+    ['oldest-first', ['Lily', 'Max', 'Ella']],
+    ['youngest-first', ['Ella', 'Max', 'Lily']],
+    ['boys-first', ['Max', 'Lily', 'Ella']],
+    ['girls-first', ['Lily', 'Ella', 'Max']],
+  ])('orders siblings %s, left to right', async (siblingOrder, expected) => {
+    // In a fuller tree ELK's crossing minimisation is free to reorder siblings.
     let graph = sampleFamily()
-    graph = addChild(graph, graph.managerId, { givenName: 'Ella', birthDate: '2023' }).graph
+    graph = addChild(graph, graph.managerId, {
+      givenName: 'Ella',
+      gender: 'female',
+      birthDate: '2023',
+    }).graph
+    const positions = await personPositions(graph, siblingOrder)
+    const leftToRight = childIdsOf(graph, graph.managerId)
+      .sort((a, b) => positions.get(a)!.x - positions.get(b)!.x)
+      .map((id) => graph.people[id].givenName)
+    expect(leftToRight).toEqual(expected)
+  })
+
+  it('orders your own siblings by you, even when your partner has parents in the tree', async () => {
+    // Alex (male, 1988) and Sara (female, 1991). Alex's wife Emma (1989) has
+    // her mother in the tree too, but it's Alex who belongs among his siblings.
+    const graph = sampleFamily()
+    const sara = Object.values(graph.people).find((p) => p.givenName === 'Sara')!
+    const positions = await personPositions(graph, 'girls-first')
+    expect(positions.get(sara.id)!.x).toBeLessThan(positions.get(graph.managerId)!.x)
+  })
+
+  it('places a married sibling by their own age, not their partner’s', async () => {
+    const alex = createGraph({ givenName: 'Alex', birthDate: '1990' })
+    let graph = addParent(alex, alex.managerId, { givenName: 'Mum', birthDate: '1960' }).graph
+    const sister = addSibling(graph, alex.managerId, { givenName: 'Bea', birthDate: '1985' })
+    // Alex's much older partner must not pull Alex in front of an older sister.
+    graph = addPartner(sister.graph, alex.managerId, { givenName: 'Sol', birthDate: '1950' }).graph
     const positions = await personPositions(graph)
-    const children = childIdsOf(graph, graph.managerId).map((id) => graph.people[id])
-    const leftToRight = children
-      .sort((a, b) => positions.get(a.id)!.x - positions.get(b.id)!.x)
-      .map((p) => p.birthDate)
-    expect(leftToRight).toEqual(children.map((p) => p.birthDate).sort())
+    expect(positions.get(sister.person.id)!.x).toBeLessThan(positions.get(alex.managerId)!.x)
   })
 
   it('hides placeholder parents but keeps their children together', async () => {

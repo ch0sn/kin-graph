@@ -20,6 +20,7 @@ import {
   type TreeNode,
 } from './familyLayout'
 import { PersonNode, UnionNode } from './nodes'
+import type { SiblingOrder } from './siblingOrder'
 
 const nodeTypes = { person: PersonNode, union: UnionNode }
 
@@ -30,6 +31,7 @@ const SELECTED_VIEWPORT_Y = 0.28
 
 interface FamilyTreeProps {
   graph: FamilyGraph
+  siblingOrder: SiblingOrder
   selectedId: PersonId | null
   onSelect: (id: PersonId | null) => void
 }
@@ -42,7 +44,7 @@ export function FamilyTree(props: FamilyTreeProps) {
   )
 }
 
-function FamilyTreeCanvas({ graph, selectedId, onSelect }: FamilyTreeProps) {
+function FamilyTreeCanvas({ graph, siblingOrder, selectedId, onSelect }: FamilyTreeProps) {
   /** The latest layout, i.e. where everything is heading. */
   const [layout, setLayout] = useState<FamilyLayout | null>(null)
   /** What's on screen, part-way through a transition between layouts. */
@@ -55,7 +57,7 @@ function FamilyTreeCanvas({ graph, selectedId, onSelect }: FamilyTreeProps) {
   useEffect(() => {
     let cancelled = false
     let tween: AnimationPlaybackControls | undefined
-    layoutFamily(graph, elk).then((next) => {
+    layoutFamily(graph, elk, { siblingOrder }).then((next) => {
       if (cancelled) return
       const isFirst = shownRef.current.length === 0
       const target = withEntranceDelays(next, isFirst)
@@ -79,7 +81,7 @@ function FamilyTreeCanvas({ graph, selectedId, onSelect }: FamilyTreeProps) {
       cancelled = true
       tween?.stop()
     }
-  }, [graph, reduceMotion])
+  }, [graph, siblingOrder, reduceMotion])
 
   const nodes = useMemo(
     () => shownNodes.map((n) => ({ ...n, selected: n.id === selectedId })),

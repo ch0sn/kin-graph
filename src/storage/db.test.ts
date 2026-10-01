@@ -2,7 +2,16 @@ import 'fake-indexeddb/auto'
 import { createStore, set } from 'idb-keyval'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { sampleFamily } from '../data/sampleFamily'
-import { clearTree, isOnboarded, loadTree, saveTree, setOnboarded } from './db'
+import {
+  clearTree,
+  isOnboarded,
+  loadSettings,
+  loadTree,
+  saveSettings,
+  saveTree,
+  setOnboarded,
+} from './db'
+import { DEFAULT_SETTINGS } from './settings'
 
 beforeEach(async () => {
   await clearTree()
@@ -29,6 +38,19 @@ describe('tree storage', () => {
   it('reports damaged data instead of throwing', async () => {
     await set('tree', { format: 'kingraph-tree', version: 1, graph: {} }, createStore('kingraph', 'state'))
     expect(await loadTree()).toEqual({ status: 'damaged', message: expect.stringMatching(/damaged/) })
+  })
+})
+
+describe('settings', () => {
+  it('default until saved, then remembered', async () => {
+    expect(await loadSettings()).toEqual(DEFAULT_SETTINGS)
+    await saveSettings({ siblingOrder: 'girls-first' })
+    expect(await loadSettings()).toEqual({ siblingOrder: 'girls-first' })
+  })
+
+  it('falls back to defaults for unknown values', async () => {
+    await set('settings', { siblingOrder: 'tallest-first', extra: 1 }, createStore('kingraph', 'state'))
+    expect(await loadSettings()).toEqual(DEFAULT_SETTINGS)
   })
 })
 

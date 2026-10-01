@@ -1,22 +1,30 @@
 import { motion, MotionConfig } from 'motion/react'
 import { useCallback, useState } from 'react'
 import { AppMenu, SaveIndicator } from './app/AppMenu'
+import { SettingsDialog } from './app/SettingsDialog'
 import type { FamilyGraph, PersonId } from './model'
 import { DamagedTree } from './onboarding/DamagedTree'
 import { Onboarding } from './onboarding/Onboarding'
 import { Welcome } from './onboarding/Welcome'
 import { PersonSheet } from './sheet/PersonSheet'
-import { useOnboarded, useStoredTree, type StoredTree } from './storage/useStoredTree'
+import type { Settings } from './storage/settings'
+import {
+  useOnboarded,
+  useSettings,
+  useStoredTree,
+  type StoredTree,
+} from './storage/useStoredTree'
 import { FamilyTree } from './tree/FamilyTree'
 
 function App() {
   const stored = useStoredTree()
   const [onboarded, setOnboarded] = useOnboarded()
+  const [settings, updateSettings] = useSettings()
   const [replayingIntro, setReplayingIntro] = useState(false)
   const { tree } = stored
 
   let screen
-  if (tree.status === 'loading' || onboarded === null) {
+  if (tree.status === 'loading' || onboarded === null || settings === null) {
     screen = null
   } else if (!onboarded || replayingIntro) {
     screen = (
@@ -39,7 +47,13 @@ function App() {
     )
   } else {
     screen = (
-      <TreeScreen graph={tree.graph} stored={stored} onShowIntro={() => setReplayingIntro(true)} />
+      <TreeScreen
+        graph={tree.graph}
+        stored={stored}
+        settings={settings}
+        onSettingsChange={updateSettings}
+        onShowIntro={() => setReplayingIntro(true)}
+      />
     )
   }
 
@@ -49,13 +63,18 @@ function App() {
 function TreeScreen({
   graph,
   stored,
+  settings,
+  onSettingsChange,
   onShowIntro,
 }: {
   graph: FamilyGraph
   stored: StoredTree
+  settings: Settings
+  onSettingsChange: (patch: Partial<Settings>) => void
   onShowIntro: () => void
 }) {
   const [selectedId, setSelectedId] = useState<PersonId | null>(null)
+  const [settingsOpen, setSettingsOpen] = useState(false)
   const closeSheet = useCallback(() => setSelectedId(null), [])
 
   return (
@@ -78,6 +97,7 @@ function TreeScreen({
               }}
               onStartOver={() => void stored.clearTree()}
               onShowIntro={onShowIntro}
+              onOpenSettings={() => setSettingsOpen(true)}
             />
           </div>
         </motion.header>
@@ -86,6 +106,7 @@ function TreeScreen({
           <FamilyTree
             key={graph.managerId}
             graph={graph}
+            siblingOrder={settings.siblingOrder}
             selectedId={selectedId}
             onSelect={setSelectedId}
           />
@@ -96,6 +117,12 @@ function TreeScreen({
         personId={selectedId}
         onChange={stored.setGraph}
         onClose={closeSheet}
+      />
+      <SettingsDialog
+        open={settingsOpen}
+        settings={settings}
+        onChange={onSettingsChange}
+        onClose={() => setSettingsOpen(false)}
       />
     </>
   )

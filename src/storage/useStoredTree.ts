@@ -4,6 +4,8 @@ import { createAutosaver, type SaveState } from './autosave'
 import { photoIdsOf } from './backup'
 import * as db from './db'
 import { prunePhotos } from './photos'
+import { DEFAULT_SETTINGS, type Settings } from './settings'
+import { notifyTabs, onTabMessage } from './tabs'
 
 export type TreeState =
   | { status: 'loading' }
@@ -23,12 +25,6 @@ export interface StoredTree {
   /** Removes the saved tree from this device. */
   clearTree: () => Promise<void>
 }
-
-type TabMessage = 'saved' | 'cleared'
-
-/** Tells other open tabs when this one saves; a channel never hears its own messages. */
-const tabs = typeof BroadcastChannel === 'undefined' ? null : new BroadcastChannel('kingraph')
-const notifyTabs = (message: TabMessage) => tabs?.postMessage(message)
 
 /**
  * The family tree saved on this device. Edits are saved automatically and
@@ -67,11 +63,10 @@ export function useStoredTree(): StoredTree {
 
     // Pick up saves made in other tabs, unless this tab has unsaved edits
     // that are about to overwrite them anyway.
-    const onTabMessage = (event: MessageEvent<TabMessage>) => {
-      if (event.data === 'cleared') setTree({ status: 'empty' })
-      else if (!autosaver.hasPending()) void reload()
-    }
-    tabs?.addEventListener('message', onTabMessage)
+    const stopListening = onTabMessage((message) => {
+      if (message === 'cleared') setTree({ status: 'empty' })
+      else if (message === 'saved' && !autosaver.hasPending()) void reload()
+    })
 
     // Write waiting edits before the page is hidden or closed.
     const flush = () => void autosaver.flush()
@@ -83,7 +78,7 @@ export function useStoredTree(): StoredTree {
 
     return () => {
       cancelled = true
-      tabs?.removeEventListener('message', onTabMessage)
+      stopListening()
       document.removeEventListener('visibilitychange', onVisibilityChange)
       window.removeEventListener('pagehide', flush)
       flush()
@@ -148,4 +143,44 @@ export function useOnboarded(): [boolean | null, (done: boolean) => void] {
   }, [])
 
   return [onboarded, update]
+}
+
+/**
+ * This device's display settings; null while loading. Changes are saved
+ * straight away and picked up by other open tabs.
+ */
+export function useSettings(): [Settings | null, (patch: Partial<Settings>) => void] {
+  const [settings, setSettings] = useState<Settings | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+    const load = () =>
+      db.loadSettings().then(
+        (loaded) => !cancelled && setSettings(loaded),
+        // If storage is unavailable, carry on with the defaults.
+        () => !cancelled && setSettings((current) => current ?? DEFAULT_SETTINGS),
+      )
+    void load()
+    const stopListening = onTabMessage((message) => {
+      if (message === 'settings') void load()
+    })
+    return () => {
+      cancelled = true
+      stopListening()
+    }
+  }, [])
+
+  const update = useCallback(
+    (patch: Partial<Settings>) => {
+      const next = { ...(settings ?? DEFAULT_SETTINGS), ...patch }
+      setSettings(next)
+      db.saveSettings(next).then(
+        () => notifyTabs('settings'),
+        () => {},
+      )
+    },
+    [settings],
+  )
+
+  return [settings, update]
 }

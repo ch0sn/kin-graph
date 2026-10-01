@@ -5,6 +5,7 @@ import {
   Ellipsis,
   FilePlus,
   LoaderCircle,
+  SlidersHorizontal,
   TriangleAlert,
   Upload,
 } from 'lucide-react'
@@ -50,9 +51,17 @@ interface AppMenuProps {
   onReplace: (graph: FamilyGraph) => void
   onStartOver: () => void
   onShowIntro: () => void
+  onOpenSettings: () => void
 }
 
-export function AppMenu({ graph, persisted, onReplace, onStartOver, onShowIntro }: AppMenuProps) {
+export function AppMenu({
+  graph,
+  persisted,
+  onReplace,
+  onStartOver,
+  onShowIntro,
+  onOpenSettings,
+}: AppMenuProps) {
   const [open, setOpen] = useState(false)
   const [pending, setPending] = useState<Pending>(null)
   const [exportError, setExportError] = useState<string | null>(null)
@@ -120,6 +129,9 @@ export function AppMenu({ graph, persisted, onReplace, onStartOver, onShowIntro 
             </MenuItem>
             <MenuItem icon={<FilePlus />} onClick={choose(() => setPending({ kind: 'new' }))}>
               Start a new tree
+            </MenuItem>
+            <MenuItem icon={<SlidersHorizontal />} onClick={choose(onOpenSettings)}>
+              Settings
             </MenuItem>
             <MenuItem icon={<BookOpen />} onClick={choose(onShowIntro)}>
               Show introduction

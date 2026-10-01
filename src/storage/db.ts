@@ -1,5 +1,6 @@
 import { createStore, del, get, set } from 'idb-keyval'
 import type { FamilyGraph } from '../model'
+import { parseSettings, type Settings } from './settings'
 import { parseTreeDocument, toDocument, TreeFileError } from './treeDocument'
 
 /** Everything KinGraph keeps lives in this one IndexedDB store on the device. */
@@ -7,6 +8,7 @@ const store = createStore('kingraph', 'state')
 
 const TREE_KEY = 'tree'
 const ONBOARDED_KEY = 'onboarded'
+const SETTINGS_KEY = 'settings'
 
 export type LoadedTree =
   | { status: 'empty' }
@@ -39,6 +41,14 @@ export async function isOnboarded(): Promise<boolean> {
 
 export function setOnboarded(done: boolean): Promise<void> {
   return set(ONBOARDED_KEY, done, store)
+}
+
+export async function loadSettings(): Promise<Settings> {
+  return parseSettings(await get(SETTINGS_KEY, store))
+}
+
+export function saveSettings(settings: Settings): Promise<void> {
+  return set(SETTINGS_KEY, settings, store)
 }
 
 /**
