@@ -18,6 +18,15 @@ const GENDER_BORDERS: Partial<Record<Gender, string>> = {
   female: 'border-2 border-red-500',
 }
 
+/*
+ * The manager's own card: orange in light mode, yellow in dark mode. Orange
+ * and yellow aren't mirrored for dark mode (see index.css), so each mode is
+ * set explicitly.
+ */
+const MANAGER_BORDER = 'border-orange-400 dark:border-yellow-400'
+const MANAGER_GLOW = 'ring-4 ring-orange-100 dark:ring-yellow-400/15'
+const MANAGER_SELECTED = 'shadow-md ring-4 ring-orange-300/70 dark:ring-yellow-400/40'
+
 export function PersonNode({ data, selected }: NodeProps<PersonNodeType>) {
   const { person, label, isManager, entranceDelay = 0 } = data
   const { highlightGender } = useTreeDisplay()
@@ -25,7 +34,7 @@ export function PersonNode({ data, selected }: NodeProps<PersonNodeType>) {
   const border =
     genderBorder ??
     (isManager
-      ? 'border-amber-300'
+      ? MANAGER_BORDER
       : selected
         ? 'border-stone-400'
         : 'border-stone-200 hover:border-stone-300')
@@ -46,9 +55,9 @@ export function PersonNode({ data, selected }: NodeProps<PersonNodeType>) {
           !isManager && 'hover:shadow-md',
           selected
             ? isManager
-              ? 'shadow-md ring-4 ring-amber-300/70'
+              ? MANAGER_SELECTED
               : 'shadow-md ring-4 ring-stone-300/60'
-            : isManager && 'ring-4 ring-amber-100',
+            : isManager && MANAGER_GLOW,
         ]
           .filter(Boolean)
           .join(' ')}
