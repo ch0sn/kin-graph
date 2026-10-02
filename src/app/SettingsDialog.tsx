@@ -6,7 +6,7 @@ import {
   Sun,
   type LucideIcon,
 } from 'lucide-react'
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, type ReactNode } from 'react'
 import type { ColorMode, Settings } from '../storage/settings'
 import { THEMES, themeInfo, type ThemeId } from '../theme/themes'
 import { DEFAULT_SIBLING_ORDER, type SiblingOrder } from '../tree/siblingOrder'
@@ -46,6 +46,43 @@ function PreviewCard({ name, highlight = false }: { name: string; highlight?: bo
       </span>
       <span className="pr-1 font-serif text-[length:var(--name-size)] leading-none text-stone-900">{name}</span>
     </span>
+  )
+}
+
+/** A label followed by a "?" icon that explains it in a one-line tooltip on hover or focus. */
+function HelpLabel({
+  label,
+  about,
+  help,
+  id,
+}: {
+  label: ReactNode
+  /** What the icon explains, for screen readers: "About <about>". */
+  about: string
+  help: string
+  id: string
+}) {
+  return (
+    <div className="relative flex items-center gap-1.5">
+      {label}
+      <span className="group flex">
+        <button
+          type="button"
+          aria-label={`About ${about}`}
+          aria-describedby={id}
+          className="rounded-full text-stone-400 transition hover:text-stone-700 focus-visible:text-stone-700 focus-visible:ring-4 focus-visible:ring-stone-200 focus-visible:outline-none"
+        >
+          <CircleQuestionMark className="size-4" aria-hidden />
+        </button>
+        <span
+          id={id}
+          role="tooltip"
+          className="pointer-events-none absolute bottom-full left-0 z-10 mb-2 w-max max-w-full rounded-lg bg-stone-900 px-3 py-2 text-xs leading-snug whitespace-nowrap text-white opacity-0 shadow-lg transition group-focus-within:opacity-100 group-hover:opacity-100"
+        >
+          {help}
+        </span>
+      </span>
+    </div>
   )
 }
 
@@ -110,8 +147,17 @@ export function SettingsDialog({ open, settings, onChange, onClose }: SettingsDi
           Settings
         </h2>
 
-        <fieldset className="flex flex-col gap-2">
-          <legend className="mb-2.5 text-sm font-semibold text-stone-900">Appearance</legend>
+        <fieldset className="flex flex-col gap-2.5" aria-labelledby="appearance-label">
+          <HelpLabel
+            id="appearance-help"
+            about="appearance"
+            help="System follows your phone or computer’s light or dark setting."
+            label={
+              <span id="appearance-label" className="text-sm font-semibold text-stone-900">
+                Appearance
+              </span>
+            }
+          />
           <div className="grid grid-cols-3 gap-2">
             {COLOR_MODE_OPTIONS.map(({ value, label, icon: Icon }) => {
               const checked = settings.colorMode === value
@@ -139,9 +185,6 @@ export function SettingsDialog({ open, settings, onChange, onClose }: SettingsDi
               )
             })}
           </div>
-          <p className="mt-1 text-xs text-stone-500">
-            System follows your phone or computer’s light or dark setting.
-          </p>
         </fieldset>
 
         <div className="flex flex-col gap-2.5">
@@ -171,28 +214,16 @@ export function SettingsDialog({ open, settings, onChange, onClose }: SettingsDi
         </div>
 
         <div className="flex flex-col gap-2.5">
-          <div className="relative flex items-center gap-1.5">
-            <label htmlFor="sibling-order-select" className="text-sm font-semibold text-stone-900">
-              Sibling order
-            </label>
-            <span className="group flex">
-              <button
-                type="button"
-                aria-label="About sibling order"
-                aria-describedby="sibling-order-help"
-                className="rounded-full text-stone-400 transition hover:text-stone-700 focus-visible:text-stone-700 focus-visible:ring-4 focus-visible:ring-stone-200 focus-visible:outline-none"
-              >
-                <CircleQuestionMark className="size-4" aria-hidden />
-              </button>
-              <span
-                id="sibling-order-help"
-                role="tooltip"
-                className="pointer-events-none absolute bottom-full left-0 z-10 mb-2 w-max max-w-full rounded-lg bg-stone-900 px-3 py-2 text-xs leading-snug whitespace-nowrap text-white opacity-0 shadow-lg transition group-focus-within:opacity-100 group-hover:opacity-100"
-              >
-                How brothers and sisters line up, left to right.
-              </span>
-            </span>
-          </div>
+          <HelpLabel
+            id="sibling-order-help"
+            about="sibling order"
+            help="How brothers and sisters line up, left to right."
+            label={
+              <label htmlFor="sibling-order-select" className="text-sm font-semibold text-stone-900">
+                Sibling order
+              </label>
+            }
+          />
           <div className="relative">
             <select
               id="sibling-order-select"
