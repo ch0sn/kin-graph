@@ -1,12 +1,8 @@
 import {
-  ChartNoAxesColumnDecreasing,
-  ChartNoAxesColumnIncreasing,
   ChevronDown,
-  Mars,
   Monitor,
   Moon,
   Sun,
-  Venus,
   type LucideIcon,
 } from 'lucide-react'
 import { useEffect, useRef } from 'react'
@@ -52,30 +48,26 @@ function PreviewCard({ name, highlight = false }: { name: string; highlight?: bo
   )
 }
 
-const SIBLING_OPTIONS: { value: SiblingOrder; label: string; hint: string; icon: LucideIcon }[] = [
+const SIBLING_OPTIONS: { value: SiblingOrder; label: string; hint: string }[] = [
   {
     value: 'oldest-first',
     label: 'Oldest to youngest',
     hint: 'The way family trees are usually read.',
-    icon: ChartNoAxesColumnDecreasing,
   },
   {
     value: 'youngest-first',
     label: 'Youngest to oldest',
     hint: 'The newest arrivals come first.',
-    icon: ChartNoAxesColumnIncreasing,
   },
   {
     value: 'boys-first',
     label: 'Boys first',
     hint: 'Then girls, each oldest to youngest.',
-    icon: Mars,
   },
   {
     value: 'girls-first',
     label: 'Girls first',
     hint: 'Then boys, each oldest to youngest.',
-    icon: Venus,
   },
 ]
 
@@ -181,59 +173,35 @@ export function SettingsDialog({ open, settings, onChange, onClose }: SettingsDi
           <p className="text-xs text-stone-500">{themeInfo(settings.theme).blurb}</p>
         </div>
 
-        <fieldset className="flex flex-col gap-2">
-          <legend className="text-sm font-semibold text-stone-900">Sibling order</legend>
-          <p className="-mt-0.5 mb-1.5 text-sm text-stone-500">
-            How brothers and sisters line up, left to right.
+        <div className="flex flex-col gap-2.5">
+          <label htmlFor="sibling-order-select" className="text-sm font-semibold text-stone-900">
+            Sibling order
+          </label>
+          <div className="relative">
+            <select
+              id="sibling-order-select"
+              value={settings.siblingOrder}
+              onChange={(e) => onChange({ siblingOrder: e.target.value as SiblingOrder })}
+              className="w-full appearance-none rounded-xl border border-stone-200 bg-white py-2.5 pr-10 pl-3 text-base text-stone-900 outline-none transition focus:border-stone-500 focus:ring-4 focus:ring-stone-200"
+            >
+              {SIBLING_OPTIONS.map(({ value, label }) => (
+                <option key={value} value={value}>
+                  {label}
+                  {value === DEFAULT_SIBLING_ORDER ? ' (default)' : ''}
+                </option>
+              ))}
+            </select>
+            <ChevronDown
+              className="pointer-events-none absolute top-1/2 right-3 size-4 -translate-y-1/2 text-stone-500"
+              aria-hidden
+            />
+          </div>
+          <p className="text-xs text-stone-500">
+            How brothers and sisters line up, left to right.{' '}
+            {SIBLING_OPTIONS.find((o) => o.value === settings.siblingOrder)?.hint} People without
+            a birth date, or without a gender when grouping by gender, are placed last.
           </p>
-          {SIBLING_OPTIONS.map(({ value, label, hint, icon: Icon }) => {
-            const checked = settings.siblingOrder === value
-            return (
-              <label
-                key={value}
-                className={[
-                  'flex cursor-pointer items-center gap-3 rounded-2xl border px-4 py-3 transition',
-                  'has-[:focus-visible]:ring-4 has-[:focus-visible]:ring-stone-200',
-                  checked
-                    ? 'border-stone-900 bg-stone-50'
-                    : 'border-stone-200 hover:border-stone-300',
-                ].join(' ')}
-              >
-                <input
-                  type="radio"
-                  name="sibling-order"
-                  className="sr-only"
-                  checked={checked}
-                  onChange={() => onChange({ siblingOrder: value })}
-                />
-                <span
-                  className={[
-                    'flex size-9 shrink-0 items-center justify-center rounded-full',
-                    checked ? 'bg-stone-900 text-white' : 'bg-stone-100 text-stone-500',
-                  ].join(' ')}
-                  aria-hidden
-                >
-                  <Icon className="size-4" />
-                </span>
-                <span className="min-w-0">
-                  <span className="flex items-center gap-2 text-sm font-medium text-stone-900">
-                    {label}
-                    {value === DEFAULT_SIBLING_ORDER && (
-                      <span className="rounded-full bg-stone-100 px-2 py-0.5 text-[10px] font-semibold tracking-wide text-stone-500 uppercase">
-                        Default
-                      </span>
-                    )}
-                  </span>
-                  <span className="block text-xs text-stone-500">{hint}</span>
-                </span>
-              </label>
-            )
-          })}
-          <p className="mt-1 text-xs text-stone-500">
-            People without a birth date, or without a gender when grouping by gender, are placed
-            last.
-          </p>
-        </fieldset>
+        </div>
 
         <div className="flex justify-end">
           <Button variant="primary" onClick={onClose} autoFocus>
