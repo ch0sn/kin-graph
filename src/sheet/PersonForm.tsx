@@ -1,4 +1,4 @@
-import { Camera, Mars, TriangleAlert, Venus } from 'lucide-react'
+import { Camera, Mars, Plus, TriangleAlert, Venus } from 'lucide-react'
 import { AnimatePresence, motion } from 'motion/react'
 import { useEffect, useId, useRef, useState, type FormEvent, type ReactNode } from 'react'
 import type { Gender, NewPerson } from '../model'
@@ -14,8 +14,18 @@ import {
 } from '../photos/preparePhoto'
 import { Avatar } from '../ui/Avatar'
 import { DateField } from '../ui/DateField'
-import { Button, Field, TextInput } from '../ui/fields'
-import { toPersonFields, validate, type PersonErrors, type PersonValues } from './personValues'
+import { Button } from '../ui/fields'
+import { HelpLabel } from '../ui/HelpLabel'
+import { NameEditor } from './NameEditor'
+import {
+  emptyName,
+  toPersonFields,
+  toPersonName,
+  validate,
+  type NameValues,
+  type PersonErrors,
+  type PersonValues,
+} from './personValues'
 
 interface PersonFormProps {
   initial: PersonValues
@@ -65,6 +75,24 @@ export function PersonForm({
     setValues((v) => ({ ...v, [field]: value }))
     setErrors((e) => ({ ...e, [field]: undefined }))
   }
+
+  // Names: the first is shown. A name that's added gets focus.
+  const [addedKey, setAddedKey] = useState<string | null>(null)
+  const otherNamesHelpId = useId()
+  const setNames = (change: (names: NameValues[]) => NameValues[]) => {
+    setValues((v) => ({ ...v, names: change(v.names) as PersonValues['names'] }))
+    setErrors((e) => ({ ...e, givenName: undefined }))
+  }
+  const setName = (key: string, name: NameValues) =>
+    setNames((names) => names.map((n) => (n.key === key ? name : n)))
+  const addName = () => {
+    const name = emptyName({ type: 'birth' })
+    setAddedKey(name.key)
+    setNames((names) => [...names, name])
+  }
+  const removeName = (key: string) => setNames((names) => names.filter((n) => n.key !== key))
+  const showName = (key: string) =>
+    setNames((names) => [...names.filter((n) => n.key === key), ...names.filter((n) => n.key !== key)])
 
   const showPhotoError = (e: unknown) =>
     setPhotoError(e instanceof PhotoError ? e.message : t('photo.unusable'))
@@ -129,6 +157,13 @@ export function PersonForm({
 
   const hasPhoto = newPhoto !== null || values.photoId !== ''
 
+  const addNameButton = (
+    <Button variant="ghost" className="-ml-3 w-fit px-3 py-1.5" onClick={addName}>
+      <Plus className="size-4" aria-hidden />
+      {t('form.addName')}
+    </Button>
+  )
+
   return (
     <form onSubmit={submit} noValidate className="flex flex-col gap-4">
       <div className="flex items-center gap-4">
@@ -140,7 +175,10 @@ export function PersonForm({
         >
           {hasPhoto ? (
             <Avatar
-              person={{ ...values, photoId: values.photoId || undefined }}
+              person={{
+                names: [toPersonName(values.names[0]) ?? { given: '' }],
+                photoId: values.photoId || undefined,
+              }}
               size="lg"
               src={newPhoto ? newPhoto.url : undefined}
             />
@@ -200,31 +238,45 @@ export function PersonForm({
         />
       </div>
 
-      <div className="grid grid-cols-2 gap-3">
-        <Field label={t('form.firstName')} error={errors.givenName}>
-          {(id, describedBy) => (
-            <TextInput
-              id={id}
-              aria-describedby={describedBy}
-              invalid={!!errors.givenName}
-              value={values.givenName}
-              onChange={(e) => update('givenName', e.target.value)}
-              autoComplete="off"
-              autoFocus
+      <NameEditor
+        key={values.names[0].key}
+        value={values.names[0]}
+        onChange={(name) => setName(name.key, name)}
+        shown
+        error={errors.givenName}
+        autoFocus
+      />
+
+      {values.names.length === 1 ? (
+        <div className="-mt-2">{addNameButton}</div>
+      ) : (
+        <fieldset className="flex flex-col gap-3">
+          <legend className="mb-1.5 w-full">
+            <HelpLabel
+              id={otherNamesHelpId}
+              about={t('form.otherNames')}
+              help={t('form.otherNamesHint')}
+              label={
+                <span className="text-xs font-semibold tracking-wide text-stone-500 uppercase">
+                  {t('form.otherNames')}
+                </span>
+              }
             />
-          )}
-        </Field>
-        <Field label={t('form.lastName')}>
-          {(id) => (
-            <TextInput
-              id={id}
-              value={values.familyName}
-              onChange={(e) => update('familyName', e.target.value)}
-              autoComplete="off"
-            />
-          )}
-        </Field>
-      </div>
+          </legend>
+          {values.names.slice(1).map((name) => (
+            <div key={name.key} className="rounded-2xl border border-stone-200 p-3">
+              <NameEditor
+                value={name}
+                onChange={(next) => setName(name.key, next)}
+                autoFocus={name.key === addedKey}
+                onRemove={() => removeName(name.key)}
+                onShow={() => showName(name.key)}
+              />
+            </div>
+          ))}
+          {addNameButton}
+        </fieldset>
+      )}
 
       <GenderPicker value={values.gender} onChange={(gender) => update('gender', gender)} />
 

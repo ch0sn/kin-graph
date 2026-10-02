@@ -6,6 +6,7 @@ import {
   addParent,
   addPartner,
   addSibling,
+  displayName,
   fullName,
   GraphError,
   isOngoing,
@@ -27,7 +28,7 @@ import { Avatar } from '../ui/Avatar'
 import { LifeLine } from '../ui/LifeLine'
 import { Button, CheckboxGroup, Segmented, type Option } from '../ui/fields'
 import { PersonForm } from './PersonForm'
-import { emptyValues, valuesFromPerson } from './personValues'
+import { emptyName, emptyValues, valuesFromPerson } from './personValues'
 
 type Relation = 'parent' | 'partner' | 'sibling' | 'child'
 
@@ -244,7 +245,7 @@ function SheetBody({
         )}
 
         {mode.view === 'remove' && (
-          <SubView title={t('sheet.removeTitle', { name: person.givenName })} onBack={() => go({ view: 'details' })}>
+          <SubView title={t('sheet.removeTitle', { name: displayName(person).given })} onBack={() => go({ view: 'details' })}>
             <p className="text-sm leading-relaxed text-stone-600">
               {t('sheet.removeBody', { name: fullName(person) })}
             </p>
@@ -376,7 +377,15 @@ function AddRelativeForm({
   const [childKind, setChildKind] = useState<ParentKind>('biological')
 
   const sharesFamilyName = relation === 'sibling' || relation === 'child'
-  const initial = emptyValues({ familyName: sharesFamilyName ? (person.familyName ?? '') : '' })
+  // Siblings and children start with the same surnames.
+  const { surnames } = displayName(person)
+  const initial = emptyValues({
+    names: [
+      sharesFamilyName && surnames?.length
+        ? emptyName({ surname: surnames.join(' '), surnameParts: surnames })
+        : emptyName(),
+    ],
+  })
 
   const add = (relative: NewPerson): FamilyGraph => {
     switch (relation) {

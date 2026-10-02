@@ -1,3 +1,4 @@
+import { ChevronDown } from 'lucide-react'
 import { useId, type ComponentProps, type ReactNode } from 'react'
 
 export function Field({
@@ -45,6 +46,40 @@ export function TextInput({
       ].join(' ')}
       {...props}
     />
+  )
+}
+
+/** A dropdown styled like `TextInput`. */
+export function SelectInput<T extends string>({
+  options,
+  value,
+  onChange,
+  className = '',
+  ...props
+}: Omit<ComponentProps<'select'>, 'value' | 'onChange'> & {
+  options: Option<T>[]
+  value: T
+  onChange: (value: T) => void
+}) {
+  return (
+    <div className={`relative ${className}`}>
+      <select
+        value={value}
+        onChange={(e) => onChange(e.target.value as T)}
+        className="w-full appearance-none rounded-xl border border-stone-200 bg-white py-2.5 pr-10 pl-3 text-base text-stone-900 outline-none transition focus:border-stone-500 focus:ring-4 focus:ring-stone-200"
+        {...props}
+      >
+        {options.map((option) => (
+          <option key={option.value} value={option.value} disabled={option.disabled}>
+            {option.label}
+          </option>
+        ))}
+      </select>
+      <ChevronDown
+        className="pointer-events-none absolute top-1/2 right-3 size-4 -translate-y-1/2 text-stone-500"
+        aria-hidden
+      />
+    </div>
   )
 }
 

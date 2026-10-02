@@ -3,12 +3,12 @@ import type { Person } from '../model'
 import { compareSiblings, type SiblingOrder } from './siblingOrder'
 
 const people: Person[] = [
-  { id: 'max', givenName: 'Max', gender: 'male', birthDate: '2020-08-22' },
-  { id: 'lily', givenName: 'Lily', gender: 'female', birthDate: '2016-05-04' },
-  { id: 'robin', givenName: 'Robin', birthDate: '2018' },
-  { id: 'ella', givenName: 'Ella', gender: 'female', birthDate: '2023' },
-  { id: 'sam', givenName: 'Sam', gender: 'male' },
-  { id: 'tom', givenName: 'Tom', gender: 'male', birthDate: '2014' },
+  { id: 'max', names: [{ given: 'Max' }], gender: 'male', birthDate: '2020-08-22' },
+  { id: 'lily', names: [{ given: 'Lily' }], gender: 'female', birthDate: '2016-05-04' },
+  { id: 'robin', names: [{ given: 'Robin' }], birthDate: '2018' },
+  { id: 'ella', names: [{ given: 'Ella' }], gender: 'female', birthDate: '2023' },
+  { id: 'sam', names: [{ given: 'Sam' }], gender: 'male' },
+  { id: 'tom', names: [{ given: 'Tom' }], gender: 'male', birthDate: '2014' },
 ]
 
 const order = (siblingOrder: SiblingOrder) =>

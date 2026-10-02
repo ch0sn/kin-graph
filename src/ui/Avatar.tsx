@@ -8,7 +8,7 @@ const SIZES = {
 }
 
 interface AvatarProps {
-  person: Pick<Person, 'givenName' | 'familyName' | 'photoId'>
+  person: Pick<Person, 'names' | 'photoId'>
   size?: keyof typeof SIZES
   /** Warm colours for the manager. */
   highlight?: boolean

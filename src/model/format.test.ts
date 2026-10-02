@@ -1,5 +1,18 @@
-import { describe, expect, it } from 'vitest'
-import { ageOf, formatAge, initials, isFuzzyDate, lifeYears } from './format'
+import { afterEach, describe, expect, it } from 'vitest'
+import { setCurrentLanguage } from '../i18n'
+import {
+  ageOf,
+  compareNames,
+  formatAge,
+  formatName,
+  fullName,
+  initials,
+  isFuzzyDate,
+  lifeYears,
+  nameOrder,
+  setPreferredNameOrder,
+} from './format'
+import type { PersonName } from './types'
 
 describe('isFuzzyDate', () => {
   it.each(['1950', '1950-03', '1950-03-14', '2001-12-31'])('accepts %s', (text) => {
@@ -16,25 +29,25 @@ describe('isFuzzyDate', () => {
 
 describe('lifeYears', () => {
   it('shows whichever years are known', () => {
-    expect(lifeYears({ id: '1', givenName: 'A', birthDate: '1934-05-19', deathDate: '2015' }))
+    expect(lifeYears({ id: '1', names: [{ given: 'A' }], birthDate: '1934-05-19', deathDate: '2015' }))
       .toBe('1934 – 2015')
-    expect(lifeYears({ id: '1', givenName: 'A', birthDate: '1988' })).toBe('b. 1988')
-    expect(lifeYears({ id: '1', givenName: 'A', deathDate: '1902-01' })).toBe('d. 1902')
-    expect(lifeYears({ id: '1', givenName: 'A' })).toBeNull()
+    expect(lifeYears({ id: '1', names: [{ given: 'A' }], birthDate: '1988' })).toBe('b. 1988')
+    expect(lifeYears({ id: '1', names: [{ given: 'A' }], deathDate: '1902-01' })).toBe('d. 1902')
+    expect(lifeYears({ id: '1', names: [{ given: 'A' }] })).toBeNull()
   })
 
   it('marks people who died on an unknown date', () => {
-    expect(lifeYears({ id: '1', givenName: 'A', birthDate: '1934', deceased: true })).toBe(
+    expect(lifeYears({ id: '1', names: [{ given: 'A' }], birthDate: '1934', deceased: true })).toBe(
       '1934 – ?',
     )
-    expect(lifeYears({ id: '1', givenName: 'A', deceased: true })).toBe('Deceased')
+    expect(lifeYears({ id: '1', names: [{ given: 'A' }], deceased: true })).toBe('Deceased')
   })
 })
 
 describe('ageOf / formatAge', () => {
   const today = new Date(2026, 9, 1) // 1 October 2026
   const age = (birthDate: string, extra: object = {}) => {
-    const result = ageOf({ id: '1', givenName: 'A', birthDate, ...extra }, today)
+    const result = ageOf({ id: '1', names: [{ given: 'A' }], birthDate, ...extra }, today)
     return result && formatAge(result)
   }
 
@@ -67,15 +80,123 @@ describe('ageOf / formatAge', () => {
 
   it('has no age without the dates to work it out', () => {
     expect(age('1934', { deceased: true })).toBeNull()
-    expect(ageOf({ id: '1', givenName: 'A' }, today)).toBeNull()
-    expect(ageOf({ id: '1', givenName: 'A', deathDate: '1990' }, today)).toBeNull()
+    expect(ageOf({ id: '1', names: [{ given: 'A' }] }, today)).toBeNull()
+    expect(ageOf({ id: '1', names: [{ given: 'A' }], deathDate: '1990' }, today)).toBeNull()
     expect(age('2027-01-01')).toBeNull()
+  })
+})
+
+const one = (name: PersonName) => ({ names: [name] as [PersonName] })
+
+afterEach(() => {
+  setCurrentLanguage('en')
+  setPreferredNameOrder('given-first')
+})
+
+describe('formatName', () => {
+  it('writes given names first by default', () => {
+    expect(formatName({ given: 'Mary Ann', surnames: ['Smith'] })).toBe('Mary Ann Smith')
+    expect(formatName({ given: 'Cher' })).toBe('Cher')
+  })
+
+  it('writes every surname, in order', () => {
+    expect(formatName({ given: 'Ana', surnames: ['García', 'López'] })).toBe('Ana García López')
+  })
+
+  it('puts a patronymic after the given name', () => {
+    expect(formatName({ given: 'Björk', patronymic: 'Guðmundsdóttir' })).toBe('Björk Guðmundsdóttir')
+    expect(formatName({ given: 'Ivan', patronymic: 'Ivanovich', surnames: ['Petrov'] })).toBe(
+      'Ivan Ivanovich Petrov',
+    )
+  })
+
+  it('writes names surname first when the settings say so', () => {
+    setPreferredNameOrder('family-first')
+    expect(formatName({ given: 'Péter', surnames: ['Nagy'] })).toBe('Nagy Péter')
+    expect(formatName({ given: 'Ivan', patronymic: 'Ivanovich', surnames: ['Petrov'] })).toBe(
+      'Petrov Ivan Ivanovich',
+    )
+  })
+
+  it('writes CJK names family-first without spaces', () => {
+    expect(formatName({ given: '민준', surnames: ['김'] })).toBe('김민준')
+    expect(formatName({ given: '敏俊', surnames: ['金'] })).toBe('金敏俊')
+    expect(formatName({ given: '花子', surnames: ['山田'] })).toBe('山田花子')
+  })
+
+  it('writes names mixing scripts like other names, with spaces', () => {
+    expect(formatName({ given: 'Minjun', surnames: ['김'] })).toBe('Minjun 김')
+    expect(formatName({ given: '민준', surnames: ['Kim'] })).toBe('민준 Kim')
+    expect(initials({ names: [{ given: 'Minjun', surnames: ['김'] }] })).toBe('M김')
+  })
+
+  it('ignores blank parts', () => {
+    expect(formatName({ given: 'Ann', surnames: [' ', 'Lee'], patronymic: '' })).toBe('Ann Lee')
+  })
+})
+
+describe('nameOrder', () => {
+  it('follows the settings, except for CJK names, which are always family-first', () => {
+    const minjun = { given: 'Minjun', surnames: ['Kim'] }
+    const hangul = { given: '민준', surnames: ['김'] }
+    expect(nameOrder(minjun)).toBe('given-first')
+    expect(nameOrder(hangul)).toBe('family-first')
+
+    setPreferredNameOrder('family-first')
+    expect(nameOrder(minjun)).toBe('family-first')
+    expect(fullName(one(minjun))).toBe('Kim Minjun')
+    expect(fullName(one(hangul))).toBe('김민준')
+  })
+
+  it('does not depend on the app language', () => {
+    setCurrentLanguage('ko')
+    expect(fullName(one({ given: 'Mary', surnames: ['Smith'] }))).toBe('Mary Smith')
+    expect(fullName(one({ given: '민준', surnames: ['김'] }))).toBe('김민준')
   })
 })
 
 describe('initials', () => {
   it('uses the first letter of each name', () => {
-    expect(initials({ givenName: 'grace', familyName: 'Ellis' })).toBe('GE')
-    expect(initials({ givenName: 'Cher' })).toBe('C')
+    expect(initials(one({ given: 'grace', surnames: ['Ellis'] }))).toBe('GE')
+    expect(initials(one({ given: 'Cher' }))).toBe('C')
+  })
+
+  it('uses the first surname, or a patronymic when there is none', () => {
+    expect(initials(one({ given: 'Ana', surnames: ['García', 'López'] }))).toBe('AG')
+    expect(initials(one({ given: 'Björk', patronymic: 'Guðmundsdóttir' }))).toBe('BG')
+  })
+
+  it('follows the written order', () => {
+    setPreferredNameOrder('family-first')
+    expect(initials(one({ given: 'Péter', surnames: ['Nagy'] }))).toBe('NP')
+  })
+
+  it('uses the given name for CJK names', () => {
+    expect(initials(one({ given: '민준', surnames: ['김'] }))).toBe('민준')
+    expect(initials(one({ given: '伟', surnames: ['王'] }))).toBe('伟')
+  })
+
+  it('only shows the shown name, and copes with letters outside the basic plane', () => {
+    expect(initials({ names: [{ given: 'Robert' }, { type: 'nickname', given: 'Bob' }] })).toBe('R')
+    expect(initials(one({ given: '𝒜da' }))).toBe('𝒜')
+  })
+})
+
+describe('compareNames', () => {
+  it('sorts by surname, then patronymic, then given name', () => {
+    const people = [
+      one({ given: 'Zoe', surnames: ['Adams'] }),
+      one({ given: 'Ana', surnames: ['García', 'López'] }),
+      one({ given: 'Ana', surnames: ['García', 'Abad'] }),
+      one({ given: 'Björk', patronymic: 'Guðmundsdóttir' }),
+      one({ given: 'Ann', surnames: ['adams'] }),
+    ]
+    expect(people.sort(compareNames).map(fullName)).toEqual([
+      'Björk Guðmundsdóttir',
+      'Ann adams',
+      'Zoe Adams',
+      'Ana García Abad',
+      'Ana García López',
+    ])
   })
 })

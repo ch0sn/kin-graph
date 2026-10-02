@@ -15,6 +15,18 @@ function json(graph: FamilyGraph = sampleFamily()) {
   return JSON.parse(JSON.stringify(toDocument(graph)))
 }
 
+/** The same tree as a version 1 or 2 file stored it, with one given and one family name. */
+function legacy(graph: FamilyGraph, version: 1 | 2) {
+  const doc = json(graph)
+  for (const person of Object.values<Record<string, unknown>>(doc.graph.people)) {
+    const [{ given, surnames }] = person.names as { given: string; surnames?: string[] }[]
+    delete person.names
+    person.givenName = given
+    if (surnames) person.familyName = surnames[0]
+  }
+  return { ...doc, version }
+}
+
 describe('toDocument / parseTreeDocument', () => {
   it('round-trips the sample family through JSON', () => {
     const graph = sampleFamily()
@@ -22,8 +34,8 @@ describe('toDocument / parseTreeDocument', () => {
   })
 
   it('keeps placeholder parents', () => {
-    const alex = createGraph({ givenName: 'Alex' })
-    const { graph } = addSibling(alex, alex.managerId, { givenName: 'Sara' })
+    const alex = createGraph({ names: [{ given: 'Alex' }] })
+    const { graph } = addSibling(alex, alex.managerId, { names: [{ given: 'Sara' }] })
     const parsed = parseTreeDocument(json(graph))
     expect(parsed).toEqual(graph)
     expect(Object.values(parsed.people).some((p) => p.isPlaceholder)).toBe(true)
@@ -40,7 +52,33 @@ describe('toDocument / parseTreeDocument', () => {
 
   it('opens version 1 files, from before photos and the deceased flag', () => {
     const graph = sampleFamily()
-    expect(parseTreeDocument({ ...json(graph), version: 1 })).toEqual(graph)
+    expect(parseTreeDocument(legacy(graph, 1))).toEqual(graph)
+  })
+
+  it('opens version 2 files, turning their given and family name into a name', () => {
+    const graph = sampleFamily()
+    const parsed = parseTreeDocument(legacy(graph, 2))
+    expect(parsed).toEqual(graph)
+    expect(parsed.people[graph.managerId].names).toEqual([{ given: 'Alex', surnames: ['Morgan'] }])
+  })
+
+  it('keeps several names, with their types, dates and other scripts', () => {
+    const graph = createGraph({
+      names: [
+        {
+          given: '민준',
+          surnames: ['김'],
+          forms: [
+            { script: 'hanja', given: '敏俊', surnames: ['金'] },
+            { script: 'romanized', given: 'Minjun', surnames: ['Kim'] },
+          ],
+        },
+        { type: 'nickname', given: 'MJ' },
+        { type: 'married', given: 'Ana', surnames: ['García', 'López'], from: '2010-06' },
+        { type: 'birth', given: 'Björk', patronymic: 'Guðmundsdóttir' },
+      ],
+    })
+    expect(parseTreeDocument(json(graph))).toEqual(graph)
   })
 
   it('keeps the deceased flag and photo references', () => {
@@ -88,8 +126,16 @@ describe('parseTreeDocument rejects', () => {
   it('people without an id or name', () => {
     const doc = json()
     const [id] = Object.keys(doc.graph.people)
-    delete doc.graph.people[id].givenName
+    delete doc.graph.people[id].names
     rejects(doc, /missing their id or name/)
+
+    const noNames = json()
+    noNames.graph.people[noNames.graph.managerId].names = []
+    rejects(noNames, /missing their id or name/)
+
+    const blank = json()
+    blank.graph.people[blank.graph.managerId].names[0].given = ' '
+    rejects(blank, /missing their id or name/)
   })
 
   it('invalid person fields', () => {
@@ -101,7 +147,20 @@ describe('parseTreeDocument rejects', () => {
     }
     rejects(withPerson({ gender: 'robot' }), /unknown gender/)
     rejects(withPerson({ birthDate: '12/03/1950' }), /date isn’t valid/)
-    rejects(withPerson({ familyName: 42 }), /isn’t text/)
+  })
+
+  it('malformed names', () => {
+    const withName = (name: object) => {
+      const doc = json()
+      doc.graph.people[doc.graph.managerId].names.push(name)
+      return doc
+    }
+    rejects(withName({ surnames: ['Smith'] }), /name is malformed/)
+    rejects(withName({ given: 'Ann', surnames: 'Smith' }), /name is malformed/)
+    rejects(withName({ given: 'Ann', surnames: [42] }), /name is malformed/)
+    rejects(withName({ given: 'Ann', type: 'title' }), /name is malformed/)
+    rejects(withName({ given: 'Ann', forms: [{ script: 'klingon', given: 'x' }] }), /name is malformed/)
+    rejects(withName({ given: 'Ann', from: 'last year' }), /date isn’t valid/)
   })
 
   it('links to people who are not in the tree', () => {

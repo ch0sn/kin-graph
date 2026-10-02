@@ -242,7 +242,7 @@ export function addSibling(
   let next = graph
   if (shared.length === 0) {
     if (sharedParentIds) throw new GraphError(t('graph.siblingNeedsParent'))
-    const placeholder = addPerson(graph, { givenName: 'Unknown', isPlaceholder: true })
+    const placeholder = addPerson(graph, { names: [{ given: 'Unknown' }], isPlaceholder: true })
     next = linkParent(placeholder.graph, placeholder.person.id, personId)
     shared.push(placeholder.person.id)
   }

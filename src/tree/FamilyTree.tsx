@@ -26,6 +26,7 @@ import { FamilyEdge } from './edges'
 import { PersonNode, UnionNode } from './nodes'
 import type { ThemePattern } from '../theme/themes'
 import type { SiblingOrder } from './siblingOrder'
+import type { NameOrder } from '../model'
 
 const PATTERNS = {
   dots: BackgroundVariant.Dots,
@@ -44,6 +45,8 @@ const SELECTED_VIEWPORT_Y = 0.28
 interface FamilyTreeProps {
   graph: FamilyGraph
   siblingOrder: SiblingOrder
+  /** Only used to redraw names when it changes; see `setPreferredNameOrder`. */
+  nameOrder: NameOrder
   /** Background pattern of the current theme. */
   pattern: ThemePattern
   /** Colours card borders by gender. */
@@ -64,6 +67,7 @@ export function FamilyTree(props: FamilyTreeProps) {
 function FamilyTreeCanvas({
   graph,
   siblingOrder,
+  nameOrder,
   pattern,
   highlightGender,
   onToggleHighlightGender,
@@ -108,7 +112,7 @@ function FamilyTreeCanvas({
       cancelled = true
       tween?.stop()
     }
-  }, [graph, siblingOrder, reduceMotion, language])
+  }, [graph, siblingOrder, reduceMotion, language, nameOrder])
 
   const nodes = useMemo(
     () => shownNodes.map((n) => ({ ...n, selected: n.id === selectedId })),

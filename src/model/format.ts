@@ -1,5 +1,13 @@
 import { currentLanguage, t } from '../i18n'
-import type { FamilyGraph, FuzzyDate, Person } from './types'
+import type {
+  FamilyGraph,
+  FuzzyDate,
+  NameForm,
+  NameOrder,
+  NameParts,
+  Person,
+  PersonName,
+} from './types'
 
 const FUZZY_DATE = /^\d{4}(-(0[1-9]|1[0-2])(-(0[1-9]|[12]\d|3[01]))?)?$/
 
@@ -8,15 +16,99 @@ export function isFuzzyDate(text: string): text is FuzzyDate {
   return FUZZY_DATE.test(text)
 }
 
-export function fullName(person: Person): string {
-  return [person.givenName, person.familyName].filter(Boolean).join(' ')
+/** A one-part name, as most people are entered: "Mary" or "Mary Smith". */
+export function simpleName(given: string, surname?: string): PersonName {
+  return surname ? { given, surnames: [surname] } : { given }
 }
 
-export function initials(person: Pick<Person, 'givenName' | 'familyName'>): string {
-  return [person.givenName, person.familyName]
-    .map((name) => name?.trim().charAt(0) ?? '')
+/** The name shown for a person: the first of their names. */
+export function displayName(person: Pick<Person, 'names'>): PersonName {
+  return person.names[0]
+}
+
+export function fullName(person: Pick<Person, 'names'>): string {
+  return formatName(displayName(person))
+}
+
+/** Hangul, Chinese characters and kana, which are written without spaces between name parts. */
+const CJK = /^[\p{Script=Hangul}\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}]+$/u
+
+function isCjk(parts: NameParts): boolean {
+  const words = [parts.given, ...(parts.surnames ?? []), parts.patronymic ?? '']
+  const text = words.join('').replace(/\s/g, '')
+  return text !== '' && CJK.test(text)
+}
+
+/**
+ * How names in other scripts are written, from the settings. The app keeps
+ * it in step with what is rendered, as it does the language.
+ */
+let preferredOrder: NameOrder = 'given-first'
+
+export function setPreferredNameOrder(order: NameOrder): void {
+  preferredOrder = order
+}
+
+/**
+ * Whether a name is written family name first. Names in Korean, Chinese or
+ * Japanese script always are (김민준); others follow the settings.
+ */
+export function nameOrder(name: NameParts): NameOrder {
+  return isCjk(name) ? 'family-first' : preferredOrder
+}
+
+/** The parts of a name in written order, skipping empty ones. */
+function orderedParts(name: NameParts, order: NameOrder): string[] {
+  const surnames = name.surnames ?? []
+  const parts =
+    order === 'family-first'
+      ? [...surnames, name.given, name.patronymic]
+      : [name.given, name.patronymic, ...surnames]
+  return parts.map((part) => part?.trim() ?? '').filter(Boolean)
+}
+
+/**
+ * A name written out: "Mary Ann Smith", "Ana García López", "Björk
+ * Guðmundsdóttir", "김민준". CJK names are written without spaces.
+ */
+export function formatName(name: PersonName | NameForm, order = nameOrder(name)): string {
+  return orderedParts(name, order).join(isCjk(name) ? '' : ' ')
+}
+
+/**
+ * Up to two letters for an avatar, in written order: "MS" for Mary Smith,
+ * "NP" for Nagy Péter. CJK names use the given name instead (민준), as
+ * their first characters alone don't read as initials.
+ */
+export function initials(person: Pick<Person, 'names'>): string {
+  const name = displayName(person)
+  if (isCjk(name)) return [...name.given.replace(/\s/g, '')].slice(0, 2).join('')
+  const family = name.surnames?.find((s) => s.trim()) ?? name.patronymic
+  const given = name.given
+  const pair = nameOrder(name) === 'family-first' ? [family, given] : [given, family]
+  return pair
+    .map((part) => [...(part?.trim() ?? '')][0] ?? '')
     .join('')
     .toUpperCase()
+}
+
+/**
+ * Compares people by name for sorted lists: by surname, then patronymic, then
+ * given name, whatever order the names are written in.
+ */
+export function compareNames(a: Pick<Person, 'names'>, b: Pick<Person, 'names'>): number {
+  const collator = new Intl.Collator(currentLanguage(), { sensitivity: 'base' })
+  const key = (person: Pick<Person, 'names'>) => {
+    const name = displayName(person)
+    return [(name.surnames ?? []).join(' '), name.patronymic ?? '', name.given]
+  }
+  const ka = key(a)
+  const kb = key(b)
+  for (let i = 0; i < ka.length; i++) {
+    const result = collator.compare(ka[i], kb[i])
+    if (result !== 0) return result
+  }
+  return 0
 }
 
 export interface Age {

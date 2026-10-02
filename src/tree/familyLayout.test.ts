@@ -39,15 +39,15 @@ describe('deriveUnions', () => {
     const unions = deriveUnions(graph)
     const unionOf = (id: string) => unions.find((u) => u.childIds.includes(id))!
     const [sara] = unionOf(alex).childIds.filter((id) => id !== alex)
-    const tom = Object.values(graph.people).find((p) => p.givenName === 'Tom')!
+    const tom = Object.values(graph.people).find((p) => p.names[0].given === 'Tom')!
 
-    expect(graph.people[sara].givenName).toBe('Sara')
+    expect(graph.people[sara].names[0].given).toBe('Sara')
     expect(unionOf(tom.id)).not.toBe(unionOf(alex))
   })
 
   it('includes childless partnerships', () => {
-    const graph = createGraph({ givenName: 'Alex' })
-    const { graph: next } = addPartner(graph, graph.managerId, { givenName: 'Emma' })
+    const graph = createGraph({ names: [{ given: 'Alex' }] })
+    const { graph: next } = addPartner(graph, graph.managerId, { names: [{ given: 'Emma' }] })
     expect(deriveUnions(next)).toEqual([
       expect.objectContaining({ childIds: [], partnership: next.partnerships[0] }),
     ])
@@ -108,14 +108,14 @@ describe('layoutFamily', () => {
     // In a fuller tree ELK's crossing minimisation is free to reorder siblings.
     let graph = sampleFamily()
     graph = addChild(graph, graph.managerId, {
-      givenName: 'Ella',
+      names: [{ given: 'Ella' }],
       gender: 'female',
       birthDate: '2023',
     }).graph
     const positions = await personPositions(graph, siblingOrder)
     const leftToRight = childIdsOf(graph, graph.managerId)
       .sort((a, b) => positions.get(a)!.x - positions.get(b)!.x)
-      .map((id) => graph.people[id].givenName)
+      .map((id) => graph.people[id].names[0].given)
     expect(leftToRight).toEqual(expected)
   })
 
@@ -123,17 +123,17 @@ describe('layoutFamily', () => {
     // Alex (male, 1988) and Sara (female, 1991). Alex's wife Emma (1989) has
     // her mother in the tree too, but it's Alex who belongs among his siblings.
     const graph = sampleFamily()
-    const sara = Object.values(graph.people).find((p) => p.givenName === 'Sara')!
+    const sara = Object.values(graph.people).find((p) => p.names[0].given === 'Sara')!
     const positions = await personPositions(graph, 'girls-first')
     expect(positions.get(sara.id)!.x).toBeLessThan(positions.get(graph.managerId)!.x)
   })
 
   it('places a married sibling by their own age, not their partner’s', async () => {
-    const alex = createGraph({ givenName: 'Alex', birthDate: '1990' })
-    let graph = addParent(alex, alex.managerId, { givenName: 'Mum', birthDate: '1960' }).graph
-    const sister = addSibling(graph, alex.managerId, { givenName: 'Bea', birthDate: '1985' })
+    const alex = createGraph({ names: [{ given: 'Alex' }], birthDate: '1990' })
+    let graph = addParent(alex, alex.managerId, { names: [{ given: 'Mum' }], birthDate: '1960' }).graph
+    const sister = addSibling(graph, alex.managerId, { names: [{ given: 'Bea' }], birthDate: '1985' })
     // Alex's much older partner must not pull Alex in front of an older sister.
-    graph = addPartner(sister.graph, alex.managerId, { givenName: 'Sol', birthDate: '1950' }).graph
+    graph = addPartner(sister.graph, alex.managerId, { names: [{ given: 'Sol' }], birthDate: '1950' }).graph
     const positions = await personPositions(graph)
     expect(positions.get(sister.person.id)!.x).toBeLessThan(positions.get(alex.managerId)!.x)
   })
@@ -213,8 +213,8 @@ describe('layoutFamily', () => {
   })
 
   it('hides placeholder parents but keeps their children together', async () => {
-    const graph = createGraph({ givenName: 'Alex' })
-    const { graph: next } = addSibling(graph, graph.managerId, { givenName: 'Sara' })
+    const graph = createGraph({ names: [{ given: 'Alex' }] })
+    const { graph: next } = addSibling(graph, graph.managerId, { names: [{ given: 'Sara' }] })
     const { nodes, edges } = await layoutFamily(next, elk)
 
     expect(nodes.filter((n) => n.type === 'person')).toHaveLength(2)
@@ -223,8 +223,8 @@ describe('layoutFamily', () => {
   })
 
   it('hangs a single parent’s children straight from them', async () => {
-    const graph = createGraph({ givenName: 'Alex' })
-    const { graph: next, person } = addChild(graph, graph.managerId, { givenName: 'Lily' })
+    const graph = createGraph({ names: [{ given: 'Alex' }] })
+    const { graph: next, person } = addChild(graph, graph.managerId, { names: [{ given: 'Lily' }] })
     const { nodes, edges } = await layoutFamily(next, elk)
 
     expect(nodes.some((n) => n.type === 'union')).toBe(false)

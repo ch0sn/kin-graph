@@ -3,16 +3,20 @@ import {
   isFuzzyDate,
   type FamilyGraph,
   type Gender,
+  type NameForm,
+  type NameScript,
+  type NameType,
   type ParentKind,
   type ParentLink,
   type Partnership,
   type PartnershipStatus,
   type Person,
   type PersonId,
+  type PersonName,
 } from '../model'
 
 export const TREE_FORMAT = 'kingraph-tree'
-export const TREE_VERSION = 2
+export const TREE_VERSION = 3
 
 /** How a tree is stored on this device and written to backup files. */
 export interface TreeDocument {
@@ -50,6 +54,24 @@ export function toDocument(
 const MIGRATIONS: Record<number, (doc: Record<string, unknown>) => Record<string, unknown>> = {
   // v2 added optional `deceased` and `photoId` to people and `photos` to backups.
   1: (doc) => ({ ...doc, version: 2 }),
+  // v3 replaced `givenName` and `familyName` with a list of `names`.
+  2: (doc) => ({ ...doc, version: 3, graph: mapPeople(doc.graph, namesFromV2) }),
+}
+
+function mapPeople(graph: unknown, update: (person: Record<string, unknown>) => unknown): unknown {
+  if (!isRecord(graph) || !isRecord(graph.people)) return graph
+  const people = Object.fromEntries(
+    Object.entries(graph.people).map(([id, person]) => [id, isRecord(person) ? update(person) : person]),
+  )
+  return { ...graph, people }
+}
+
+/** Leaves anything unexpected for validation to report. */
+function namesFromV2(person: Record<string, unknown>): Record<string, unknown> {
+  const { givenName, familyName, ...rest } = person
+  if (typeof givenName !== 'string') return person
+  if (familyName !== undefined && typeof familyName !== 'string') return person
+  return { ...rest, names: [familyName ? { given: givenName, surnames: [familyName] } : { given: givenName }] }
 }
 
 /**
@@ -109,6 +131,8 @@ function parsePhotos(raw: unknown): Map<string, Blob> {
 // --- Validation ---------------------------------------------------------------
 
 const GENDERS: readonly Gender[] = ['female', 'male', 'other']
+const NAME_TYPES: readonly NameType[] = ['birth', 'married', 'nickname', 'alias', 'religious', 'other']
+const NAME_SCRIPTS: readonly NameScript[] = ['hanja', 'romanized', 'other']
 const PARENT_KINDS: readonly ParentKind[] = ['biological', 'adoptive', 'foster']
 const STATUSES: readonly PartnershipStatus[] = [
   'married',
@@ -170,34 +194,67 @@ function parseGraph(raw: unknown): FamilyGraph {
 }
 
 function parsePerson(key: string, value: unknown): Person {
-  if (!isRecord(value) || value.id !== key || typeof value.givenName !== 'string') {
+  if (!isRecord(value) || value.id !== key || !Array.isArray(value.names) || value.names.length === 0) {
     throw damaged(t('d.personMissing'))
   }
-  if (value.familyName !== undefined && typeof value.familyName !== 'string') {
-    throw damaged(t('d.lastName', { name: value.givenName }))
-  }
+  const [first, ...others] = value.names.map(parseName)
+  if (!first.given.trim()) throw damaged(t('d.personMissing'))
+  const name = first.given
   for (const flag of ['isPlaceholder', 'deceased'] as const) {
     if (value[flag] !== undefined && typeof value[flag] !== 'boolean') {
-      throw damaged(t('d.flag', { name: value.givenName, flag }))
+      throw damaged(t('d.flag', { name, flag }))
     }
   }
   if (value.photoId !== undefined && typeof value.photoId !== 'string') {
-    throw damaged(t('d.photoRef', { name: value.givenName }))
+    throw damaged(t('d.photoRef', { name }))
   }
   return {
     id: key,
-    givenName: value.givenName,
-    familyName: value.familyName,
+    names: [first, ...others],
     gender:
-      value.gender === undefined
-        ? undefined
-        : oneOf(value.gender, GENDERS, t('d.gender', { name: value.givenName })),
+      value.gender === undefined ? undefined : oneOf(value.gender, GENDERS, t('d.gender', { name })),
     birthDate: optionalDate(value.birthDate),
     deathDate: optionalDate(value.deathDate),
     deceased: value.deceased === true || undefined,
     photoId: value.photoId,
     isPlaceholder: value.isPlaceholder === true || undefined,
   }
+}
+
+function parseName(raw: unknown): PersonName {
+  if (!isRecord(raw)) throw damaged(t('d.name'))
+  return {
+    ...parseNameParts(raw),
+    type: optionalOneOf(raw.type, NAME_TYPES),
+    from: optionalDate(raw.from),
+    to: optionalDate(raw.to),
+    forms: raw.forms === undefined ? undefined : parseForms(raw.forms),
+  }
+}
+
+function parseForms(raw: unknown): NameForm[] {
+  if (!Array.isArray(raw)) throw damaged(t('d.name'))
+  return raw.map((form) => {
+    if (!isRecord(form)) throw damaged(t('d.name'))
+    return { ...parseNameParts(form), script: oneOf(form.script, NAME_SCRIPTS, t('d.name')) }
+  })
+}
+
+function parseNameParts(raw: Record<string, unknown>) {
+  const { given, surnames, patronymic } = raw
+  const isText = (v: unknown): v is string => typeof v === 'string'
+  if (
+    !isText(given) ||
+    (surnames !== undefined && !(Array.isArray(surnames) && surnames.every(isText))) ||
+    (patronymic !== undefined && !isText(patronymic))
+  ) {
+    throw damaged(t('d.name'))
+  }
+  return { given, surnames, patronymic }
+}
+
+function optionalOneOf<T extends string>(value: unknown, allowed: readonly T[]): T | undefined {
+  return value === undefined ? undefined : oneOf(value, allowed, t('d.name'))
 }
 
 function checkParentLinks(links: ParentLink[]) {

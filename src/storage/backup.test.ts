@@ -13,10 +13,10 @@ describe('backupFileName', () => {
 
   it('simplifies accents and symbols, and copes with no usable name', () => {
     const date = new Date(2026, 0, 5)
-    expect(backupFileName(createGraph({ givenName: 'Zoë', familyName: "O'Brien" }), date)).toBe(
+    expect(backupFileName(createGraph({ names: [{ given: 'Zoë', surnames: ["O'Brien"] }] }), date)).toBe(
       'kingraph-zoe-o-brien-2026-01-05.json',
     )
-    expect(backupFileName(createGraph({ givenName: '李' }), date)).toBe(
+    expect(backupFileName(createGraph({ names: [{ given: '李' }] }), date)).toBe(
       'kingraph-2026-01-05.json',
     )
   })

@@ -5,7 +5,7 @@ import { HeaderActions } from './app/HeaderActions'
 import { SettingsDialog } from './app/SettingsDialog'
 import { useAppearance } from './app/theme'
 import { DEFAULT_LANGUAGE, LanguageProvider } from './i18n'
-import type { FamilyGraph, PersonId } from './model'
+import { setPreferredNameOrder, type FamilyGraph, type PersonId } from './model'
 import { DamagedTree } from './onboarding/DamagedTree'
 import { Onboarding } from './onboarding/Onboarding'
 import { Welcome } from './onboarding/Welcome'
@@ -27,6 +27,8 @@ function App() {
   useAppearance(settings?.colorMode ?? null, settings?.theme ?? null)
   const [replayingIntro, setReplayingIntro] = useState(false)
   const { tree } = stored
+  // Assigned during render, like the language, so names are written the same everywhere.
+  setPreferredNameOrder(settings?.nameOrder ?? 'given-first')
 
   let screen
   if (tree.status === 'loading' || onboarded === null || settings === null) {
@@ -111,6 +113,7 @@ function TreeScreen({
             key={graph.managerId}
             graph={graph}
             siblingOrder={settings.siblingOrder}
+            nameOrder={settings.nameOrder}
             pattern={themeInfo(settings.theme).pattern}
             highlightGender={settings.highlightGender}
             onToggleHighlightGender={() =>
