@@ -153,34 +153,31 @@ export function PersonForm({
             </span>
           )}
         </button>
-        <div className="flex min-w-0 flex-col items-start gap-1">
-          <div className="-ml-3 flex flex-wrap gap-1">
-            {newPhoto && (
-              <Button
-                variant="ghost"
-                className="px-3 py-1.5"
-                onClick={() => setCropping({ source: newPhoto.source, crop: newPhoto.crop })}
-              >
-                Adjust
-              </Button>
-            )}
-            <Button variant="ghost" className="px-3 py-1.5" onClick={() => fileInput.current?.click()}>
-              {hasPhoto ? 'Change' : 'Add a photo'}
-            </Button>
+        {(hasPhoto || photoError) && (
+          <div className="flex min-w-0 flex-col items-start gap-1">
             {hasPhoto && (
-              <Button
-                variant="ghost"
-                className="px-3 py-1.5 text-red-700 hover:bg-red-50 hover:text-red-800"
-                onClick={removePhoto}
-              >
-                Remove
-              </Button>
+              <div className="-ml-3 flex flex-wrap gap-1">
+                {newPhoto && (
+                  <Button
+                    variant="ghost"
+                    className="px-3 py-1.5"
+                    onClick={() => setCropping({ source: newPhoto.source, crop: newPhoto.crop })}
+                  >
+                    Adjust
+                  </Button>
+                )}
+                <Button
+                  variant="ghost"
+                  className="px-3 py-1.5 text-red-700 hover:bg-red-50 hover:text-red-800"
+                  onClick={removePhoto}
+                >
+                  Remove
+                </Button>
+              </div>
             )}
+            {photoError && <p className="text-xs text-red-700">{photoError}</p>}
           </div>
-          <p className={`text-xs ${photoError ? 'text-red-700' : 'text-stone-500'}`}>
-            {photoError ?? 'Optional — helps you recognise them at a glance.'}
-          </p>
-        </div>
+        )}
         <input
           ref={fileInput}
           type="file"
@@ -227,6 +224,8 @@ export function PersonForm({
         </Field>
       </div>
 
+      <GenderPicker value={values.gender} onChange={(gender) => update('gender', gender)} />
+
       <DateField
         label="Born"
         value={values.birthDate}
@@ -263,8 +262,6 @@ export function PersonForm({
           )}
         </AnimatePresence>
       </div>
-
-      <GenderPicker value={values.gender} onChange={(gender) => update('gender', gender)} />
 
       {children}
       {error && (
