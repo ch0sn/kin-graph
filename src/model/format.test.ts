@@ -124,6 +124,12 @@ describe('formatName', () => {
     expect(formatName({ given: '花子', surnames: ['山田'] })).toBe('山田花子')
   })
 
+  it('writes names mixing scripts like other names, with spaces', () => {
+    expect(formatName({ given: 'Minjun', surnames: ['김'] })).toBe('Minjun 김')
+    expect(formatName({ given: '민준', surnames: ['Kim'] })).toBe('민준 Kim')
+    expect(initials({ names: [{ given: 'Minjun', surnames: ['김'] }] })).toBe('M김')
+  })
+
   it('ignores blank parts', () => {
     expect(formatName({ given: 'Ann', surnames: [' ', 'Lee'], patronymic: '' })).toBe('Ann Lee')
   })
