@@ -12,6 +12,7 @@ import { Mars, Venus } from 'lucide-react'
 import { animate, useReducedMotion, type AnimationPlaybackControls } from 'motion/react'
 import { useCallback, useEffect, useMemo, useRef, useState, type ComponentProps } from 'react'
 import type { FamilyGraph, PersonId } from '../model'
+import { useT } from '../i18n'
 import { elk } from './elk'
 import {
   layoutFamily,
@@ -69,6 +70,7 @@ function FamilyTreeCanvas({
   selectedId,
   onSelect,
 }: FamilyTreeProps) {
+  const { t, language } = useT()
   const display = useMemo(() => ({ highlightGender }), [highlightGender])
   /** The latest layout, i.e. where everything is heading. */
   const [layout, setLayout] = useState<FamilyLayout | null>(null)
@@ -106,7 +108,7 @@ function FamilyTreeCanvas({
       cancelled = true
       tween?.stop()
     }
-  }, [graph, siblingOrder, reduceMotion])
+  }, [graph, siblingOrder, reduceMotion, language])
 
   const nodes = useMemo(
     () => shownNodes.map((n) => ({ ...n, selected: n.id === selectedId })),
@@ -168,9 +170,9 @@ function FamilyTreeCanvas({
         <Panel position="bottom-right" className="flex gap-2">
           <button
             type="button"
-            aria-label="Highlight male and female"
+            aria-label={t('tree.highlight')}
             aria-pressed={highlightGender}
-            title={highlightGender ? 'Hide male and female colours' : 'Highlight male and female'}
+            title={highlightGender ? t('tree.highlightOff') : t('tree.highlight')}
             onClick={onToggleHighlightGender}
             className={[
               'flex items-center gap-0.5 rounded-full border px-3 py-2 shadow-sm backdrop-blur transition active:scale-95',
@@ -189,9 +191,9 @@ function FamilyTreeCanvas({
             />
           </button>
           <ToolbarButton onClick={() => fitView({ padding: 0.15, duration: 600 })}>
-            Whole tree
+            {t('tree.whole')}
           </ToolbarButton>
-          <ToolbarButton onClick={() => centerOn(graph.managerId)}>Focus on you</ToolbarButton>
+          <ToolbarButton onClick={() => centerOn(graph.managerId)}>{t('tree.focus')}</ToolbarButton>
         </Panel>
       </ReactFlow>
     </TreeDisplayContext.Provider>

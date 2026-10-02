@@ -1,34 +1,18 @@
-import { ShieldCheck, Sprout, UserPlus, type LucideIcon } from 'lucide-react'
+import { ShieldCheck, Sprout, UserPlus } from 'lucide-react'
 import { AnimatePresence, motion } from 'motion/react'
 import { useState } from 'react'
+import { useT } from '../i18n'
 import { Button } from '../ui/fields'
 
-interface Step {
-  icon: LucideIcon
-  title: string
-  body: string
-}
-
-const STEPS: Step[] = [
-  {
-    icon: Sprout,
-    title: 'You’re at the centre',
-    body: 'Your tree grows outward from you. Everyone is labelled by how they’re related to you — mother, cousin, stepbrother, mother-in-law.',
-  },
-  {
-    icon: UserPlus,
-    title: 'Tap anyone to grow your family',
-    body: 'Add parents, partners, siblings and children from anyone in the tree. KinGraph links siblings to their parents and works out step-family and in-laws for you.',
-  },
-  {
-    icon: ShieldCheck,
-    title: 'Private by design',
-    body: 'Your tree is saved on this device only — nothing is uploaded. Export a backup from the menu now and then so it’s never lost.',
-  },
-]
+const STEPS = [
+  { icon: Sprout, title: 'onboarding.step1.title', body: 'onboarding.step1.body' },
+  { icon: UserPlus, title: 'onboarding.step2.title', body: 'onboarding.step2.body' },
+  { icon: ShieldCheck, title: 'onboarding.step3.title', body: 'onboarding.step3.body' },
+] as const
 
 /** A short introduction shown the first time KinGraph is opened. */
 export function Onboarding({ onDone }: { onDone: () => void }) {
+  const { t } = useT()
   const [index, setIndex] = useState(0)
   const step = STEPS[index]
   const isLast = index === STEPS.length - 1
@@ -40,7 +24,7 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
         <span className="font-serif text-xl tracking-tight">KinGraph</span>
         {/* Hidden rather than removed on the last step so the header doesn't shift. */}
         <Button variant="ghost" onClick={onDone} className={isLast ? 'invisible' : ''}>
-          Skip
+          {t('common.skip')}
         </Button>
       </header>
 
@@ -59,15 +43,15 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
               <Icon className="size-12" strokeWidth={1.5} aria-hidden />
             </div>
             <h1 className="font-serif text-3xl leading-tight text-balance text-stone-900">
-              {step.title}
+              {t(step.title)}
             </h1>
-            <p className="mt-4 text-base leading-relaxed text-pretty text-stone-600">{step.body}</p>
+            <p className="mt-4 text-base leading-relaxed text-pretty text-stone-600">{t(step.body)}</p>
           </motion.section>
         </AnimatePresence>
       </main>
 
       <footer className="mx-auto flex w-full max-w-md flex-col items-center gap-6 pb-[max(2rem,env(safe-area-inset-bottom))]">
-        <div className="flex gap-2" aria-label={`Step ${index + 1} of ${STEPS.length}`} role="img">
+        <div className="flex gap-2" aria-label={t('onboarding.stepOf', { step: index + 1, total: STEPS.length })} role="img">
           {STEPS.map((_, i) => (
             <span
               key={i}
@@ -81,7 +65,7 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
         <div className="flex w-full gap-2">
           {index > 0 && (
             <Button className="flex-1" onClick={() => setIndex(index - 1)}>
-              Back
+              {t('common.back')}
             </Button>
           )}
           <Button
@@ -89,7 +73,7 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
             className="flex-1"
             onClick={() => (isLast ? onDone() : setIndex(index + 1))}
           >
-            {isLast ? 'Get started' : 'Next'}
+            {isLast ? t('onboarding.start') : t('common.next')}
           </Button>
         </div>
       </footer>

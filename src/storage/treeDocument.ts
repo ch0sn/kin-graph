@@ -1,3 +1,4 @@
+import { t } from '../i18n'
 import {
   isFuzzyDate,
   type FamilyGraph,
@@ -72,16 +73,14 @@ export function parseBackup(data: unknown): Backup {
 
 function migrate(data: unknown): Record<string, unknown> {
   if (!isRecord(data) || data.format !== TREE_FORMAT) {
-    throw new TreeFileError('This isn’t a KinGraph family tree file.')
+    throw new TreeFileError(t('file.notKingraph'))
   }
   const { version } = data
   if (typeof version !== 'number' || !Number.isInteger(version) || version < 1) {
-    throw new TreeFileError('This file has an unrecognised version.')
+    throw new TreeFileError(t('file.badVersion'))
   }
   if (version > TREE_VERSION) {
-    throw new TreeFileError(
-      'This file was made by a newer version of KinGraph. Update the app to open it.',
-    )
+    throw new TreeFileError(t('file.newer'))
   }
 
   let doc = data
@@ -96,12 +95,12 @@ const PHOTO_DATA_URL = /^data:(image\/(?:jpeg|png|webp));base64,([A-Za-z0-9+/]+=
 function parsePhotos(raw: unknown): Map<string, Blob> {
   const photos = new Map<string, Blob>()
   if (raw === undefined) return photos
-  if (!isRecord(raw)) throw damaged('its photos are malformed.')
+  if (!isRecord(raw)) throw damaged(t('d.photosMalformed'))
   for (const [id, dataUrl] of Object.entries(raw)) {
     const match = typeof dataUrl === 'string' ? PHOTO_DATA_URL.exec(dataUrl) : null
-    if (!match) throw damaged('a photo isn’t a supported image.')
+    if (!match) throw damaged(t('d.photoUnsupported'))
     const [, type, base64] = match
-    if ((base64.length * 3) / 4 > MAX_PHOTO_BYTES) throw damaged('a photo is too large.')
+    if ((base64.length * 3) / 4 > MAX_PHOTO_BYTES) throw damaged(t('d.photoLarge'))
     photos.set(id, new Blob([Uint8Array.from(atob(base64), (c) => c.charCodeAt(0))], { type }))
   }
   return photos
@@ -120,11 +119,11 @@ const STATUSES: readonly PartnershipStatus[] = [
 ]
 
 function damaged(detail: string): TreeFileError {
-  return new TreeFileError(`This family tree is damaged: ${detail}`)
+  return new TreeFileError(t('file.damaged', { detail }))
 }
 
 function parseGraph(raw: unknown): FamilyGraph {
-  if (!isRecord(raw) || !isRecord(raw.people)) throw damaged('it has no people.')
+  if (!isRecord(raw) || !isRecord(raw.people)) throw damaged(t('d.noPeople'))
 
   const people: Record<PersonId, Person> = {}
   for (const [key, value] of Object.entries(raw.people)) {
@@ -133,33 +132,33 @@ function parseGraph(raw: unknown): FamilyGraph {
 
   const { managerId } = raw
   if (typeof managerId !== 'string' || !people[managerId] || people[managerId].isPlaceholder) {
-    throw damaged('it doesn’t say whose tree it is.')
+    throw damaged(t('d.noManager'))
   }
 
   const exists = (id: unknown): id is PersonId => typeof id === 'string' && id in people
-  const parentLinks = parseList(raw.parentLinks, 'parent links', (link): ParentLink => {
+  const parentLinks = parseList(raw.parentLinks, t('d.parentLinks'), (link): ParentLink => {
     if (!isRecord(link) || !exists(link.parentId) || !exists(link.childId)) {
-      throw damaged('a parent link refers to someone who isn’t in the tree.')
+      throw damaged(t('d.linkMissing'))
     }
-    if (link.parentId === link.childId) throw damaged('someone is listed as their own parent.')
+    if (link.parentId === link.childId) throw damaged(t('d.ownParent'))
     return {
       parentId: link.parentId,
       childId: link.childId,
-      kind: oneOf(link.kind, PARENT_KINDS, 'a parent link has an unknown kind.'),
+      kind: oneOf(link.kind, PARENT_KINDS, t('d.kind')),
     }
   })
-  const partnerships = parseList(raw.partnerships, 'partnerships', (p): Partnership => {
+  const partnerships = parseList(raw.partnerships, t('d.partnerships'), (p): Partnership => {
     if (!isRecord(p) || typeof p.id !== 'string' || !Array.isArray(p.partnerIds)) {
-      throw damaged('a partnership is malformed.')
+      throw damaged(t('d.partnershipMalformed'))
     }
     const [a, b] = p.partnerIds
     if (p.partnerIds.length !== 2 || !exists(a) || !exists(b) || a === b) {
-      throw damaged('a partnership refers to someone who isn’t in the tree.')
+      throw damaged(t('d.partnershipMissing'))
     }
     return {
       id: p.id,
       partnerIds: [a, b],
-      status: oneOf(p.status, STATUSES, 'a partnership has an unknown status.'),
+      status: oneOf(p.status, STATUSES, t('d.status')),
       startDate: optionalDate(p.startDate),
       endDate: optionalDate(p.endDate),
     }
@@ -172,18 +171,18 @@ function parseGraph(raw: unknown): FamilyGraph {
 
 function parsePerson(key: string, value: unknown): Person {
   if (!isRecord(value) || value.id !== key || typeof value.givenName !== 'string') {
-    throw damaged('a person is missing their id or name.')
+    throw damaged(t('d.personMissing'))
   }
   if (value.familyName !== undefined && typeof value.familyName !== 'string') {
-    throw damaged(`${value.givenName}’s last name isn’t text.`)
+    throw damaged(t('d.lastName', { name: value.givenName }))
   }
   for (const flag of ['isPlaceholder', 'deceased'] as const) {
     if (value[flag] !== undefined && typeof value[flag] !== 'boolean') {
-      throw damaged(`${value.givenName} has an invalid ${flag} flag.`)
+      throw damaged(t('d.flag', { name: value.givenName, flag }))
     }
   }
   if (value.photoId !== undefined && typeof value.photoId !== 'string') {
-    throw damaged(`${value.givenName}’s photo reference is invalid.`)
+    throw damaged(t('d.photoRef', { name: value.givenName }))
   }
   return {
     id: key,
@@ -192,7 +191,7 @@ function parsePerson(key: string, value: unknown): Person {
     gender:
       value.gender === undefined
         ? undefined
-        : oneOf(value.gender, GENDERS, `${value.givenName} has an unknown gender value.`),
+        : oneOf(value.gender, GENDERS, t('d.gender', { name: value.givenName })),
     birthDate: optionalDate(value.birthDate),
     deathDate: optionalDate(value.deathDate),
     deceased: value.deceased === true || undefined,
@@ -206,11 +205,11 @@ function checkParentLinks(links: ParentLink[]) {
   const biological = new Map<PersonId, number>()
   for (const { parentId, childId, kind } of links) {
     const key = `${parentId}>${childId}`
-    if (seen.has(key)) throw damaged('a parent link appears twice.')
+    if (seen.has(key)) throw damaged(t('d.linkTwice'))
     seen.add(key)
     if (kind === 'biological') {
       const count = (biological.get(childId) ?? 0) + 1
-      if (count > 2) throw damaged('someone has more than two biological parents.')
+      if (count > 2) throw damaged(t('d.threeParents'))
       biological.set(childId, count)
     }
   }
@@ -224,7 +223,7 @@ function checkParentLinks(links: ParentLink[]) {
   const visiting = new Set<PersonId>()
   const visit = (id: PersonId) => {
     if (done.has(id)) return
-    if (visiting.has(id)) throw damaged('someone is listed as their own ancestor.')
+    if (visiting.has(id)) throw damaged(t('d.ancestorLoop'))
     visiting.add(id)
     for (const parentId of parentsOf.get(id) ?? []) visit(parentId)
     visiting.delete(id)
@@ -238,14 +237,14 @@ function checkPartnerships(partnerships: Partnership[]) {
   const pairs = new Set<string>()
   for (const { id, partnerIds } of partnerships) {
     const pair = [...partnerIds].sort().join('+')
-    if (ids.has(id) || pairs.has(pair)) throw damaged('a partnership appears twice.')
+    if (ids.has(id) || pairs.has(pair)) throw damaged(t('d.partnershipTwice'))
     ids.add(id)
     pairs.add(pair)
   }
 }
 
 function parseList<T>(raw: unknown, what: string, parse: (item: unknown) => T): T[] {
-  if (!Array.isArray(raw)) throw damaged(`its ${what} are missing.`)
+  if (!Array.isArray(raw)) throw damaged(t('d.listMissing', { what }))
   return raw.map(parse)
 }
 
@@ -256,7 +255,7 @@ function oneOf<T extends string>(value: unknown, allowed: readonly T[], message:
 
 function optionalDate(value: unknown): string | undefined {
   if (value === undefined) return undefined
-  if (typeof value !== 'string' || !isFuzzyDate(value)) throw damaged('a date isn’t valid.')
+  if (typeof value !== 'string' || !isFuzzyDate(value)) throw damaged(t('d.date'))
   return value
 }
 

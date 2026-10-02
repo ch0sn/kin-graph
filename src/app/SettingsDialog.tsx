@@ -9,9 +9,10 @@ import {
 } from 'lucide-react'
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import type { ColorMode, Settings } from '../storage/settings'
-import { THEMES, themeInfo, type ThemeId } from '../theme/themes'
+import { THEMES, type ThemeId } from '../theme/themes'
 import { DEFAULT_SIBLING_ORDER, type SiblingOrder } from '../tree/siblingOrder'
 import { fullName, peopleCount, type FamilyGraph } from '../model'
+import { LANGUAGES, useT, type Language, type MessageKey } from '../i18n'
 import { useBackupPicker } from '../storage/useBackupPicker'
 import { ConfirmDialog } from '../ui/ConfirmDialog'
 import { Button } from '../ui/fields'
@@ -61,18 +62,19 @@ function HelpLabel({
   id,
 }: {
   label: ReactNode
-  /** What the icon explains, for screen readers: "About <about>". */
+  /** What the icon explains, for screen readers: "About <about>". Already translated. */
   about: string
   help: string
   id: string
 }) {
+  const { t } = useT()
   return (
     <div className="relative flex items-center gap-1.5">
       {label}
       <span className="group flex">
         <button
           type="button"
-          aria-label={`About ${about}`}
+          aria-label={t('settings.about', { topic: about })}
           aria-describedby={id}
           className="rounded-full text-stone-400 transition hover:text-stone-700 focus-visible:text-stone-700 focus-visible:ring-4 focus-visible:ring-stone-200 focus-visible:outline-none"
         >
@@ -90,29 +92,17 @@ function HelpLabel({
   )
 }
 
-const SIBLING_OPTIONS: { value: SiblingOrder; label: string }[] = [
-  {
-    value: 'oldest-first',
-    label: 'Oldest to youngest',
-  },
-  {
-    value: 'youngest-first',
-    label: 'Youngest to oldest',
-  },
-  {
-    value: 'boys-first',
-    label: 'Boys first',
-  },
-  {
-    value: 'girls-first',
-    label: 'Girls first',
-  },
+const SIBLING_OPTIONS: { value: SiblingOrder; label: MessageKey }[] = [
+  { value: 'oldest-first', label: 'siblingOrder.oldest' },
+  { value: 'youngest-first', label: 'siblingOrder.youngest' },
+  { value: 'boys-first', label: 'siblingOrder.boys' },
+  { value: 'girls-first', label: 'siblingOrder.girls' },
 ]
 
-const COLOR_MODE_OPTIONS: { value: ColorMode; label: string; icon: LucideIcon }[] = [
-  { value: 'system', label: 'System', icon: Monitor },
-  { value: 'light', label: 'Light', icon: Sun },
-  { value: 'dark', label: 'Dark', icon: Moon },
+const COLOR_MODE_OPTIONS: { value: ColorMode; label: MessageKey; icon: LucideIcon }[] = [
+  { value: 'system', label: 'colorMode.system', icon: Monitor },
+  { value: 'light', label: 'colorMode.light', icon: Sun },
+  { value: 'dark', label: 'colorMode.dark', icon: Moon },
 ]
 
 interface SettingsDialogProps {
@@ -134,6 +124,7 @@ export function SettingsDialog({
   onChange,
   onClose,
 }: SettingsDialogProps) {
+  const { t } = useT()
   const ref = useRef<HTMLDialogElement>(null)
   /** A tree chosen from a backup file, waiting for the person to confirm replacing theirs. */
   const [imported, setImported] = useState<FamilyGraph | null>(null)
@@ -162,17 +153,17 @@ export function SettingsDialog({
     >
       <div className="flex max-h-[85dvh] flex-col gap-6 overflow-y-auto p-6">
         <h2 id="settings-title" className="font-serif text-2xl leading-tight">
-          Settings
+          {t('settings.title')}
         </h2>
 
         <fieldset className="flex flex-col gap-2.5" aria-labelledby="appearance-label">
           <HelpLabel
             id="appearance-help"
-            about="appearance"
-            help="System follows your phone or computer’s light or dark setting."
+            about={t('settings.appearance')}
+            help={t('settings.appearanceHelp')}
             label={
               <span id="appearance-label" className="text-sm font-semibold text-stone-900">
-                Appearance
+                {t('settings.appearance')}
               </span>
             }
           />
@@ -198,7 +189,7 @@ export function SettingsDialog({
                     onChange={() => onChange({ colorMode: value })}
                   />
                   <Icon className="size-5" aria-hidden />
-                  {label}
+                  {t(label)}
                 </label>
               )
             })}
@@ -206,17 +197,17 @@ export function SettingsDialog({
         </fieldset>
 
         <div className="flex flex-col gap-2.5">
-          <label htmlFor="theme-select" className="text-sm font-semibold text-stone-900">
-            Theme
+          <label htmlFor="language-select" className="text-sm font-semibold text-stone-900">
+            {t('settings.language')}
           </label>
           <div className="relative">
             <select
-              id="theme-select"
-              value={settings.theme}
-              onChange={(e) => onChange({ theme: e.target.value as ThemeId })}
+              id="language-select"
+              value={settings.language}
+              onChange={(e) => onChange({ language: e.target.value as Language })}
               className="w-full appearance-none rounded-xl border border-stone-200 bg-white py-2.5 pr-10 pl-3 text-base text-stone-900 outline-none transition focus:border-stone-500 focus:ring-4 focus:ring-stone-200"
             >
-              {THEMES.map(({ id, name }) => (
+              {LANGUAGES.map(({ id, name }) => (
                 <option key={id} value={id}>
                   {name}
                 </option>
@@ -227,18 +218,42 @@ export function SettingsDialog({
               aria-hidden
             />
           </div>
+        </div>
+
+        <div className="flex flex-col gap-2.5">
+          <label htmlFor="theme-select" className="text-sm font-semibold text-stone-900">
+            {t('settings.theme')}
+          </label>
+          <div className="relative">
+            <select
+              id="theme-select"
+              value={settings.theme}
+              onChange={(e) => onChange({ theme: e.target.value as ThemeId })}
+              className="w-full appearance-none rounded-xl border border-stone-200 bg-white py-2.5 pr-10 pl-3 text-base text-stone-900 outline-none transition focus:border-stone-500 focus:ring-4 focus:ring-stone-200"
+            >
+              {THEMES.map(({ id }) => (
+                <option key={id} value={id}>
+                  {t(`theme.${id}.name`)}
+                </option>
+              ))}
+            </select>
+            <ChevronDown
+              className="pointer-events-none absolute top-1/2 right-3 size-4 -translate-y-1/2 text-stone-500"
+              aria-hidden
+            />
+          </div>
           <ThemePreview id={settings.theme} />
-          <p className="text-xs text-stone-500">{themeInfo(settings.theme).blurb}</p>
+          <p className="text-xs text-stone-500">{t(`theme.${settings.theme}.blurb`)}</p>
         </div>
 
         <div className="flex flex-col gap-2.5">
           <HelpLabel
             id="sibling-order-help"
-            about="sibling order"
-            help="How brothers and sisters line up, left to right."
+            about={t('settings.siblingOrder')}
+            help={t('settings.siblingOrderHelp')}
             label={
               <label htmlFor="sibling-order-select" className="text-sm font-semibold text-stone-900">
-                Sibling order
+                {t('settings.siblingOrder')}
               </label>
             }
           />
@@ -251,8 +266,8 @@ export function SettingsDialog({
             >
               {SIBLING_OPTIONS.map(({ value, label }) => (
                 <option key={value} value={value}>
-                  {label}
-                  {value === DEFAULT_SIBLING_ORDER ? ' (default)' : ''}
+                  {t(label)}
+                  {value === DEFAULT_SIBLING_ORDER ? t('settings.default') : ''}
                 </option>
               ))}
             </select>
@@ -266,20 +281,20 @@ export function SettingsDialog({
         <div className="flex flex-col gap-2.5">
           <HelpLabel
             id="import-help"
-            about="importing a backup"
-            help="Replace your tree with one from a KinGraph backup file (.json)."
-            label={<span className="text-sm font-semibold text-stone-900">Backup</span>}
+            about={t('settings.backup')}
+            help={t('settings.backupHelp')}
+            label={<span className="text-sm font-semibold text-stone-900">{t('settings.backup')}</span>}
           />
           <Button onClick={picker.open} className="w-full justify-start">
             <Upload className="size-4 text-stone-500" aria-hidden />
-            Import backup…
+            {t('settings.importButton')}
           </Button>
           {picker.input}
         </div>
 
         <div className="flex justify-end">
           <Button variant="primary" onClick={onClose} autoFocus>
-            Done
+            {t('common.done')}
           </Button>
         </div>
       </div>
@@ -287,9 +302,9 @@ export function SettingsDialog({
 
     <ConfirmDialog
       open={imported !== null}
-      title="Replace your tree?"
-      confirmLabel="Replace tree"
-      cancelLabel="Cancel"
+      title={t('import.replaceTitle')}
+      confirmLabel={t('import.replaceConfirm')}
+      cancelLabel={t('common.cancel')}
       tone="danger"
       onConfirm={() => {
         if (imported) onReplaceTree(imported)
@@ -299,18 +314,18 @@ export function SettingsDialog({
       onCancel={() => setImported(null)}
     >
       {imported && (
-        <>
-          This replaces your current tree ({peopleCount(graph)}) with the imported tree of{' '}
-          {fullName(imported.people[imported.managerId])} ({peopleCount(imported)}). Export a
-          backup first if you might want your current tree back.
-        </>
+        t('import.replaceBody', {
+          current: peopleCount(graph),
+          name: fullName(imported.people[imported.managerId]),
+          imported: peopleCount(imported),
+        })
       )}
     </ConfirmDialog>
 
     <ConfirmDialog
       open={picker.error !== null}
-      title="Couldn’t import that file"
-      confirmLabel="OK"
+      title={t('import.errorTitle')}
+      confirmLabel={t('common.ok')}
       onConfirm={picker.clearError}
       onCancel={picker.clearError}
     >

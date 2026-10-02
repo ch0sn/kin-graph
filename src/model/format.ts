@@ -1,3 +1,4 @@
+import { currentLanguage, t } from '../i18n'
 import type { FamilyGraph, FuzzyDate, Person } from './types'
 
 const FUZZY_DATE = /^\d{4}(-(0[1-9]|1[0-2])(-(0[1-9]|[12]\d|3[01]))?)?$/
@@ -65,7 +66,7 @@ function ageBetween(from: FuzzyDate, to: FuzzyDate): Age | null {
 
 /** "38", "~38" when approximate, "5 mo" for babies, "<1" when only the year is known. */
 export function formatAge(age: Age): string {
-  if (age.months !== undefined) return `${age.months} mo`
+  if (age.months !== undefined) return t('age.months', { n: age.months })
   if (age.years === 0) return '<1'
   return age.approximate ? `~${age.years}` : String(age.years)
 }
@@ -74,7 +75,7 @@ export function formatAge(age: Age): string {
 export function formatFuzzyDate(date: string): string {
   const [year, month, day] = date.split('-').map(Number)
   const value = new Date(year, (month ?? 1) - 1, day ?? 1)
-  return new Intl.DateTimeFormat(undefined, {
+  return new Intl.DateTimeFormat(currentLanguage(), {
     year: 'numeric',
     ...(month !== undefined && { month: 'long' }),
     ...(day !== undefined && { day: 'numeric' }),
@@ -93,13 +94,13 @@ export function lifeYears(person: Person): string | null {
   const born = person.birthDate?.slice(0, 4)
   const died = person.deathDate?.slice(0, 4)
   if (born && died) return `${born} – ${died}`
-  if (born) return isDeceased(person) ? `${born} – ?` : `b. ${born}`
-  if (died) return `d. ${died}`
-  return isDeceased(person) ? 'Deceased' : null
+  if (born) return isDeceased(person) ? `${born} – ?` : t('life.bornShort', { year: born })
+  if (died) return t('life.diedShort', { year: died })
+  return isDeceased(person) ? t('life.deceased') : null
 }
 
 /** "1 person" or "12 people"; placeholder parents don't count. */
 export function peopleCount(graph: FamilyGraph): string {
   const count = Object.values(graph.people).filter((p) => !p.isPlaceholder).length
-  return count === 1 ? '1 person' : `${count} people`
+  return t('people', { count })
 }

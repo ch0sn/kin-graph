@@ -1,3 +1,4 @@
+import { t } from '../i18n'
 import { fullName, type FamilyGraph } from '../model'
 import { loadPhotos } from './photos'
 import { parseBackup, toDocument, TreeFileError, type Backup } from './treeDocument'
@@ -52,7 +53,7 @@ export async function readBackupFile(file: Blob): Promise<Backup> {
   try {
     data = JSON.parse(await file.text())
   } catch {
-    throw new TreeFileError('This isn’t a KinGraph family tree file.')
+    throw new TreeFileError(t('file.notKingraph'))
   }
   return parseBackup(data)
 }

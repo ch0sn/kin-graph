@@ -4,6 +4,7 @@ import { useEffect, useId, useRef, useState, type FormEvent, type ReactNode } fr
 import type { Gender, NewPerson } from '../model'
 import { squareCrop, type Crop } from '../photos/crop'
 import { PhotoCropDialog } from '../photos/PhotoCropDialog'
+import { useT } from '../i18n'
 import { storePhoto } from '../photos/photoCache'
 import {
   loadPhotoSource,
@@ -44,6 +45,7 @@ export function PersonForm({
   onCancel,
   children,
 }: PersonFormProps) {
+  const { t } = useT()
   const [values, setValues] = useState(initial)
   const [errors, setErrors] = useState<PersonErrors>({})
   /** A photo chosen in this form that isn't stored yet; its crop can still change. */
@@ -65,7 +67,7 @@ export function PersonForm({
   }
 
   const showPhotoError = (e: unknown) =>
-    setPhotoError(e instanceof PhotoError ? e.message : 'This image couldn’t be used.')
+    setPhotoError(e instanceof PhotoError ? e.message : t('photo.unusable'))
 
   const choosePhoto = async (file: File) => {
     try {
@@ -113,7 +115,7 @@ export function PersonForm({
       try {
         photoId = await storePhoto(newPhoto.blob)
       } catch {
-        setPhotoError('The photo couldn’t be saved on this device.')
+        setPhotoError(t('photo.storeFailed'))
         return
       } finally {
         setBusy(false)
@@ -133,7 +135,7 @@ export function PersonForm({
         <button
           type="button"
           onClick={() => fileInput.current?.click()}
-          aria-label={hasPhoto ? 'Change photo' : 'Add a photo'}
+          aria-label={hasPhoto ? t('form.changePhoto') : t('form.addPhoto')}
           className="group relative shrink-0 rounded-full focus-visible:ring-4 focus-visible:ring-stone-200 focus-visible:outline-none"
         >
           {hasPhoto ? (
@@ -163,7 +165,7 @@ export function PersonForm({
                     className="px-3 py-1.5"
                     onClick={() => setCropping({ source: newPhoto.source, crop: newPhoto.crop })}
                   >
-                    Adjust
+                    {t('form.adjust')}
                   </Button>
                 )}
                 <Button
@@ -171,7 +173,7 @@ export function PersonForm({
                   className="px-3 py-1.5 text-red-700 hover:bg-red-50 hover:text-red-800"
                   onClick={removePhoto}
                 >
-                  Remove
+                  {t('common.remove')}
                 </Button>
               </div>
             )}
@@ -199,7 +201,7 @@ export function PersonForm({
       </div>
 
       <div className="grid grid-cols-2 gap-3">
-        <Field label="First name" error={errors.givenName}>
+        <Field label={t('form.firstName')} error={errors.givenName}>
           {(id, describedBy) => (
             <TextInput
               id={id}
@@ -212,7 +214,7 @@ export function PersonForm({
             />
           )}
         </Field>
-        <Field label="Last name">
+        <Field label={t('form.lastName')}>
           {(id) => (
             <TextInput
               id={id}
@@ -227,7 +229,7 @@ export function PersonForm({
       <GenderPicker value={values.gender} onChange={(gender) => update('gender', gender)} />
 
       <DateField
-        label="Born"
+        label={t('form.born')}
         value={values.birthDate}
         onChange={(date) => update('birthDate', date)}
         error={errors.birthDate}
@@ -241,7 +243,7 @@ export function PersonForm({
             checked={values.deceased}
             onChange={(e) => update('deceased', e.target.checked)}
           />
-          Deceased
+          {t('form.deceased')}
         </label>
         <AnimatePresence initial={false}>
           {values.deceased && (
@@ -253,7 +255,7 @@ export function PersonForm({
               className="overflow-hidden"
             >
               <DateField
-                label="Died"
+                label={t('form.died')}
                 value={values.deathDate}
                 onChange={(date) => update('deathDate', date)}
                 error={errors.deathDate}
@@ -276,7 +278,7 @@ export function PersonForm({
       <div className="flex justify-end gap-2 pt-1">
         {onCancel && (
           <Button variant="ghost" onClick={onCancel}>
-            Cancel
+            {t('common.cancel')}
           </Button>
         )}
         <Button variant="primary" type="submit" disabled={busy}>
@@ -288,8 +290,8 @@ export function PersonForm({
 }
 
 const GENDER_OPTIONS = [
-  { value: 'female', label: 'Female', Icon: Venus },
-  { value: 'male', label: 'Male', Icon: Mars },
+  { value: 'female', label: 'gender.female', Icon: Venus },
+  { value: 'male', label: 'gender.male', Icon: Mars },
 ] as const
 
 /** Icon toggles; tapping the selected one again clears it. */
@@ -300,11 +302,12 @@ function GenderPicker({
   value: Gender | ''
   onChange: (value: Gender | '') => void
 }) {
+  const { t } = useT()
   const labelId = useId()
   return (
     <div role="group" aria-labelledby={labelId} className="flex flex-col gap-1.5">
       <span id={labelId} className="text-xs font-semibold tracking-wide text-stone-500 uppercase">
-        Gender
+        {t('form.gender')}
       </span>
       <div className="flex gap-2">
         {GENDER_OPTIONS.map(({ value: option, label, Icon }) => {
@@ -313,9 +316,9 @@ function GenderPicker({
             <button
               key={option}
               type="button"
-              aria-label={label}
+              aria-label={t(label)}
               aria-pressed={selected}
-              title={label}
+              title={t(label)}
               onClick={() => onChange(selected ? '' : option)}
               className={[
                 'flex size-11 items-center justify-center rounded-full border transition active:scale-95',

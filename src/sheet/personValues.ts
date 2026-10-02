@@ -1,3 +1,4 @@
+import { t } from '../i18n'
 import { isDeceased, isFuzzyDate, type Gender, type NewPerson, type Person } from '../model'
 
 /** The person form's fields, as entered. */
@@ -40,20 +41,19 @@ export function valuesFromPerson(person: Person): PersonValues {
   }
 }
 
-const DATE_HINT = 'Choose a date, or a four-digit year'
 
 export function validate(values: PersonValues): PersonErrors {
   const errors: PersonErrors = {}
   const birth = values.birthDate.trim()
   const death = values.deceased ? values.deathDate.trim() : ''
-  if (!values.givenName.trim()) errors.givenName = 'A first name is needed'
-  if (birth && !isFuzzyDate(birth)) errors.birthDate = DATE_HINT
-  if (death && !isFuzzyDate(death)) errors.deathDate = DATE_HINT
+  if (!values.givenName.trim()) errors.givenName = t('v.firstNeeded')
+  if (birth && !isFuzzyDate(birth)) errors.birthDate = t('v.dateHint')
+  if (death && !isFuzzyDate(death)) errors.deathDate = t('v.dateHint')
   if (!errors.birthDate && !errors.deathDate && birth && death) {
     // Compare only as precisely as both dates are known.
     const length = Math.min(birth.length, death.length)
     if (death.slice(0, length) < birth.slice(0, length)) {
-      errors.deathDate = 'Can’t be before the birth date'
+      errors.deathDate = t('v.deathBeforeBirth')
     }
   }
   return errors

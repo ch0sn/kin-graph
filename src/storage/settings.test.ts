@@ -12,6 +12,7 @@ describe('parseSettings', () => {
 
   it('keeps valid values', () => {
     const settings = {
+      language: 'de',
       colorMode: 'dark',
       theme: 'blueprint',
       siblingOrder: 'girls-first',

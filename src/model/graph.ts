@@ -1,3 +1,4 @@
+import { t } from '../i18n'
 import {
   childIdsOf,
   getPerson,
@@ -58,7 +59,7 @@ export function updatePerson(
 /** Removes a person and every link to them. The manager can't be removed. */
 export function removePerson(graph: FamilyGraph, id: PersonId): FamilyGraph {
   getPerson(graph, id)
-  if (id === graph.managerId) throw new GraphError('The manager cannot be removed')
+  if (id === graph.managerId) throw new GraphError(t('graph.noRemoveManager'))
   const { [id]: _removed, ...people } = graph.people
   return prunePlaceholders({
     ...graph,
@@ -78,15 +79,15 @@ export function linkParent(
 ): FamilyGraph {
   getPerson(graph, parentId)
   getPerson(graph, childId)
-  if (parentId === childId) throw new GraphError('A person cannot be their own parent')
+  if (parentId === childId) throw new GraphError(t('graph.ownParent'))
   if (graph.parentLinks.some((l) => l.parentId === parentId && l.childId === childId)) {
-    throw new GraphError('These people are already linked as parent and child')
+    throw new GraphError(t('graph.alreadyLinked'))
   }
   if (isAncestor(graph, childId, parentId)) {
-    throw new GraphError('A person cannot be their own ancestor')
+    throw new GraphError(t('graph.ownAncestor'))
   }
   if (kind === 'biological' && parentIdsOf(graph, childId, ['biological']).length >= 2) {
-    throw new GraphError('A person cannot have more than two biological parents')
+    throw new GraphError(t('graph.twoParents'))
   }
   return { ...graph, parentLinks: [...graph.parentLinks, { parentId, childId, kind }] }
 }
@@ -114,9 +115,9 @@ export function linkPartners(
 ): FamilyGraph {
   getPerson(graph, a)
   getPerson(graph, b)
-  if (a === b) throw new GraphError('A person cannot partner with themselves')
+  if (a === b) throw new GraphError(t('graph.selfPartner'))
   if (partnershipBetween(graph, a, b)) {
-    throw new GraphError('These people are already partners')
+    throw new GraphError(t('graph.alreadyPartners'))
   }
   const partnership: Partnership = {
     status: 'partnered',
@@ -133,7 +134,7 @@ export function updatePartnership(
   patch: Partial<Omit<Partnership, 'id' | 'partnerIds'>>,
 ): FamilyGraph {
   if (!graph.partnerships.some((p) => p.id === id)) {
-    throw new GraphError(`Unknown partnership: ${id}`)
+    throw new GraphError(t('graph.unknownPartnership', { id }))
   }
   return {
     ...graph,
@@ -236,11 +237,11 @@ export function addSibling(
   const parents = parentIdsOf(graph, personId)
   const shared = [...(sharedParentIds ?? parents)]
   const notParent = shared.find((id) => !parents.includes(id))
-  if (notParent) throw new GraphError(`${notParent} is not a parent of ${personId}`)
+  if (notParent) throw new GraphError(t('graph.notAParent', { parent: notParent, child: personId }))
 
   let next = graph
   if (shared.length === 0) {
-    if (sharedParentIds) throw new GraphError('A sibling must share at least one parent')
+    if (sharedParentIds) throw new GraphError(t('graph.siblingNeedsParent'))
     const placeholder = addPerson(graph, { givenName: 'Unknown', isPlaceholder: true })
     next = linkParent(placeholder.graph, placeholder.person.id, personId)
     shared.push(placeholder.person.id)

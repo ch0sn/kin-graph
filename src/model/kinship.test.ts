@@ -1,4 +1,5 @@
-import { describe, expect, it } from 'vitest'
+import { afterAll, beforeAll, describe, expect, it } from 'vitest'
+import { setCurrentLanguage } from '../i18n'
 import {
   addChild,
   addParent,
@@ -118,5 +119,48 @@ describe('relationshipLabel', () => {
       coParentId: null,
     })
     expect(relationshipLabel(g, person.id)).toBeNull()
+  })
+})
+
+describe('relationshipLabel in German', () => {
+  const { graph, ids } = buildFamily()
+  const label = (name: string, from = 'alex') => relationshipLabel(graph, ids[name], ids[from])
+
+  beforeAll(() => setCurrentLanguage('de'))
+  afterAll(() => setCurrentLanguage('en'))
+
+  it.each([
+    ['alex', 'Du'],
+    ['mary', 'Mutter'],
+    ['john', 'Vater'],
+    ['sara', 'Schwester'],
+    ['tom', 'Halbbruder'],
+    ['ivy', 'Halbnichte'],
+    ['leo', 'Neffe'],
+    ['grace', 'Großmutter'],
+    ['ruth', 'Urgroßmutter'],
+    ['ann', 'Tante'],
+    ['edith', 'Großtante'],
+    ['ben', 'Cousin'],
+    ['zoe', 'Cousine (1 Generation versetzt)'],
+    ['dora', 'Cousine 2. Grades'],
+    ['lily', 'Tochter'],
+    ['max', 'Enkel'],
+    ['emma', 'Ehefrau'],
+    ['linda', 'Stiefmutter'],
+    ['kim', 'Stiefschwester'],
+    ['rob', 'Onkel'],
+    ['paul', 'Schwager'],
+    ['sam', 'Schwiegersohn'],
+    ['joan', 'Schwiegermutter'],
+    ['dan', 'Schwager'],
+  ])('labels %s as %s', (name, expected) => {
+    expect(label(name)).toBe(expected)
+  })
+
+  it('handles divorced partners and stepchildren from other perspectives', () => {
+    expect(label('mary', 'john')).toBe('Ex-Ehefrau')
+    expect(label('alex', 'linda')).toBe('Stiefsohn')
+    expect(label('alex', 'grace')).toBe('Enkel')
   })
 })

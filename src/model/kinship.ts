@@ -1,3 +1,5 @@
+import { currentLanguage } from '../i18n'
+import { describeKinshipDe } from './kinshipDe'
 import {
   ancestorsOf,
   getPerson,
@@ -117,6 +119,7 @@ export function describeKinship(
   toId: PersonId,
   k: Kinship,
 ): string {
+  if (currentLanguage() === 'de') return describeKinshipDe(graph, fromId, toId, k)
   const gender = getPerson(graph, toId).gender
   return capitalize(describe())
 

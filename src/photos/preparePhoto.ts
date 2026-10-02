@@ -1,3 +1,4 @@
+import { t } from '../i18n'
 import { roundCrop, squareCrop, type Crop, type ImageSize } from './crop'
 
 /** Photos are shown in small circles, so a 320px square is plenty even on 3× screens. */
@@ -7,8 +8,6 @@ const JPEG_QUALITY = 0.85
 export class PhotoError extends Error {
   override name = 'PhotoError'
 }
-
-const UNREADABLE = 'This image couldn’t be opened. Try a JPEG or PNG photo.'
 
 /** A chosen image file, ready to be cropped. */
 export interface PhotoSource extends ImageSize {
@@ -25,7 +24,7 @@ export async function loadPhotoSource(file: Blob): Promise<PhotoSource> {
     await image.decode()
   } catch {
     URL.revokeObjectURL(url)
-    throw new PhotoError(UNREADABLE)
+    throw new PhotoError(t('photo.unreadable'))
   }
   // Browsers apply the photo's own rotation (EXIF) to these dimensions, as
   // createImageBitmap does below with `imageOrientation: 'from-image'`.
@@ -42,7 +41,7 @@ export async function preparePhoto(file: Blob, crop?: Crop): Promise<Blob> {
   try {
     bitmap = await createImageBitmap(file, { imageOrientation: 'from-image' })
   } catch {
-    throw new PhotoError(UNREADABLE)
+    throw new PhotoError(t('photo.unreadable'))
   }
 
   const { sx, sy, side } = roundCrop(crop ?? squareCrop(bitmap.width, bitmap.height), bitmap)
@@ -51,7 +50,7 @@ export async function preparePhoto(file: Blob, crop?: Crop): Promise<Blob> {
   canvas.width = size
   canvas.height = size
   const context = canvas.getContext('2d')
-  if (!context) throw new PhotoError('This browser can’t process photos.')
+  if (!context) throw new PhotoError(t('photo.noCanvas'))
   // JPEG has no transparency; give transparent images a white background.
   context.fillStyle = '#fff'
   context.fillRect(0, 0, size, size)
@@ -61,7 +60,7 @@ export async function preparePhoto(file: Blob, crop?: Crop): Promise<Blob> {
 
   return new Promise((resolve, reject) =>
     canvas.toBlob(
-      (blob) => (blob ? resolve(blob) : reject(new PhotoError('The photo couldn’t be saved.'))),
+      (blob) => (blob ? resolve(blob) : reject(new PhotoError(t('photo.notSaved')))),
       'image/jpeg',
       JPEG_QUALITY,
     ),

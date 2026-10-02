@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useT } from '../i18n'
 import { Field, TextInput } from './fields'
 
 interface DateFieldProps {
@@ -14,6 +15,7 @@ interface DateFieldProps {
  * year, so the field can switch to a plain year instead.
  */
 export function DateField({ label, value, onChange, error }: DateFieldProps) {
+  const { t } = useT()
   // Partial dates ("1950", "1950-03") open in year mode so they aren't lost.
   const [yearOnly, setYearOnly] = useState(value !== '' && value.length < 10)
 
@@ -34,7 +36,7 @@ export function DateField({ label, value, onChange, error }: DateFieldProps) {
               invalid={!!error}
               value={value.slice(0, 4)}
               onChange={(e) => onChange(e.target.value.replace(/\D/g, '').slice(0, 4))}
-              placeholder="YYYY"
+              placeholder={t('form.yearPlaceholder')}
               inputMode="numeric"
               autoComplete="off"
             />
@@ -60,7 +62,7 @@ export function DateField({ label, value, onChange, error }: DateFieldProps) {
           checked={yearOnly}
           onChange={(e) => switchMode(e.target.checked)}
         />
-        Only the year is known
+        {t('form.yearOnly')}
       </label>
     </div>
   )

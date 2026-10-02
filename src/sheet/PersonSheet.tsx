@@ -22,6 +22,7 @@ import {
   type Person,
   type PersonId,
 } from '../model'
+import { useT } from '../i18n'
 import { Avatar } from '../ui/Avatar'
 import { LifeLine } from '../ui/LifeLine'
 import { Button, CheckboxGroup, Segmented, type Option } from '../ui/fields'
@@ -123,6 +124,7 @@ function SheetBody({
   onChange: (graph: FamilyGraph) => void
   onClose: () => void
 }) {
+  const { t } = useT()
   const [mode, setMode] = useState<Mode>({ view: 'details' })
   const [error, setError] = useState<string | null>(null)
   const go = (next: Mode) => {
@@ -172,7 +174,7 @@ function SheetBody({
                 type="button"
                 onClick={onClose}
                 className="self-start rounded-full p-2 text-stone-500 transition hover:bg-stone-100 hover:text-stone-900"
-                aria-label="Close"
+                aria-label={t('common.close')}
               >
                 <X className="size-5" />
               </button>
@@ -180,23 +182,23 @@ function SheetBody({
 
             <div className="grid grid-cols-2 gap-2">
               <ActionButton icon={<ArrowUp />} onClick={() => go({ view: 'add', relation: 'parent' })}>
-                Add parent
+                {t('sheet.addParent')}
               </ActionButton>
               <ActionButton icon={<Heart />} onClick={() => go({ view: 'add', relation: 'partner' })}>
-                Add partner
+                {t('sheet.addPartner')}
               </ActionButton>
               <ActionButton icon={<Users />} onClick={() => go({ view: 'add', relation: 'sibling' })}>
-                Add sibling
+                {t('sheet.addSibling')}
               </ActionButton>
               <ActionButton icon={<Baby />} onClick={() => go({ view: 'add', relation: 'child' })}>
-                Add child
+                {t('sheet.addChild')}
               </ActionButton>
             </div>
 
             <div className="flex gap-2 border-t border-stone-100 pt-4">
               <Button variant="ghost" onClick={() => go({ view: 'edit' })}>
                 <Pencil className="size-4" aria-hidden />
-                Edit details
+                {t('sheet.edit')}
               </Button>
               {!isManager && (
                 <Button
@@ -205,7 +207,7 @@ function SheetBody({
                   onClick={() => go({ view: 'remove' })}
                 >
                   <Trash className="size-4" aria-hidden />
-                  Remove
+                  {t('common.remove')}
                 </Button>
               )}
             </div>
@@ -214,8 +216,8 @@ function SheetBody({
 
         {mode.view === 'add' && (
           <SubView
-            title={`Add a ${mode.relation}`}
-            subtitle={`for ${fullName(person)}`}
+            title={t(`add.${mode.relation}.title`)}
+            subtitle={t('sheet.for', { name: fullName(person) })}
             onBack={() => go({ view: 'details' })}
           >
             <AddRelativeForm
@@ -230,10 +232,10 @@ function SheetBody({
         )}
 
         {mode.view === 'edit' && (
-          <SubView title="Edit details" subtitle={fullName(person)} onBack={() => go({ view: 'details' })}>
+          <SubView title={t('sheet.edit')} subtitle={fullName(person)} onBack={() => go({ view: 'details' })}>
             <PersonForm
               initial={valuesFromPerson(person)}
-              submitLabel="Save"
+              submitLabel={t('common.save')}
               error={error}
               onCancel={() => go({ view: 'details' })}
               onSubmit={(fields) => apply(() => updatePerson(graph, person.id, fields))}
@@ -242,18 +244,17 @@ function SheetBody({
         )}
 
         {mode.view === 'remove' && (
-          <SubView title={`Remove ${person.givenName}?`} onBack={() => go({ view: 'details' })}>
+          <SubView title={t('sheet.removeTitle', { name: person.givenName })} onBack={() => go({ view: 'details' })}>
             <p className="text-sm leading-relaxed text-stone-600">
-              {fullName(person)} and all of their relationships will be removed from the tree.
-              People connected only through them stay in the tree.
+              {t('sheet.removeBody', { name: fullName(person) })}
             </p>
             {error && <p className="mt-3 text-sm text-red-800">{error}</p>}
             <div className="mt-5 flex justify-end gap-2">
               <Button variant="ghost" onClick={() => go({ view: 'details' })}>
-                Cancel
+                {t('common.cancel')}
               </Button>
               <Button variant="danger" onClick={() => apply(() => removePerson(graph, person.id), onClose)}>
-                Remove
+                {t('common.remove')}
               </Button>
             </div>
           </SubView>
@@ -274,6 +275,7 @@ function SubView({
   onBack: () => void
   children: ReactNode
 }) {
+  const { t } = useT()
   return (
     <div className="flex flex-col gap-4 pt-1">
       <header className="flex items-center gap-2">
@@ -281,7 +283,7 @@ function SubView({
           type="button"
           onClick={onBack}
           className="-ml-2 rounded-full p-2 text-stone-500 transition hover:bg-stone-100 hover:text-stone-900"
-          aria-label="Back"
+          aria-label={t('common.back')}
         >
           <ArrowLeft className="size-5" />
         </button>
@@ -318,19 +320,9 @@ function ActionButton({
 
 // --- Adding relatives -----------------------------------------------------------
 
-const PARENT_KINDS: Option<ParentKind>[] = [
-  { value: 'biological', label: 'Biological' },
-  { value: 'adoptive', label: 'Adoptive' },
-  { value: 'foster', label: 'Foster' },
-]
+const PARENT_KIND_VALUES: ParentKind[] = ['biological', 'adoptive', 'foster']
 
-const PARTNERSHIP_STATUSES: Option<PartnershipStatus>[] = [
-  { value: 'married', label: 'Married' },
-  { value: 'partnered', label: 'Partners' },
-  { value: 'separated', label: 'Separated' },
-  { value: 'divorced', label: 'Divorced' },
-  { value: 'widowed', label: 'Widowed' },
-]
+const STATUS_VALUES: PartnershipStatus[] = ['married', 'partnered', 'separated', 'divorced', 'widowed']
 
 const NO_CO_PARENT = 'none'
 
@@ -349,6 +341,15 @@ function AddRelativeForm({
   onSubmit: (edit: () => FamilyGraph) => void
   onCancel: () => void
 }) {
+  const { t } = useT()
+  const PARENT_KINDS: Option<ParentKind>[] = PARENT_KIND_VALUES.map((value) => ({
+    value,
+    label: t(`kind.${value}`),
+  }))
+  const PARTNERSHIP_STATUSES: Option<PartnershipStatus>[] = STATUS_VALUES.map((value) => ({
+    value,
+    label: t(`status.${value}`),
+  }))
   const name = (id: PersonId) => fullName(graph.people[id])
 
   // Parent
@@ -398,14 +399,14 @@ function AddRelativeForm({
   return (
     <PersonForm
       initial={initial}
-      submitLabel={`Add ${relation}`}
+      submitLabel={t(`add.${relation}.submit`)}
       error={error}
       onCancel={onCancel}
       onSubmit={(relative) => onSubmit(() => add(relative))}
     >
       {relation === 'parent' && (
         <Segmented
-          label="Relationship"
+          label={t('form.relationship')}
           options={PARENT_KINDS.map((o) => ({
             ...o,
             disabled: o.value === 'biological' && hasTwoBiologicalParents,
@@ -416,13 +417,13 @@ function AddRelativeForm({
       )}
 
       {relation === 'partner' && (
-        <Segmented label="Status" options={PARTNERSHIP_STATUSES} value={status} onChange={setStatus} />
+        <Segmented label={t('form.status')} options={PARTNERSHIP_STATUSES} value={status} onChange={setStatus} />
       )}
 
       {relation === 'sibling' && visibleParents.length > 1 && (
         <CheckboxGroup
-          label="Shared parents"
-          hint="Untick a parent for a half-sibling."
+          label={t('form.sharedParents')}
+          hint={t('form.sharedParentsHint')}
           options={visibleParents.map((id) => ({ value: id, label: name(id) }))}
           values={sharedParentIds}
           onChange={setSharedParentIds}
@@ -433,19 +434,19 @@ function AddRelativeForm({
         <>
           {partnerships.length > 0 && (
             <Segmented
-              label="Other parent"
+              label={t('form.otherParent')}
               options={[
                 ...partnerships.map((p) => ({
                   value: partnerOf(p, person.id),
                   label: name(partnerOf(p, person.id)),
                 })),
-                { value: NO_CO_PARENT, label: 'Not recorded' },
+                { value: NO_CO_PARENT, label: t('form.notRecorded') },
               ]}
               value={coParent}
               onChange={setCoParent}
             />
           )}
-          <Segmented label="Relationship" options={PARENT_KINDS} value={childKind} onChange={setChildKind} />
+          <Segmented label={t('form.relationship')} options={PARENT_KINDS} value={childKind} onChange={setChildKind} />
         </>
       )}
     </PersonForm>

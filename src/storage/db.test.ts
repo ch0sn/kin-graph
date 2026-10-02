@@ -45,6 +45,7 @@ describe('settings', () => {
   it('default until saved, then remembered', async () => {
     expect(await loadSettings()).toEqual(DEFAULT_SETTINGS)
     const settings = {
+      language: 'de',
       colorMode: 'dark',
       theme: 'blueprint',
       siblingOrder: 'girls-first',
@@ -57,7 +58,7 @@ describe('settings', () => {
   it('falls back to defaults for unknown values', async () => {
     await set(
       'settings',
-      { colorMode: 'sepia', theme: 'neon', siblingOrder: 'tallest-first', highlightGender: 'yes', extra: 1 },
+      { language: 'klingon', colorMode: 'sepia', theme: 'neon', siblingOrder: 'tallest-first', highlightGender: 'yes', extra: 1 },
       createStore('kingraph', 'state'),
     )
     expect(await loadSettings()).toEqual(DEFAULT_SETTINGS)

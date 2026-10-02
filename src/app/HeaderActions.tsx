@@ -1,6 +1,7 @@
 import { Download, FilePlus } from 'lucide-react'
 import { useState, type ComponentProps, type ReactNode } from 'react'
 import { fullName, peopleCount, type FamilyGraph } from '../model'
+import { useT } from '../i18n'
 import { downloadBackup } from '../storage/backup'
 import { ConfirmDialog } from '../ui/ConfirmDialog'
 
@@ -15,6 +16,7 @@ interface HeaderActionsProps {
  * device, so it takes two confirmations; the first offers to export a backup.
  */
 export function HeaderActions({ graph, onStartNewTree }: HeaderActionsProps) {
+  const { t } = useT()
   /** 0 = closed; 1 = "are you sure?"; 2 = the final "delete permanently". */
   const [step, setStep] = useState<0 | 1 | 2>(0)
   const [exported, setExported] = useState(false)
@@ -25,7 +27,7 @@ export function HeaderActions({ graph, onStartNewTree }: HeaderActionsProps) {
       await downloadBackup(graph)
       if (fromDialog) setExported(true)
     } catch {
-      setError('The backup couldn’t be created. Please try again.')
+      setError(t('export.errorBody'))
     }
   }
 
@@ -39,36 +41,37 @@ export function HeaderActions({ graph, onStartNewTree }: HeaderActionsProps) {
     setExported(false)
   }
 
-  const treeName = `${fullName(graph.people[graph.managerId])}’s tree`
+  const treeName = t('newTree.treeName', { name: fullName(graph.people[graph.managerId]) })
+  const people = peopleCount(graph)
 
   return (
     <>
       <div className="flex items-center">
-        <HeaderButton label="Export" onClick={() => void exportBackup()} icon={<Download />} />
-        <HeaderButton label="New tree" onClick={startNewTree} icon={<FilePlus />} />
+        <HeaderButton label={t('header.export')} onClick={() => void exportBackup()} icon={<Download />} />
+        <HeaderButton label={t('header.newTree')} onClick={startNewTree} icon={<FilePlus />} />
       </div>
 
       <ConfirmDialog
         open={step === 1}
-        title="Start a new tree?"
-        confirmLabel="Continue"
-        cancelLabel="Cancel"
-        secondaryLabel={exported ? 'Backup exported ✓' : 'Export backup first'}
+        title={t('newTree.title')}
+        confirmLabel={t('common.continue')}
+        cancelLabel={t('common.cancel')}
+        secondaryLabel={exported ? t('newTree.exported') : t('newTree.exportFirst')}
         onSecondary={() => void exportBackup({ fromDialog: true })}
         tone="danger"
         onConfirm={() => setStep(2)}
         onCancel={close}
       >
-        Starting a new tree <strong className="font-semibold text-stone-800">deletes your current
-        tree</strong> ({treeName}, {peopleCount(graph)}) from this device. Export a backup first if
-        you might want it back.
+        {t('newTree.bodyBefore')}
+        <strong className="font-semibold text-stone-800">{t('newTree.bodyBold')}</strong>
+        {t('newTree.bodyAfter', { tree: treeName, people })}
       </ConfirmDialog>
 
       <ConfirmDialog
         open={step === 2}
-        title="Delete this tree for good?"
-        confirmLabel="Delete and start new"
-        cancelLabel="No, keep it"
+        title={t('newTree.finalTitle')}
+        confirmLabel={t('newTree.finalConfirm')}
+        cancelLabel={t('newTree.finalCancel')}
         tone="danger"
         onConfirm={() => {
           close()
@@ -76,14 +79,13 @@ export function HeaderActions({ graph, onStartNewTree }: HeaderActionsProps) {
         }}
         onCancel={close}
       >
-        This is your last chance: {treeName} ({peopleCount(graph)}, with their photos) will be
-        permanently deleted and can’t be restored unless you exported a backup.
+        {t('newTree.finalBody', { tree: treeName, people })}
       </ConfirmDialog>
 
       <ConfirmDialog
         open={error !== null}
-        title="Couldn’t export a backup"
-        confirmLabel="OK"
+        title={t('export.errorTitle')}
+        confirmLabel={t('common.ok')}
         onConfirm={() => setError(null)}
         onCancel={() => setError(null)}
       >

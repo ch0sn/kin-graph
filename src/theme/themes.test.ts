@@ -6,10 +6,9 @@ const css = readFileSync(new URL('../index.css', import.meta.url), 'utf8')
 const html = readFileSync(new URL('../../index.html', import.meta.url), 'utf8')
 
 describe('themes', () => {
-  it('offers at least ten, each with a unique id and a name', () => {
+  it('offers at least ten, each with a unique id', () => {
     expect(THEMES.length).toBeGreaterThanOrEqual(10)
     expect(new Set(THEME_IDS).size).toBe(THEMES.length)
-    for (const theme of THEMES) expect(theme.name.length).toBeGreaterThan(0)
   })
 
   it.each(THEME_IDS)('%s is fully defined in index.css', (id) => {

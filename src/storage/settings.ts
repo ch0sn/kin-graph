@@ -1,3 +1,4 @@
+import { DEFAULT_LANGUAGE, LANGUAGE_IDS, type Language } from '../i18n'
 import { DEFAULT_THEME, THEME_IDS, type ThemeId } from '../theme/themes'
 import {
   DEFAULT_SIBLING_ORDER,
@@ -11,6 +12,8 @@ export const COLOR_MODES: readonly ColorMode[] = ['system', 'light', 'dark']
 
 /** Display preferences for this device. They aren't part of the tree or its backups. */
 export interface Settings {
+  /** The language of the app (not of names or the title). */
+  language: Language
   colorMode: ColorMode
   /** The look of the app; see src/theme/themes.ts. */
   theme: ThemeId
@@ -20,6 +23,7 @@ export interface Settings {
 }
 
 export const DEFAULT_SETTINGS: Settings = {
+  language: DEFAULT_LANGUAGE,
   colorMode: 'system',
   theme: DEFAULT_THEME,
   siblingOrder: DEFAULT_SIBLING_ORDER,
@@ -33,6 +37,9 @@ const isColorMode = (value: unknown): value is ColorMode =>
 export function parseSettings(raw: unknown): Settings {
   const stored = typeof raw === 'object' && raw !== null ? (raw as Record<string, unknown>) : {}
   return {
+    language: LANGUAGE_IDS.includes(stored.language as Language)
+      ? (stored.language as Language)
+      : DEFAULT_SETTINGS.language,
     // Before themes existed, `theme` held the light/dark choice.
     colorMode: isColorMode(stored.colorMode)
       ? stored.colorMode

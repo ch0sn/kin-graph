@@ -1,5 +1,6 @@
 import { ZoomIn, ZoomOut } from 'lucide-react'
 import { useEffect, useRef, useState, type KeyboardEvent, type PointerEvent } from 'react'
+import { useT } from '../i18n'
 import { Button } from '../ui/fields'
 import { MAX_ZOOM, panCrop, zoomCrop, zoomOf, type Crop } from './crop'
 import type { PhotoSource } from './preparePhoto'
@@ -62,6 +63,7 @@ function Cropper({
   onConfirm: (crop: Crop) => void
   onCancel: () => void
 }) {
+  const { t } = useT()
   const [crop, setCrop] = useState(initialCrop)
   const area = useRef<HTMLDivElement>(null)
   const pointers = useRef(new Map<number, { x: number; y: number }>())
@@ -145,16 +147,16 @@ function Cropper({
     <div className="flex flex-col gap-4 p-5">
       <div>
         <h2 id="photo-crop-title" className="font-serif text-xl leading-tight">
-          Adjust photo
+          {t('crop.title')}
         </h2>
-        <p className="mt-1 text-sm text-stone-500">Drag to move · pinch or scroll to zoom</p>
+        <p className="mt-1 text-sm text-stone-500">{t('crop.hint')}</p>
       </div>
 
       <div
         ref={area}
         tabIndex={0}
         role="group"
-        aria-label="Photo position. Use the arrow keys to move it and plus or minus to zoom."
+        aria-label={t('crop.areaLabel')}
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
         onPointerUp={onPointerEnd}
@@ -182,7 +184,7 @@ function Cropper({
         <ZoomOut className="size-4 shrink-0" aria-hidden />
         <input
           type="range"
-          aria-label="Zoom"
+          aria-label={t('crop.zoom')}
           min={1}
           max={MAX_ZOOM}
           step={0.01}
@@ -195,10 +197,10 @@ function Cropper({
 
       <div className="flex justify-end gap-2">
         <Button variant="ghost" onClick={onCancel}>
-          Cancel
+          {t('common.cancel')}
         </Button>
         <Button variant="primary" onClick={() => onConfirm(crop)} autoFocus>
-          Use photo
+          {t('crop.use')}
         </Button>
       </div>
     </div>

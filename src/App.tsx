@@ -4,6 +4,7 @@ import { AppMenu, SaveIndicator } from './app/AppMenu'
 import { HeaderActions } from './app/HeaderActions'
 import { SettingsDialog } from './app/SettingsDialog'
 import { useAppearance } from './app/theme'
+import { DEFAULT_LANGUAGE, LanguageProvider } from './i18n'
 import type { FamilyGraph, PersonId } from './model'
 import { DamagedTree } from './onboarding/DamagedTree'
 import { Onboarding } from './onboarding/Onboarding'
@@ -61,7 +62,11 @@ function App() {
     )
   }
 
-  return <MotionConfig reducedMotion="user">{screen}</MotionConfig>
+  return (
+    <LanguageProvider language={settings?.language ?? DEFAULT_LANGUAGE}>
+      <MotionConfig reducedMotion="user">{screen}</MotionConfig>
+    </LanguageProvider>
+  )
 }
 
 function TreeScreen({

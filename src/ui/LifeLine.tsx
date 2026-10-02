@@ -1,4 +1,5 @@
 import { Cake, Cross } from 'lucide-react'
+import { useT, type MessageKey, type Params } from '../i18n'
 import {
   ageOf,
   formatAge,
@@ -7,6 +8,8 @@ import {
   lifeYears,
   type Person,
 } from '../model'
+
+type Translate = (key: MessageKey, params?: Params) => string
 
 interface LifeLineProps {
   person: Person
@@ -21,10 +24,11 @@ interface LifeLineProps {
  * the age can't be worked out, whatever dates are known show instead.
  */
 export function LifeLine({ person, detailed = false, className = '' }: LifeLineProps) {
+  const { t } = useT()
   const deceased = isDeceased(person)
   const age = ageOf(person)
   const Icon = deceased ? Cross : Cake
-  const dates = datesText(person)
+  const dates = datesText(person, t)
 
   if (!age && !deceased) {
     const years = lifeYears(person)
@@ -39,13 +43,13 @@ export function LifeLine({ person, detailed = false, className = '' }: LifeLineP
       <Icon className="size-[1.1em] shrink-0" aria-hidden />
       {age ? (
         <>
-          <span className="sr-only">{deceased ? 'Died aged ' : 'Age '}</span>
+          <span className="sr-only">{deceased ? t('life.diedAged') : t('life.age')}</span>
           {formatAge(age)}
           {detailed && dates && <span className="text-stone-400">&nbsp;· {dates}</span>}
         </>
       ) : (
         <>
-          <span className="sr-only">Died </span>
+          <span className="sr-only">{t('life.died')}</span>
           {lifeYears(person)}
         </>
       )}
@@ -54,11 +58,11 @@ export function LifeLine({ person, detailed = false, className = '' }: LifeLineP
 }
 
 /** "Born June 12, 1988", or "May 19, 1934 – 2015" for someone who has died. */
-function datesText(person: Person): string | null {
+function datesText(person: Person, t: Translate): string | null {
   const born = person.birthDate && formatFuzzyDate(person.birthDate)
   const died = person.deathDate && formatFuzzyDate(person.deathDate)
-  if (!isDeceased(person)) return born ? `Born ${born}` : null
+  if (!isDeceased(person)) return born ? t('life.bornOn', { date: born }) : null
   if (born && died) return `${born} – ${died}`
-  if (died) return `Died ${died}`
-  return born ? `Born ${born}` : null
+  if (died) return t('life.diedOn', { date: died })
+  return born ? t('life.bornOn', { date: born }) : null
 }

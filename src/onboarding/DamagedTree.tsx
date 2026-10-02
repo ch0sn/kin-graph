@@ -1,6 +1,7 @@
 import { TriangleAlert, Upload } from 'lucide-react'
 import { useState } from 'react'
 import type { FamilyGraph } from '../model'
+import { useT } from '../i18n'
 import { useBackupPicker } from '../storage/useBackupPicker'
 import { ConfirmDialog } from '../ui/ConfirmDialog'
 import { Button } from '../ui/fields'
@@ -18,6 +19,7 @@ export function DamagedTree({
   onImport: (graph: FamilyGraph) => void
   onStartOver: () => void
 }) {
+  const { t } = useT()
   const picker = useBackupPicker(onImport)
   const [confirming, setConfirming] = useState(false)
 
@@ -28,14 +30,13 @@ export function DamagedTree({
           <TriangleAlert className="size-7" aria-hidden />
         </div>
         <h1 className="font-serif text-3xl leading-tight text-stone-900">
-          Your saved tree couldn’t be opened
+          {t('damaged.title')}
         </h1>
         <p className="rounded-xl bg-white px-4 py-3 text-sm text-stone-700 ring-1 ring-stone-200">
           {message}
         </p>
         <p className="text-sm leading-relaxed text-stone-600">
-          Nothing has been changed. You can import a backup, or start over — which removes the
-          damaged data from this device.
+          {t('damaged.body')}
         </p>
         {picker.input}
         {picker.error && (
@@ -46,19 +47,19 @@ export function DamagedTree({
         <div className="flex flex-col gap-2 sm:flex-row">
           <Button variant="primary" className="flex-1 py-3" onClick={picker.open}>
             <Upload className="size-4" aria-hidden />
-            Import a backup
+            {t('damaged.import')}
           </Button>
           <Button className="flex-1 py-3" onClick={() => setConfirming(true)}>
-            Start over
+            {t('damaged.startOver')}
           </Button>
         </div>
       </main>
 
       <ConfirmDialog
         open={confirming}
-        title="Start over?"
-        confirmLabel="Remove and start over"
-        cancelLabel="Cancel"
+        title={t('damaged.confirmTitle')}
+        confirmLabel={t('damaged.confirmButton')}
+        cancelLabel={t('common.cancel')}
         tone="danger"
         onConfirm={() => {
           setConfirming(false)
@@ -66,7 +67,7 @@ export function DamagedTree({
         }}
         onCancel={() => setConfirming(false)}
       >
-        The damaged tree will be removed from this device. This can’t be undone.
+        {t('damaged.confirmBody')}
       </ConfirmDialog>
     </div>
   )

@@ -4,11 +4,13 @@ import { sampleFamily } from '../data/sampleFamily'
 import { createGraph, type FamilyGraph } from '../model'
 import { PersonForm } from '../sheet/PersonForm'
 import { emptyValues } from '../sheet/personValues'
+import { useT } from '../i18n'
 import { useBackupPicker } from '../storage/useBackupPicker'
 import { Button } from '../ui/fields'
 
 /** Shown when nothing is saved yet: start a tree, import one, or try the sample. */
 export function Welcome({ onStart }: { onStart: (graph: FamilyGraph) => void }) {
+  const { t } = useT()
   const picker = useBackupPicker(onStart)
 
   return (
@@ -21,7 +23,7 @@ export function Welcome({ onStart }: { onStart: (graph: FamilyGraph) => void }) 
       >
         <header className="text-center">
           <h1 className="font-serif text-4xl tracking-tight text-stone-900">KinGraph</h1>
-          <p className="mt-2 text-stone-600">Start your family tree with you at the centre.</p>
+          <p className="mt-2 text-stone-600">{t('welcome.tagline')}</p>
         </header>
 
         <section
@@ -29,11 +31,11 @@ export function Welcome({ onStart }: { onStart: (graph: FamilyGraph) => void }) 
           className="rounded-3xl border border-stone-200 bg-white p-5 shadow-sm"
         >
           <h2 id="welcome-start" className="mb-4 font-serif text-xl text-stone-900">
-            Who are you?
+            {t('welcome.who')}
           </h2>
           <PersonForm
             initial={emptyValues()}
-            submitLabel="Start my tree"
+            submitLabel={t('welcome.startTree')}
             error={null}
             onSubmit={(you) => onStart(createGraph(you))}
           />
@@ -41,16 +43,16 @@ export function Welcome({ onStart }: { onStart: (graph: FamilyGraph) => void }) 
 
         <div className="flex items-center gap-3 text-xs font-medium tracking-wide text-stone-400 uppercase">
           <span className="h-px flex-1 bg-stone-200" />
-          or
+          {t('welcome.or')}
           <span className="h-px flex-1 bg-stone-200" />
         </div>
 
         <div className="flex flex-col gap-2">
           <Button className="w-full py-3" onClick={picker.open}>
             <Upload className="size-4" aria-hidden />
-            Import a family tree
+            {t('welcome.import')}
           </Button>
-          <p className="text-center text-xs text-stone-500">Open a KinGraph backup file (.json)</p>
+          <p className="text-center text-xs text-stone-500">{t('welcome.importHint')}</p>
           {picker.input}
           {picker.error && (
             <p
@@ -69,11 +71,11 @@ export function Welcome({ onStart }: { onStart: (graph: FamilyGraph) => void }) 
             onClick={() => onStart(sampleFamily())}
             className="font-medium text-stone-700 underline decoration-stone-300 underline-offset-4 hover:text-stone-900 hover:decoration-stone-500"
           >
-            Explore a sample family
+            {t('welcome.sample')}
           </button>
           <p className="flex items-center gap-1.5 text-xs text-stone-500">
             <Lock className="size-3.5" aria-hidden />
-            Your tree is saved only on this device.
+            {t('welcome.private')}
           </p>
         </footer>
       </motion.main>

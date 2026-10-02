@@ -8,21 +8,23 @@ import {
 } from 'lucide-react'
 import { AnimatePresence, motion } from 'motion/react'
 import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { useT } from '../i18n'
 import type { SaveState } from '../storage/autosave'
 
 export function SaveIndicator({ state }: { state: SaveState }) {
+  const { t } = useT()
   const content = {
-    saving: { icon: <LoaderCircle className="size-3.5 animate-spin" />, text: 'Saving…' },
-    saved: { icon: <Check className="size-3.5" />, text: 'Saved' },
-    failed: { icon: <TriangleAlert className="size-3.5" />, text: 'Not saved' },
+    saving: { icon: <LoaderCircle className="size-3.5 animate-spin" />, text: t('save.saving') },
+    saved: { icon: <Check className="size-3.5" />, text: t('save.saved') },
+    failed: { icon: <TriangleAlert className="size-3.5" />, text: t('save.failed') },
   }[state]
   return (
     <p
       aria-live="polite"
       title={
         state === 'failed'
-          ? 'Your browser didn’t let KinGraph save. Export a backup to keep your changes.'
-          : 'Saved on this device'
+          ? t('save.failedHint')
+          : t('save.savedHint')
       }
       className={[
         'flex items-center gap-1.5 text-xs font-medium',
@@ -47,6 +49,7 @@ export function AppMenu({
   onShowIntro,
   onOpenSettings,
 }: AppMenuProps) {
+  const { t } = useT()
   const [open, setOpen] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
 
@@ -75,7 +78,7 @@ export function AppMenu({
     <div ref={menuRef} className="relative">
       <button
         type="button"
-        aria-label="Menu"
+        aria-label={t('menu.label')}
         aria-haspopup="menu"
         aria-expanded={open}
         onClick={() => setOpen(!open)}
@@ -95,15 +98,15 @@ export function AppMenu({
             className="absolute top-full right-0 z-30 mt-2 w-72 origin-top-right rounded-2xl border border-stone-200 bg-white p-1.5 shadow-xl"
           >
             <MenuItem icon={<SlidersHorizontal />} onClick={choose(onOpenSettings)}>
-              Settings
+              {t('menu.settings')}
             </MenuItem>
             <MenuItem icon={<BookOpen />} onClick={choose(onShowIntro)}>
-              Show introduction
+              {t('menu.intro')}
             </MenuItem>
             <p className="mt-1.5 border-t border-stone-100 px-3 pt-2.5 pb-1.5 text-xs leading-relaxed text-stone-500">
               {persisted === false
-                ? 'Saved on this device, but your browser may clear it. Export backups regularly.'
-                : 'Saved on this device only. Export a backup to keep a copy elsewhere.'}
+                ? t('menu.notPersisted')
+                : t('menu.persisted')}
             </p>
           </motion.div>
         )}
