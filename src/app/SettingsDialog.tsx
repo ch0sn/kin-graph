@@ -54,7 +54,7 @@ function PreviewCard({ name, highlight = false }: { name: string; highlight?: bo
   )
 }
 
-/** A label followed by a "?" icon that explains it in a one-line tooltip on hover or focus. */
+/** A label followed by a "?" icon that explains it in a tooltip (one line if it fits, wrapped otherwise) on hover or focus. */
 function HelpLabel({
   label,
   about,
@@ -83,7 +83,7 @@ function HelpLabel({
         <span
           id={id}
           role="tooltip"
-          className="pointer-events-none absolute bottom-full left-0 z-10 mb-2 w-max max-w-full rounded-lg bg-stone-900 px-3 py-2 text-xs leading-snug whitespace-nowrap text-white opacity-0 shadow-lg transition group-focus-within:opacity-100 group-hover:opacity-100"
+          className="pointer-events-none absolute bottom-full left-0 z-10 mb-2 w-max max-w-full rounded-lg bg-stone-900 px-3 py-2 text-xs leading-snug text-white opacity-0 shadow-lg transition group-focus-within:opacity-100 group-hover:opacity-100"
         >
           {help}
         </span>

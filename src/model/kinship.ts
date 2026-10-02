@@ -1,5 +1,7 @@
 import { currentLanguage } from '../i18n'
 import { describeKinshipDe } from './kinshipDe'
+import { describeKinshipEs } from './kinshipEs'
+import { describeKinshipKo } from './kinshipKo'
 import {
   ancestorsOf,
   getPerson,
@@ -103,7 +105,7 @@ export function bloodKinship(
   return { type: 'blood', up: best.up, down: best.down, half }
 }
 
-/** How `toId` is related to `fromId` (the manager by default), in English. */
+/** How `toId` is related to `fromId` (the manager by default), in the current language. */
 export function relationshipLabel(
   graph: FamilyGraph,
   toId: PersonId,
@@ -119,7 +121,10 @@ export function describeKinship(
   toId: PersonId,
   k: Kinship,
 ): string {
-  if (currentLanguage() === 'de') return describeKinshipDe(graph, fromId, toId, k)
+  const language = currentLanguage()
+  if (language === 'de') return describeKinshipDe(graph, fromId, toId, k)
+  if (language === 'es') return describeKinshipEs(graph, fromId, toId, k)
+  if (language === 'ko') return describeKinshipKo(graph, fromId, toId, k)
   const gender = getPerson(graph, toId).gender
   return capitalize(describe())
 

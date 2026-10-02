@@ -164,3 +164,109 @@ describe('relationshipLabel in German', () => {
     expect(label('alex', 'grace')).toBe('Enkel')
   })
 })
+
+describe('relationshipLabel in Spanish', () => {
+  const { graph, ids } = buildFamily()
+  const label = (name: string, from = 'alex') => relationshipLabel(graph, ids[name], ids[from])
+
+  beforeAll(() => setCurrentLanguage('es'))
+  afterAll(() => setCurrentLanguage('en'))
+
+  it.each([
+    ['alex', 'Tú'],
+    ['mary', 'Madre'],
+    ['john', 'Padre'],
+    ['sara', 'Hermana'],
+    ['tom', 'Medio hermano'],
+    ['ivy', 'Sobrina'],
+    ['leo', 'Sobrino'],
+    ['grace', 'Abuela'],
+    ['ruth', 'Bisabuela'],
+    ['ann', 'Tía'],
+    ['edith', 'Tía abuela'],
+    ['ben', 'Primo'],
+    ['zoe', 'Prima (1 generación de diferencia)'],
+    ['dora', 'Prima segunda'],
+    ['lily', 'Hija'],
+    ['max', 'Nieto'],
+    ['emma', 'Esposa'],
+    ['linda', 'Madrastra'],
+    ['kim', 'Hermanastra'],
+    ['rob', 'Tío político'],
+    ['paul', 'Cuñado'],
+    ['sam', 'Yerno'],
+    ['joan', 'Suegra'],
+    ['dan', 'Cuñado'],
+  ])('labels %s as %s', (name, expected) => {
+    expect(label(name)).toBe(expected)
+  })
+
+  it('handles divorced partners and stepchildren from other perspectives', () => {
+    expect(label('mary', 'john')).toBe('Exesposa')
+    expect(label('alex', 'linda')).toBe('Hijastro')
+    expect(label('alex', 'grace')).toBe('Nieto')
+  })
+})
+
+describe('relationshipLabel in Korean', () => {
+  const { graph, ids } = buildFamily()
+  const label = (name: string, from = 'alex') => relationshipLabel(graph, ids[name], ids[from])
+
+  beforeAll(() => setCurrentLanguage('ko'))
+  afterAll(() => setCurrentLanguage('en'))
+
+  it.each([
+    ['alex', '나'],
+    ['mary', '어머니'],
+    ['john', '아버지'],
+    ['sara', '여자 형제'],
+    ['tom', '이복 남자 형제'],
+    ['ivy', '조카딸'],
+    ['leo', '조카'],
+    ['grace', '외할머니'],
+    ['ruth', '외증조할머니'],
+    ['ann', '이모'],
+    ['edith', '이모할머니'],
+    ['ben', '외사촌'],
+    ['zoe', '오촌'],
+    ['dora', '육촌'],
+    ['lily', '딸'],
+    ['max', '외손자'],
+    ['emma', '아내'],
+    ['linda', '새어머니'],
+    ['kim', '의붓 여자 형제'],
+    ['rob', '이모부'],
+    ['paul', '여자 형제의 남편'],
+    ['sam', '사위'],
+    ['joan', '장모'],
+    ['dan', '처남'],
+  ])('labels %s as %s', (name, expected) => {
+    expect(label(name)).toBe(expected)
+  })
+
+  it('handles divorced partners and stepchildren from other perspectives', () => {
+    expect(label('mary', 'john')).toBe('전처')
+    expect(label('alex', 'linda')).toBe('의붓아들')
+    expect(label('alex', 'grace')).toBe('외손자')
+  })
+
+  it('names siblings and their partners by who is older and who is asking', () => {
+    let g: FamilyGraph = createGraph({ givenName: 'Mina', gender: 'female', birthDate: '1990' })
+    const me = g.managerId
+    const add = (result: PersonResult) => {
+      g = result.graph
+      return result.person.id
+    }
+    const sister = add(addSibling(g, me, { givenName: 'Jia', gender: 'female', birthDate: '1985' }))
+    const brother = add(addSibling(g, me, { givenName: 'Joon', gender: 'male', birthDate: '1987-04' }))
+    const younger = add(addSibling(g, me, { givenName: 'Hana', gender: 'female', birthDate: '1995' }))
+    const husband = add(addPartner(g, sister, { givenName: 'Min', gender: 'male' }, 'married'))
+
+    expect(relationshipLabel(g, sister)).toBe('언니')
+    expect(relationshipLabel(g, brother)).toBe('오빠')
+    expect(relationshipLabel(g, younger)).toBe('여동생')
+    expect(relationshipLabel(g, husband)).toBe('형부')
+    expect(relationshipLabel(g, me, brother)).toBe('여동생')
+    expect(relationshipLabel(g, sister, brother)).toBe('누나')
+  })
+})

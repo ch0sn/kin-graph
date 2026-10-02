@@ -1,5 +1,7 @@
 import { de } from './de'
 import { en, type MessageKey } from './en'
+import { es } from './es'
+import { ko } from './ko'
 
 export type { MessageId, MessageKey } from './en'
 
@@ -7,13 +9,15 @@ export type { MessageId, MessageKey } from './en'
 export const LANGUAGES = [
   { id: 'en', name: 'English' },
   { id: 'de', name: 'Deutsch' },
+  { id: 'es', name: 'Español' },
+  { id: 'ko', name: '한국어' },
 ] as const
 
 export type Language = (typeof LANGUAGES)[number]['id']
 export const LANGUAGE_IDS: readonly Language[] = LANGUAGES.map((l) => l.id)
 export const DEFAULT_LANGUAGE: Language = 'en'
 
-const DICTIONARIES: Record<Language, Record<string, string>> = { en, de }
+const DICTIONARIES: Record<Language, Record<string, string>> = { en, de, es, ko }
 
 export type Params = Record<string, string | number>
 

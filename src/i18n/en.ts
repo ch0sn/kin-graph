@@ -1,6 +1,6 @@
 /**
  * English: the source of truth for every message. Add a key here and the
- * compiler will insist on a German translation in de.ts.
+ * compiler will insist on a translation in de.ts, es.ts and ko.ts.
  */
 export const en = {
   'common.ok': 'OK',
