@@ -1,5 +1,6 @@
 import {
   ChevronDown,
+  CircleQuestionMark,
   Monitor,
   Moon,
   Sun,
@@ -48,26 +49,22 @@ function PreviewCard({ name, highlight = false }: { name: string; highlight?: bo
   )
 }
 
-const SIBLING_OPTIONS: { value: SiblingOrder; label: string; hint: string }[] = [
+const SIBLING_OPTIONS: { value: SiblingOrder; label: string }[] = [
   {
     value: 'oldest-first',
     label: 'Oldest to youngest',
-    hint: 'The way family trees are usually read.',
   },
   {
     value: 'youngest-first',
     label: 'Youngest to oldest',
-    hint: 'The newest arrivals come first.',
   },
   {
     value: 'boys-first',
     label: 'Boys first',
-    hint: 'Then girls, each oldest to youngest.',
   },
   {
     value: 'girls-first',
     label: 'Girls first',
-    hint: 'Then boys, each oldest to youngest.',
   },
 ]
 
@@ -174,9 +171,28 @@ export function SettingsDialog({ open, settings, onChange, onClose }: SettingsDi
         </div>
 
         <div className="flex flex-col gap-2.5">
-          <label htmlFor="sibling-order-select" className="text-sm font-semibold text-stone-900">
-            Sibling order
-          </label>
+          <div className="flex items-center gap-1.5">
+            <label htmlFor="sibling-order-select" className="text-sm font-semibold text-stone-900">
+              Sibling order
+            </label>
+            <span className="group relative flex">
+              <button
+                type="button"
+                aria-label="About sibling order"
+                aria-describedby="sibling-order-help"
+                className="rounded-full text-stone-400 transition hover:text-stone-700 focus-visible:text-stone-700 focus-visible:ring-4 focus-visible:ring-stone-200 focus-visible:outline-none"
+              >
+                <CircleQuestionMark className="size-4" aria-hidden />
+              </button>
+              <span
+                id="sibling-order-help"
+                role="tooltip"
+                className="pointer-events-none absolute bottom-full left-1/2 z-10 mb-2 w-52 -translate-x-1/2 rounded-lg bg-stone-900 px-3 py-2 text-xs leading-snug text-white opacity-0 shadow-lg transition group-focus-within:opacity-100 group-hover:opacity-100"
+              >
+                How brothers and sisters line up, left to right.
+              </span>
+            </span>
+          </div>
           <div className="relative">
             <select
               id="sibling-order-select"
@@ -196,11 +212,6 @@ export function SettingsDialog({ open, settings, onChange, onClose }: SettingsDi
               aria-hidden
             />
           </div>
-          <p className="text-xs text-stone-500">
-            How brothers and sisters line up, left to right.{' '}
-            {SIBLING_OPTIONS.find((o) => o.value === settings.siblingOrder)?.hint} People without
-            a birth date, or without a gender when grouping by gender, are placed last.
-          </p>
         </div>
 
         <div className="flex justify-end">
