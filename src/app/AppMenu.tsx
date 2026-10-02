@@ -1,9 +1,7 @@
 import {
   BookOpen,
   Check,
-  Download,
   Ellipsis,
-  FilePlus,
   LoaderCircle,
   SlidersHorizontal,
   TriangleAlert,
@@ -11,9 +9,8 @@ import {
 } from 'lucide-react'
 import { AnimatePresence, motion } from 'motion/react'
 import { useEffect, useRef, useState, type ReactNode } from 'react'
-import { fullName, type FamilyGraph } from '../model'
+import { fullName, peopleCount, type FamilyGraph } from '../model'
 import type { SaveState } from '../storage/autosave'
-import { downloadBackup } from '../storage/backup'
 import { useBackupPicker } from '../storage/useBackupPicker'
 import { ConfirmDialog } from '../ui/ConfirmDialog'
 
@@ -42,14 +39,13 @@ export function SaveIndicator({ state }: { state: SaveState }) {
   )
 }
 
-type Pending = { kind: 'import'; graph: FamilyGraph } | { kind: 'new' } | null
+type Pending = { kind: 'import'; graph: FamilyGraph } | null
 
 interface AppMenuProps {
   graph: FamilyGraph
   /** Whether the browser agreed to keep our data; null if not known yet. */
   persisted: boolean | null
   onReplace: (graph: FamilyGraph) => void
-  onStartOver: () => void
   onShowIntro: () => void
   onOpenSettings: () => void
 }
@@ -58,13 +54,11 @@ export function AppMenu({
   graph,
   persisted,
   onReplace,
-  onStartOver,
   onShowIntro,
   onOpenSettings,
 }: AppMenuProps) {
   const [open, setOpen] = useState(false)
   const [pending, setPending] = useState<Pending>(null)
-  const [exportError, setExportError] = useState<string | null>(null)
   const picker = useBackupPicker((imported) => setPending({ kind: 'import', graph: imported }))
   const menuRef = useRef<HTMLDivElement>(null)
 
@@ -113,22 +107,8 @@ export function AppMenu({
             transition={{ duration: 0.12 }}
             className="absolute top-full right-0 z-30 mt-2 w-72 origin-top-right rounded-2xl border border-stone-200 bg-white p-1.5 shadow-xl"
           >
-            <MenuItem
-              icon={<Download />}
-              onClick={choose(() =>
-                downloadBackup(graph).catch(() =>
-                  setExportError('The backup couldn’t be created. Please try again.'),
-                ),
-              )}
-              autoFocus
-            >
-              Export backup
-            </MenuItem>
             <MenuItem icon={<Upload />} onClick={choose(picker.open)}>
               Import backup
-            </MenuItem>
-            <MenuItem icon={<FilePlus />} onClick={choose(() => setPending({ kind: 'new' }))}>
-              Start a new tree
             </MenuItem>
             <MenuItem icon={<SlidersHorizontal />} onClick={choose(onOpenSettings)}>
               Settings
@@ -168,22 +148,6 @@ export function AppMenu({
       </ConfirmDialog>
 
       <ConfirmDialog
-        open={pending?.kind === 'new'}
-        title="Start a new tree?"
-        confirmLabel="Remove and start over"
-        cancelLabel="Cancel"
-        tone="danger"
-        onConfirm={() => {
-          setPending(null)
-          onStartOver()
-        }}
-        onCancel={() => setPending(null)}
-      >
-        This removes your current tree from this device and takes you back to the start. Export a
-        backup first if you might want it back.
-      </ConfirmDialog>
-
-      <ConfirmDialog
         open={picker.error !== null}
         title="Couldn’t import that file"
         confirmLabel="OK"
@@ -191,16 +155,6 @@ export function AppMenu({
         onCancel={picker.clearError}
       >
         {picker.error}
-      </ConfirmDialog>
-
-      <ConfirmDialog
-        open={exportError !== null}
-        title="Couldn’t export a backup"
-        confirmLabel="OK"
-        onConfirm={() => setExportError(null)}
-        onCancel={() => setExportError(null)}
-      >
-        {exportError}
       </ConfirmDialog>
     </div>
   )
@@ -229,9 +183,4 @@ function MenuItem({
       {children}
     </button>
   )
-}
-
-function peopleCount(graph: FamilyGraph): string {
-  const count = Object.values(graph.people).filter((p) => !p.isPlaceholder).length
-  return count === 1 ? '1 person' : `${count} people`
 }

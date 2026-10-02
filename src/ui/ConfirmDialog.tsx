@@ -8,6 +8,9 @@ interface ConfirmDialogProps {
   confirmLabel: string
   /** Omit for a message that only needs acknowledging. */
   cancelLabel?: string
+  /** An extra action between Cancel and the confirm button, e.g. "Export backup first". */
+  secondaryLabel?: string
+  onSecondary?: () => void
   tone?: 'default' | 'danger'
   onConfirm: () => void
   onCancel: () => void
@@ -23,6 +26,8 @@ export function ConfirmDialog({
   children,
   confirmLabel,
   cancelLabel,
+  secondaryLabel,
+  onSecondary,
   tone = 'default',
   onConfirm,
   onCancel,
@@ -55,11 +60,16 @@ export function ConfirmDialog({
           {title}
         </h2>
         <div className="text-sm leading-relaxed text-stone-600">{children}</div>
-        <div className="mt-3 flex justify-end gap-2">
+        <div className="mt-3 flex flex-wrap justify-end gap-2">
           {/* For destructive actions, Enter shouldn't confirm by accident. */}
           {cancelLabel && (
             <Button variant="ghost" onClick={onCancel} autoFocus={tone === 'danger'}>
               {cancelLabel}
+            </Button>
+          )}
+          {secondaryLabel && (
+            <Button variant="secondary" onClick={onSecondary}>
+              {secondaryLabel}
             </Button>
           )}
           <Button

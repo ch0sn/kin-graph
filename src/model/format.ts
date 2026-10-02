@@ -1,4 +1,4 @@
-import type { FuzzyDate, Person } from './types'
+import type { FamilyGraph, FuzzyDate, Person } from './types'
 
 const FUZZY_DATE = /^\d{4}(-(0[1-9]|1[0-2])(-(0[1-9]|[12]\d|3[01]))?)?$/
 
@@ -96,4 +96,10 @@ export function lifeYears(person: Person): string | null {
   if (born) return isDeceased(person) ? `${born} – ?` : `b. ${born}`
   if (died) return `d. ${died}`
   return isDeceased(person) ? 'Deceased' : null
+}
+
+/** "1 person" or "12 people"; placeholder parents don't count. */
+export function peopleCount(graph: FamilyGraph): string {
+  const count = Object.values(graph.people).filter((p) => !p.isPlaceholder).length
+  return count === 1 ? '1 person' : `${count} people`
 }

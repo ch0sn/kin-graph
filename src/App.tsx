@@ -1,6 +1,7 @@
 import { motion, MotionConfig } from 'motion/react'
 import { useCallback, useState } from 'react'
 import { AppMenu, SaveIndicator } from './app/AppMenu'
+import { HeaderActions } from './app/HeaderActions'
 import { SettingsDialog } from './app/SettingsDialog'
 import { useAppearance } from './app/theme'
 import type { FamilyGraph, PersonId } from './model'
@@ -89,8 +90,9 @@ function TreeScreen({
           className="relative z-10 flex items-center justify-between gap-3 border-b border-stone-200 bg-white/80 py-2 pr-2 pl-4 backdrop-blur"
         >
           <h1 className="font-serif text-xl tracking-tight">KinGraph</h1>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1">
             <SaveIndicator state={stored.saveState} />
+            <HeaderActions graph={graph} onStartNewTree={() => void stored.clearTree()} />
             <AppMenu
               graph={graph}
               persisted={stored.persisted}
@@ -98,7 +100,6 @@ function TreeScreen({
                 setSelectedId(null)
                 void stored.replaceTree(next)
               }}
-              onStartOver={() => void stored.clearTree()}
               onShowIntro={onShowIntro}
               onOpenSettings={() => setSettingsOpen(true)}
             />
