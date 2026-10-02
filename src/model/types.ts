@@ -24,7 +24,7 @@ export interface NameParts {
 /** What kind of name it is, when someone has several. */
 export type NameType = 'birth' | 'married' | 'nickname' | 'alias' | 'religious' | 'other'
 
-/** Whether the given or the family name is written first: "Mary Smith" or "김 민준". */
+/** Whether the given or the family name is written first: "Mary Smith" or "Smith Mary". */
 export type NameOrder = 'given-first' | 'family-first'
 
 /** The script of another written form of a name. */
@@ -38,8 +38,6 @@ export interface NameForm extends NameParts {
 export interface PersonName extends NameParts {
   /** Unset for a name that is simply what someone is called. */
   type?: NameType
-  /** Overrides the usual order (see `nameOrder`). */
-  order?: NameOrder
   /** When the name was in use, e.g. a married name from the wedding on. */
   from?: FuzzyDate
   to?: FuzzyDate

@@ -10,6 +10,7 @@ import {
   isFuzzyDate,
   lifeYears,
   nameOrder,
+  setPreferredNameOrder,
 } from './format'
 import type { PersonName } from './types'
 
@@ -87,7 +88,10 @@ describe('ageOf / formatAge', () => {
 
 const one = (name: PersonName) => ({ names: [name] as [PersonName] })
 
-afterEach(() => setCurrentLanguage('en'))
+afterEach(() => {
+  setCurrentLanguage('en')
+  setPreferredNameOrder('given-first')
+})
 
 describe('formatName', () => {
   it('writes given names first by default', () => {
@@ -106,12 +110,12 @@ describe('formatName', () => {
     )
   })
 
-  it('writes family-first names surname first', () => {
-    const name: PersonName = { given: 'Péter', surnames: ['Nagy'], order: 'family-first' }
-    expect(formatName(name)).toBe('Nagy Péter')
-    expect(
-      formatName({ given: 'Ivan', patronymic: 'Ivanovich', surnames: ['Petrov'], order: 'family-first' }),
-    ).toBe('Petrov Ivan Ivanovich')
+  it('writes names surname first when the settings say so', () => {
+    setPreferredNameOrder('family-first')
+    expect(formatName({ given: 'Péter', surnames: ['Nagy'] })).toBe('Nagy Péter')
+    expect(formatName({ given: 'Ivan', patronymic: 'Ivanovich', surnames: ['Petrov'] })).toBe(
+      'Petrov Ivan Ivanovich',
+    )
   })
 
   it('writes CJK names family-first without spaces', () => {
@@ -126,20 +130,21 @@ describe('formatName', () => {
 })
 
 describe('nameOrder', () => {
-  it('follows the name, then its script', () => {
+  it('follows the settings, except for CJK names, which are always family-first', () => {
     const minjun = { given: 'Minjun', surnames: ['Kim'] }
+    const hangul = { given: '민준', surnames: ['김'] }
     expect(nameOrder(minjun)).toBe('given-first')
-    expect(nameOrder({ ...minjun, order: 'family-first' })).toBe('family-first')
-    expect(nameOrder({ given: '민준', surnames: ['김'] })).toBe('family-first')
-    expect(nameOrder({ given: '민준', surnames: ['김'], order: 'given-first' })).toBe('given-first')
+    expect(nameOrder(hangul)).toBe('family-first')
+
+    setPreferredNameOrder('family-first')
+    expect(nameOrder(minjun)).toBe('family-first')
+    expect(fullName(one(minjun))).toBe('Kim Minjun')
+    expect(fullName(one(hangul))).toBe('김민준')
   })
 
   it('does not depend on the app language', () => {
     setCurrentLanguage('ko')
     expect(fullName(one({ given: 'Mary', surnames: ['Smith'] }))).toBe('Mary Smith')
-    expect(fullName(one({ given: 'Minjun', surnames: ['Kim'], order: 'family-first' }))).toBe(
-      'Kim Minjun',
-    )
     expect(fullName(one({ given: '민준', surnames: ['김'] }))).toBe('김민준')
   })
 })
@@ -156,7 +161,8 @@ describe('initials', () => {
   })
 
   it('follows the written order', () => {
-    expect(initials(one({ given: 'Péter', surnames: ['Nagy'], order: 'family-first' }))).toBe('NP')
+    setPreferredNameOrder('family-first')
+    expect(initials(one({ given: 'Péter', surnames: ['Nagy'] }))).toBe('NP')
   })
 
   it('uses the given name for CJK names', () => {

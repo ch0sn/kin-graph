@@ -4,7 +4,6 @@ import {
   type FamilyGraph,
   type Gender,
   type NameForm,
-  type NameOrder,
   type NameScript,
   type NameType,
   type ParentKind,
@@ -133,7 +132,6 @@ function parsePhotos(raw: unknown): Map<string, Blob> {
 
 const GENDERS: readonly Gender[] = ['female', 'male', 'other']
 const NAME_TYPES: readonly NameType[] = ['birth', 'married', 'nickname', 'alias', 'religious', 'other']
-const NAME_ORDERS: readonly NameOrder[] = ['given-first', 'family-first']
 const NAME_SCRIPTS: readonly NameScript[] = ['hanja', 'romanized', 'other']
 const PARENT_KINDS: readonly ParentKind[] = ['biological', 'adoptive', 'foster']
 const STATUSES: readonly PartnershipStatus[] = [
@@ -228,7 +226,6 @@ function parseName(raw: unknown): PersonName {
   return {
     ...parseNameParts(raw),
     type: optionalOneOf(raw.type, NAME_TYPES),
-    order: optionalOneOf(raw.order, NAME_ORDERS),
     from: optionalDate(raw.from),
     to: optionalDate(raw.to),
     forms: raw.forms === undefined ? undefined : parseForms(raw.forms),

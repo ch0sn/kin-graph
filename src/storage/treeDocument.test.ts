@@ -62,7 +62,7 @@ describe('toDocument / parseTreeDocument', () => {
     expect(parsed.people[graph.managerId].names).toEqual([{ given: 'Alex', surnames: ['Morgan'] }])
   })
 
-  it('keeps several names, with their types, order, dates and other scripts', () => {
+  it('keeps several names, with their types, dates and other scripts', () => {
     const graph = createGraph({
       names: [
         {
@@ -74,7 +74,7 @@ describe('toDocument / parseTreeDocument', () => {
           ],
         },
         { type: 'nickname', given: 'MJ' },
-        { type: 'married', given: 'Ana', surnames: ['García', 'López'], from: '2010-06', order: 'given-first' },
+        { type: 'married', given: 'Ana', surnames: ['García', 'López'], from: '2010-06' },
         { type: 'birth', given: 'Björk', patronymic: 'Guðmundsdóttir' },
       ],
     })
@@ -159,7 +159,6 @@ describe('parseTreeDocument rejects', () => {
     rejects(withName({ given: 'Ann', surnames: 'Smith' }), /name is malformed/)
     rejects(withName({ given: 'Ann', surnames: [42] }), /name is malformed/)
     rejects(withName({ given: 'Ann', type: 'title' }), /name is malformed/)
-    rejects(withName({ given: 'Ann', order: 'backwards' }), /name is malformed/)
     rejects(withName({ given: 'Ann', forms: [{ script: 'klingon', given: 'x' }] }), /name is malformed/)
     rejects(withName({ given: 'Ann', from: 'last year' }), /date isn’t valid/)
   })

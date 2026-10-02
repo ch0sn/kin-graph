@@ -49,6 +49,7 @@ describe('settings', () => {
       colorMode: 'dark',
       theme: 'blueprint',
       siblingOrder: 'girls-first',
+      nameOrder: 'family-first',
       highlightGender: true,
     } as const
     await saveSettings(settings)

@@ -40,14 +40,21 @@ function isCjk(parts: NameParts): boolean {
 }
 
 /**
- * Whether a name is written family name first. Its own `order` wins;
- * otherwise names in Korean, Chinese or Japanese script are family-first and
- * all others given-first, whatever the app's language: "Kim Minjun" needs
- * its order set, so English names aren't turned around in the Korean app.
+ * How names in other scripts are written, from the settings. The app keeps
+ * it in step with what is rendered, as it does the language.
  */
-export function nameOrder(name: Pick<PersonName, 'order'> & NameParts): NameOrder {
-  if (name.order) return name.order
-  return isCjk(name) ? 'family-first' : 'given-first'
+let preferredOrder: NameOrder = 'given-first'
+
+export function setPreferredNameOrder(order: NameOrder): void {
+  preferredOrder = order
+}
+
+/**
+ * Whether a name is written family name first. Names in Korean, Chinese or
+ * Japanese script always are (김민준); others follow the settings.
+ */
+export function nameOrder(name: NameParts): NameOrder {
+  return isCjk(name) ? 'family-first' : preferredOrder
 }
 
 /** The parts of a name in written order, skipping empty ones. */

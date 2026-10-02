@@ -1,4 +1,5 @@
 import { DEFAULT_LANGUAGE, LANGUAGE_IDS, type Language } from '../i18n'
+import type { NameOrder } from '../model'
 import { DEFAULT_THEME, THEME_IDS, type ThemeId } from '../theme/themes'
 import {
   DEFAULT_SIBLING_ORDER,
@@ -18,6 +19,8 @@ export interface Settings {
   /** The look of the app; see src/theme/themes.ts. */
   theme: ThemeId
   siblingOrder: SiblingOrder
+  /** How names are written, except Korean, Chinese and Japanese ones, which are always family-first. */
+  nameOrder: NameOrder
   /** Colours card borders by gender: blue for male, red for female. */
   highlightGender: boolean
 }
@@ -27,6 +30,7 @@ export const DEFAULT_SETTINGS: Settings = {
   colorMode: 'system',
   theme: DEFAULT_THEME,
   siblingOrder: DEFAULT_SIBLING_ORDER,
+  nameOrder: 'given-first',
   highlightGender: false,
 }
 
@@ -52,6 +56,10 @@ export function parseSettings(raw: unknown): Settings {
     siblingOrder: SIBLING_ORDERS.includes(stored.siblingOrder as SiblingOrder)
       ? (stored.siblingOrder as SiblingOrder)
       : DEFAULT_SETTINGS.siblingOrder,
+    nameOrder:
+      stored.nameOrder === 'given-first' || stored.nameOrder === 'family-first'
+        ? stored.nameOrder
+        : DEFAULT_SETTINGS.nameOrder,
     highlightGender:
       typeof stored.highlightGender === 'boolean'
         ? stored.highlightGender

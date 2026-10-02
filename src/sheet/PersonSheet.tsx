@@ -28,7 +28,7 @@ import { Avatar } from '../ui/Avatar'
 import { LifeLine } from '../ui/LifeLine'
 import { Button, CheckboxGroup, Segmented, type Option } from '../ui/fields'
 import { PersonForm } from './PersonForm'
-import { emptyValues, keepNameDetails, valuesFromPerson } from './personValues'
+import { emptyName, emptyValues, valuesFromPerson } from './personValues'
 
 type Relation = 'parent' | 'partner' | 'sibling' | 'child'
 
@@ -239,7 +239,7 @@ function SheetBody({
               submitLabel={t('common.save')}
               error={error}
               onCancel={() => go({ view: 'details' })}
-              onSubmit={(fields) => apply(() => updatePerson(graph, person.id, keepNameDetails(fields, person)))}
+              onSubmit={(fields) => apply(() => updatePerson(graph, person.id, fields))}
             />
           </SubView>
         )}
@@ -377,8 +377,14 @@ function AddRelativeForm({
   const [childKind, setChildKind] = useState<ParentKind>('biological')
 
   const sharesFamilyName = relation === 'sibling' || relation === 'child'
+  // Siblings and children start with the same surnames.
+  const { surnames } = displayName(person)
   const initial = emptyValues({
-    familyName: sharesFamilyName ? (displayName(person).surnames?.join(' ') ?? '') : '',
+    names: [
+      sharesFamilyName && surnames?.length
+        ? emptyName({ surname: surnames.join(' '), surnameParts: surnames })
+        : emptyName(),
+    ],
   })
 
   const add = (relative: NewPerson): FamilyGraph => {
