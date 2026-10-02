@@ -171,11 +171,11 @@ export function SettingsDialog({ open, settings, onChange, onClose }: SettingsDi
         </div>
 
         <div className="flex flex-col gap-2.5">
-          <div className="flex items-center gap-1.5">
+          <div className="relative flex items-center gap-1.5">
             <label htmlFor="sibling-order-select" className="text-sm font-semibold text-stone-900">
               Sibling order
             </label>
-            <span className="group relative flex">
+            <span className="group flex">
               <button
                 type="button"
                 aria-label="About sibling order"
@@ -187,7 +187,7 @@ export function SettingsDialog({ open, settings, onChange, onClose }: SettingsDi
               <span
                 id="sibling-order-help"
                 role="tooltip"
-                className="pointer-events-none absolute bottom-full left-1/2 z-10 mb-2 w-52 -translate-x-1/2 rounded-lg bg-stone-900 px-3 py-2 text-xs leading-snug text-white opacity-0 shadow-lg transition group-focus-within:opacity-100 group-hover:opacity-100"
+                className="pointer-events-none absolute bottom-full left-0 z-10 mb-2 w-max max-w-full rounded-lg bg-stone-900 px-3 py-2 text-xs leading-snug whitespace-nowrap text-white opacity-0 shadow-lg transition group-focus-within:opacity-100 group-hover:opacity-100"
               >
                 How brothers and sisters line up, left to right.
               </span>
