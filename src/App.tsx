@@ -94,12 +94,7 @@ function TreeScreen({
             <SaveIndicator state={stored.saveState} />
             <HeaderActions graph={graph} onStartNewTree={() => void stored.clearTree()} />
             <AppMenu
-              graph={graph}
               persisted={stored.persisted}
-              onReplace={(next) => {
-                setSelectedId(null)
-                void stored.replaceTree(next)
-              }}
               onShowIntro={onShowIntro}
               onOpenSettings={() => setSettingsOpen(true)}
             />
@@ -129,6 +124,11 @@ function TreeScreen({
       />
       <SettingsDialog
         open={settingsOpen}
+        graph={graph}
+        onReplaceTree={(next) => {
+          setSelectedId(null)
+          void stored.replaceTree(next)
+        }}
         settings={settings}
         onChange={onSettingsChange}
         onClose={() => setSettingsOpen(false)}

@@ -5,14 +5,10 @@ import {
   LoaderCircle,
   SlidersHorizontal,
   TriangleAlert,
-  Upload,
 } from 'lucide-react'
 import { AnimatePresence, motion } from 'motion/react'
 import { useEffect, useRef, useState, type ReactNode } from 'react'
-import { fullName, peopleCount, type FamilyGraph } from '../model'
 import type { SaveState } from '../storage/autosave'
-import { useBackupPicker } from '../storage/useBackupPicker'
-import { ConfirmDialog } from '../ui/ConfirmDialog'
 
 export function SaveIndicator({ state }: { state: SaveState }) {
   const content = {
@@ -39,27 +35,19 @@ export function SaveIndicator({ state }: { state: SaveState }) {
   )
 }
 
-type Pending = { kind: 'import'; graph: FamilyGraph } | null
-
 interface AppMenuProps {
-  graph: FamilyGraph
   /** Whether the browser agreed to keep our data; null if not known yet. */
   persisted: boolean | null
-  onReplace: (graph: FamilyGraph) => void
   onShowIntro: () => void
   onOpenSettings: () => void
 }
 
 export function AppMenu({
-  graph,
   persisted,
-  onReplace,
   onShowIntro,
   onOpenSettings,
 }: AppMenuProps) {
   const [open, setOpen] = useState(false)
-  const [pending, setPending] = useState<Pending>(null)
-  const picker = useBackupPicker((imported) => setPending({ kind: 'import', graph: imported }))
   const menuRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -95,7 +83,6 @@ export function AppMenu({
       >
         <Ellipsis className="size-5" />
       </button>
-      {picker.input}
 
       <AnimatePresence>
         {open && (
@@ -107,9 +94,6 @@ export function AppMenu({
             transition={{ duration: 0.12 }}
             className="absolute top-full right-0 z-30 mt-2 w-72 origin-top-right rounded-2xl border border-stone-200 bg-white p-1.5 shadow-xl"
           >
-            <MenuItem icon={<Upload />} onClick={choose(picker.open)}>
-              Import backup
-            </MenuItem>
             <MenuItem icon={<SlidersHorizontal />} onClick={choose(onOpenSettings)}>
               Settings
             </MenuItem>
@@ -124,38 +108,6 @@ export function AppMenu({
           </motion.div>
         )}
       </AnimatePresence>
-
-      <ConfirmDialog
-        open={pending?.kind === 'import'}
-        title="Replace your tree?"
-        confirmLabel="Replace tree"
-        cancelLabel="Cancel"
-        tone="danger"
-        onConfirm={() => {
-          if (pending?.kind === 'import') onReplace(pending.graph)
-          setPending(null)
-        }}
-        onCancel={() => setPending(null)}
-      >
-        {pending?.kind === 'import' && (
-          <>
-            This replaces your current tree ({peopleCount(graph)}) with the imported tree of{' '}
-            {fullName(pending.graph.people[pending.graph.managerId])} (
-            {peopleCount(pending.graph)}). Export a backup first if you might want your current
-            tree back.
-          </>
-        )}
-      </ConfirmDialog>
-
-      <ConfirmDialog
-        open={picker.error !== null}
-        title="Couldn’t import that file"
-        confirmLabel="OK"
-        onConfirm={picker.clearError}
-        onCancel={picker.clearError}
-      >
-        {picker.error}
-      </ConfirmDialog>
     </div>
   )
 }

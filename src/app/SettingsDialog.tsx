@@ -4,12 +4,16 @@ import {
   Monitor,
   Moon,
   Sun,
+  Upload,
   type LucideIcon,
 } from 'lucide-react'
-import { useEffect, useRef, type ReactNode } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 import type { ColorMode, Settings } from '../storage/settings'
 import { THEMES, themeInfo, type ThemeId } from '../theme/themes'
 import { DEFAULT_SIBLING_ORDER, type SiblingOrder } from '../tree/siblingOrder'
+import { fullName, peopleCount, type FamilyGraph } from '../model'
+import { useBackupPicker } from '../storage/useBackupPicker'
+import { ConfirmDialog } from '../ui/ConfirmDialog'
 import { Button } from '../ui/fields'
 
 /** A miniature tree drawn in a theme's own colours, shape and typeface. */
@@ -113,14 +117,27 @@ const COLOR_MODE_OPTIONS: { value: ColorMode; label: string; icon: LucideIcon }[
 
 interface SettingsDialogProps {
   open: boolean
+  graph: FamilyGraph
+  /** Replaces the tree with one imported from a backup file. */
+  onReplaceTree: (graph: FamilyGraph) => void
   settings: Settings
   onChange: (patch: Partial<Settings>) => void
   onClose: () => void
 }
 
 /** Display preferences. Changes apply straight away, so the tree rearranges behind it. */
-export function SettingsDialog({ open, settings, onChange, onClose }: SettingsDialogProps) {
+export function SettingsDialog({
+  open,
+  graph,
+  onReplaceTree,
+  settings,
+  onChange,
+  onClose,
+}: SettingsDialogProps) {
   const ref = useRef<HTMLDialogElement>(null)
+  /** A tree chosen from a backup file, waiting for the person to confirm replacing theirs. */
+  const [imported, setImported] = useState<FamilyGraph | null>(null)
+  const picker = useBackupPicker(setImported)
 
   useEffect(() => {
     const dialog = ref.current
@@ -130,6 +147,7 @@ export function SettingsDialog({ open, settings, onChange, onClose }: SettingsDi
   }, [open])
 
   return (
+    <>
     <dialog
       ref={ref}
       aria-labelledby="settings-title"
@@ -245,6 +263,20 @@ export function SettingsDialog({ open, settings, onChange, onClose }: SettingsDi
           </div>
         </div>
 
+        <div className="flex flex-col gap-2.5">
+          <HelpLabel
+            id="import-help"
+            about="importing a backup"
+            help="Replace your tree with one from a KinGraph backup file (.json)."
+            label={<span className="text-sm font-semibold text-stone-900">Backup</span>}
+          />
+          <Button onClick={picker.open} className="w-full justify-start">
+            <Upload className="size-4 text-stone-500" aria-hidden />
+            Import backup…
+          </Button>
+          {picker.input}
+        </div>
+
         <div className="flex justify-end">
           <Button variant="primary" onClick={onClose} autoFocus>
             Done
@@ -252,5 +284,38 @@ export function SettingsDialog({ open, settings, onChange, onClose }: SettingsDi
         </div>
       </div>
     </dialog>
+
+    <ConfirmDialog
+      open={imported !== null}
+      title="Replace your tree?"
+      confirmLabel="Replace tree"
+      cancelLabel="Cancel"
+      tone="danger"
+      onConfirm={() => {
+        if (imported) onReplaceTree(imported)
+        setImported(null)
+        onClose()
+      }}
+      onCancel={() => setImported(null)}
+    >
+      {imported && (
+        <>
+          This replaces your current tree ({peopleCount(graph)}) with the imported tree of{' '}
+          {fullName(imported.people[imported.managerId])} ({peopleCount(imported)}). Export a
+          backup first if you might want your current tree back.
+        </>
+      )}
+    </ConfirmDialog>
+
+    <ConfirmDialog
+      open={picker.error !== null}
+      title="Couldn’t import that file"
+      confirmLabel="OK"
+      onConfirm={picker.clearError}
+      onCancel={picker.clearError}
+    >
+      {picker.error}
+    </ConfirmDialog>
+    </>
   )
 }
