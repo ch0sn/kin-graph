@@ -27,8 +27,8 @@ export function Avatar({ person, size = 'sm', highlight = false, src }: AvatarPr
       className={[
         'flex shrink-0 items-center justify-center overflow-hidden rounded-full font-serif',
         SIZES[size],
-        highlight ? 'bg-amber-100 text-amber-900' : 'bg-stone-100 text-stone-600',
-        url && (highlight ? 'ring-2 ring-amber-200' : 'ring-1 ring-stone-200'),
+        highlight ? 'bg-(--accent-soft) text-(--accent-ink)' : 'bg-stone-100 text-stone-600',
+        url && (highlight ? 'ring-2 ring-(--accent-glow)' : 'ring-1 ring-stone-200'),
       ]
         .filter(Boolean)
         .join(' ')}

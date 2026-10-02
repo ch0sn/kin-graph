@@ -23,7 +23,14 @@ import {
 import { TreeDisplayContext } from './display'
 import { FamilyEdge } from './edges'
 import { PersonNode, UnionNode } from './nodes'
+import type { ThemePattern } from '../theme/themes'
 import type { SiblingOrder } from './siblingOrder'
+
+const PATTERNS = {
+  dots: BackgroundVariant.Dots,
+  lines: BackgroundVariant.Lines,
+  cross: BackgroundVariant.Cross,
+} as const
 
 const nodeTypes = { person: PersonNode, union: UnionNode }
 const edgeTypes = { family: FamilyEdge }
@@ -36,6 +43,8 @@ const SELECTED_VIEWPORT_Y = 0.28
 interface FamilyTreeProps {
   graph: FamilyGraph
   siblingOrder: SiblingOrder
+  /** Background pattern of the current theme. */
+  pattern: ThemePattern
   /** Colours card borders by gender. */
   highlightGender: boolean
   onToggleHighlightGender: () => void
@@ -54,6 +63,7 @@ export function FamilyTree(props: FamilyTreeProps) {
 function FamilyTreeCanvas({
   graph,
   siblingOrder,
+  pattern,
   highlightGender,
   onToggleHighlightGender,
   selectedId,
@@ -147,7 +157,14 @@ function FamilyTreeCanvas({
         maxZoom={1.5}
         proOptions={{ hideAttribution: true }}
       >
-        <Background variant={BackgroundVariant.Dots} gap={24} size={1.5} color="var(--color-stone-300)" />
+        {pattern !== 'none' && (
+          <Background
+            variant={PATTERNS[pattern]}
+            gap={24}
+            size={pattern === 'dots' ? 1.5 : 1}
+            color="var(--color-stone-300)"
+          />
+        )}
         <Panel position="bottom-right" className="flex gap-2">
           <button
             type="button"

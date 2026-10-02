@@ -2,7 +2,7 @@ import { motion, MotionConfig } from 'motion/react'
 import { useCallback, useState } from 'react'
 import { AppMenu, SaveIndicator } from './app/AppMenu'
 import { SettingsDialog } from './app/SettingsDialog'
-import { useTheme } from './app/theme'
+import { useAppearance } from './app/theme'
 import type { FamilyGraph, PersonId } from './model'
 import { DamagedTree } from './onboarding/DamagedTree'
 import { Onboarding } from './onboarding/Onboarding'
@@ -15,13 +15,14 @@ import {
   useStoredTree,
   type StoredTree,
 } from './storage/useStoredTree'
+import { themeInfo } from './theme/themes'
 import { FamilyTree } from './tree/FamilyTree'
 
 function App() {
   const stored = useStoredTree()
   const [onboarded, setOnboarded] = useOnboarded()
   const [settings, updateSettings] = useSettings()
-  useTheme(settings?.theme ?? null)
+  useAppearance(settings?.colorMode ?? null, settings?.theme ?? null)
   const [replayingIntro, setReplayingIntro] = useState(false)
   const { tree } = stored
 
@@ -109,6 +110,7 @@ function TreeScreen({
             key={graph.managerId}
             graph={graph}
             siblingOrder={settings.siblingOrder}
+            pattern={themeInfo(settings.theme).pattern}
             highlightGender={settings.highlightGender}
             onToggleHighlightGender={() =>
               onSettingsChange({ highlightGender: !settings.highlightGender })

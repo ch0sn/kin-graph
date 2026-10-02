@@ -19,13 +19,12 @@ const GENDER_BORDERS: Partial<Record<Gender, string>> = {
 }
 
 /*
- * The manager's own card: orange in light mode, yellow in dark mode. Orange
- * and yellow aren't mirrored for dark mode (see index.css), so each mode is
- * set explicitly.
+ * The manager's own card uses the theme's accent (by default orange in light
+ * mode and yellow in dark mode; see index.css).
  */
-const MANAGER_BORDER = 'border-orange-400 dark:border-yellow-400'
-const MANAGER_GLOW = 'ring-4 ring-orange-100 dark:ring-yellow-400/15'
-const MANAGER_SELECTED = 'shadow-md ring-4 ring-orange-300/70 dark:ring-yellow-400/40'
+const MANAGER_BORDER = 'border-(--accent)'
+const MANAGER_GLOW = 'ring-4 ring-(--accent-glow)'
+const MANAGER_SELECTED = 'card-shadow-hover ring-4 ring-(--accent-strong)'
 
 export function PersonNode({ data, selected }: NodeProps<PersonNodeType>) {
   const { person, label, isManager, entranceDelay = 0 } = data
@@ -50,13 +49,13 @@ export function PersonNode({ data, selected }: NodeProps<PersonNodeType>) {
         animate={{ opacity: 1, scale: 1, y: 0 }}
         transition={{ type: 'spring', stiffness: 260, damping: 24, delay: entranceDelay }}
         className={[
-          'flex size-full items-center gap-3 rounded-2xl border bg-white px-3 shadow-sm transition-[box-shadow,border-color]',
+          'flex size-full items-center gap-3 rounded-(--card-radius) border bg-white px-3 card-shadow transition-[box-shadow,border-color]',
           border,
-          !isManager && 'hover:shadow-md',
+          !isManager && 'hover:card-shadow-hover',
           selected
             ? isManager
               ? MANAGER_SELECTED
-              : 'shadow-md ring-4 ring-stone-300/60'
+              : 'card-shadow-hover ring-4 ring-stone-300/60'
             : isManager && MANAGER_GLOW,
         ]
           .filter(Boolean)
@@ -75,7 +74,7 @@ export function PersonNode({ data, selected }: NodeProps<PersonNodeType>) {
           {/* Long names wrap onto a second line rather than being cut off. */}
           <p
             title={fullName(person)}
-            className="line-clamp-2 font-serif text-[15px] leading-tight break-words text-stone-900"
+            className="line-clamp-2 font-serif text-(length:--name-size) leading-tight break-words text-stone-900"
           >
             {fullName(person)}
           </p>

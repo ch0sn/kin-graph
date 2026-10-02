@@ -9,9 +9,47 @@ import {
   type LucideIcon,
 } from 'lucide-react'
 import { useEffect, useRef } from 'react'
-import type { Settings, Theme } from '../storage/settings'
+import type { ColorMode, Settings } from '../storage/settings'
+import { THEMES, type ThemeId } from '../theme/themes'
 import { DEFAULT_SIBLING_ORDER, type SiblingOrder } from '../tree/siblingOrder'
 import { Button } from '../ui/fields'
+
+/** A miniature tree drawn in a theme's own colours, shape and typeface. */
+function ThemePreview({ id }: { id: ThemeId }) {
+  return (
+    <div
+      data-theme={id}
+      aria-hidden
+      className="relative flex h-20 items-center justify-center gap-5 overflow-hidden rounded-xl bg-stone-50 px-2"
+    >
+      <span className="absolute top-1/2 right-9 left-9 h-px bg-stone-300" style={{ height: 'var(--edge-w)' }} />
+      <PreviewCard name="Ana" highlight />
+      <PreviewCard name="Leo" />
+    </div>
+  )
+}
+
+function PreviewCard({ name, highlight = false }: { name: string; highlight?: boolean }) {
+  return (
+    <span
+      className={[
+        'relative flex items-center gap-1.5 border bg-white px-1.5 py-1.5 card-shadow',
+        highlight ? 'border-(--accent)' : 'border-stone-200',
+      ].join(' ')}
+      style={{ borderRadius: 'min(var(--card-radius), 18px)' }}
+    >
+      <span
+        className={[
+          'flex size-5 items-center justify-center rounded-full text-[9px] font-serif',
+          highlight ? 'bg-(--accent-soft) text-(--accent-ink)' : 'bg-stone-100 text-stone-600',
+        ].join(' ')}
+      >
+        {name[0]}
+      </span>
+      <span className="pr-1 font-serif text-[length:var(--name-size)] leading-none text-stone-900">{name}</span>
+    </span>
+  )
+}
 
 const SIBLING_OPTIONS: { value: SiblingOrder; label: string; hint: string; icon: LucideIcon }[] = [
   {
@@ -40,7 +78,7 @@ const SIBLING_OPTIONS: { value: SiblingOrder; label: string; hint: string; icon:
   },
 ]
 
-const THEME_OPTIONS: { value: Theme; label: string; icon: LucideIcon }[] = [
+const COLOR_MODE_OPTIONS: { value: ColorMode; label: string; icon: LucideIcon }[] = [
   { value: 'system', label: 'System', icon: Monitor },
   { value: 'light', label: 'Light', icon: Sun },
   { value: 'dark', label: 'Dark', icon: Moon },
@@ -85,8 +123,8 @@ export function SettingsDialog({ open, settings, onChange, onClose }: SettingsDi
         <fieldset className="flex flex-col gap-2">
           <legend className="mb-2.5 text-sm font-semibold text-stone-900">Appearance</legend>
           <div className="grid grid-cols-3 gap-2">
-            {THEME_OPTIONS.map(({ value, label, icon: Icon }) => {
-              const checked = settings.theme === value
+            {COLOR_MODE_OPTIONS.map(({ value, label, icon: Icon }) => {
+              const checked = settings.colorMode === value
               return (
                 <label
                   key={value}
@@ -100,10 +138,10 @@ export function SettingsDialog({ open, settings, onChange, onClose }: SettingsDi
                 >
                   <input
                     type="radio"
-                    name="theme"
+                    name="color-mode"
                     className="sr-only"
                     checked={checked}
-                    onChange={() => onChange({ theme: value })}
+                    onChange={() => onChange({ colorMode: value })}
                   />
                   <Icon className="size-5" aria-hidden />
                   {label}
@@ -114,6 +152,36 @@ export function SettingsDialog({ open, settings, onChange, onClose }: SettingsDi
           <p className="mt-1 text-xs text-stone-500">
             System follows your phone or computer’s light or dark setting.
           </p>
+        </fieldset>
+
+        <fieldset className="flex flex-col gap-2">
+          <legend className="mb-2.5 text-sm font-semibold text-stone-900">Theme</legend>
+          <div className="grid grid-cols-2 gap-2.5">
+            {THEMES.map(({ id, name, blurb }) => {
+              const checked = settings.theme === id
+              return (
+                <label
+                  key={id}
+                  className={[
+                    'cursor-pointer rounded-2xl border p-1.5 transition',
+                    'has-[:focus-visible]:ring-4 has-[:focus-visible]:ring-stone-200',
+                    checked ? 'border-stone-900 bg-stone-50' : 'border-stone-200 hover:border-stone-300',
+                  ].join(' ')}
+                >
+                  <input
+                    type="radio"
+                    name="theme"
+                    className="sr-only"
+                    checked={checked}
+                    onChange={() => onChange({ theme: id })}
+                  />
+                  <ThemePreview id={id} />
+                  <span className="mt-1.5 block px-1 text-sm font-medium text-stone-900">{name}</span>
+                  <span className="block px-1 pb-1 text-xs text-stone-500">{blurb}</span>
+                </label>
+              )
+            })}
+          </div>
         </fieldset>
 
         <fieldset className="flex flex-col gap-2">

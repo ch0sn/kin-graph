@@ -44,7 +44,12 @@ describe('tree storage', () => {
 describe('settings', () => {
   it('default until saved, then remembered', async () => {
     expect(await loadSettings()).toEqual(DEFAULT_SETTINGS)
-    const settings = { theme: 'dark', siblingOrder: 'girls-first', highlightGender: true } as const
+    const settings = {
+      colorMode: 'dark',
+      theme: 'blueprint',
+      siblingOrder: 'girls-first',
+      highlightGender: true,
+    } as const
     await saveSettings(settings)
     expect(await loadSettings()).toEqual(settings)
   })
@@ -52,7 +57,7 @@ describe('settings', () => {
   it('falls back to defaults for unknown values', async () => {
     await set(
       'settings',
-      { theme: 'sepia', siblingOrder: 'tallest-first', highlightGender: 'yes', extra: 1 },
+      { colorMode: 'sepia', theme: 'neon', siblingOrder: 'tallest-first', highlightGender: 'yes', extra: 1 },
       createStore('kingraph', 'state'),
     )
     expect(await loadSettings()).toEqual(DEFAULT_SETTINGS)

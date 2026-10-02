@@ -55,7 +55,7 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
             aria-live="polite"
             className="flex flex-col items-center text-center"
           >
-            <div className="mb-8 flex size-28 items-center justify-center rounded-full bg-amber-100 text-amber-800 ring-8 ring-amber-50">
+            <div className="mb-8 flex size-28 items-center justify-center rounded-full bg-(--accent-soft) text-(--accent-ink) ring-8 ring-(--accent-glow)">
               <Icon className="size-12" strokeWidth={1.5} aria-hidden />
             </div>
             <h1 className="font-serif text-3xl leading-tight text-balance text-stone-900">
