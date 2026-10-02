@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en" data-theme="classic">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#fafaf9" />
+    <script>
+      // Apply the saved light/dark theme before the first paint, so dark mode
+      // doesn't flash light. Kept in step by src/app/theme.ts.
+      ;(function () {
+        var mode, theme
+        try {
+          mode = localStorage.getItem('kingraph-color-mode')
+          theme = localStorage.getItem('kingraph-theme-id')
+        } catch (e) {}
+        var root = document.documentElement
+        if (theme && /^[a-z]+$/.test(theme)) root.setAttribute('data-theme', theme)
+        var dark =
+          mode === 'dark' ||
+          (mode !== 'light' && window.matchMedia('(prefers-color-scheme: dark)').matches)
+        if (dark) {
+          root.classList.add('dark')
+          document.querySelector('meta[name="theme-color"]').setAttribute('content', '#0c0a09')
+        }
+      })()
+    </script>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400..700&family=Inter:wght@400..700&family=Playfair+Display:wght@400..700&family=Lora:wght@400..700&family=Space+Grotesk:wght@400..700&family=Caveat:wght@400..700&family=JetBrains+Mono:wght@400..700&display=swap"
+    />
+    <title>KinGraph</title>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

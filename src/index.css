@@ -1,0 +1,331 @@
+@import 'tailwindcss';
+@import '@xyflow/react/dist/style.css';
+
+@theme {
+  --font-serif: 'Fraunces', ui-serif, Georgia, serif;
+  --font-sans: 'Inter', ui-sans-serif, system-ui, sans-serif;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  @apply bg-stone-50 font-sans text-stone-900 antialiased;
+}
+
+/* Family tree edges and handles (React Flow) */
+.react-flow__edge-path {
+  stroke: var(--color-stone-300);
+  stroke-width: var(--edge-w);
+  /* animation-delay is set per edge so lines appear with their nodes */
+  animation: edge-in 0.5s ease-out both;
+}
+
+@keyframes edge-in {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes dialog-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.98);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .react-flow__edge-path {
+    animation: none;
+  }
+}
+
+.react-flow__edge.edge-ended .react-flow__edge-path,
+.react-flow__edge.edge-nonbiological .react-flow__edge-path {
+  stroke-dasharray: 5 4;
+}
+
+/* Invisible, zero-size attachment points so lines meet card edges exactly. */
+.react-flow .handle {
+  width: 0;
+  height: 0;
+  min-width: 0;
+  min-height: 0;
+  border: 0;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.react-flow__node-person {
+  cursor: pointer;
+}
+
+/*
+ * Themes and dark mode.
+ *
+ * Every colour in the app comes from Tailwind's colour variables, so a theme
+ * only has to say what its neutrals (--n-h hue, --n-c chroma) and accent look
+ * like. The stone scale is generated from them, light to dark; in dark mode
+ * the scale is mirrored (50 <-> 950, 100 <-> 900, ...), which turns light
+ * surfaces dark and dark text light while keeping each pairing's contrast.
+ * Anything that must stay dark in both modes (backdrops, the photo cropper)
+ * uses black instead.
+ *
+ * The rules apply to :root and to any element with a data-theme attribute,
+ * so the theme previews in Settings show their own colours.
+ */
+@custom-variant dark (&:where(.dark, .dark *));
+
+:root,
+[data-theme] {
+  --color-stone-50: oklch(98.5% calc(var(--n-c) * 0.45) var(--n-h));
+  --color-stone-100: oklch(97% calc(var(--n-c) * 0.5) var(--n-h));
+  --color-stone-200: oklch(92.3% calc(var(--n-c) * 0.7) var(--n-h));
+  --color-stone-300: oklch(86.9% calc(var(--n-c) * 0.9) var(--n-h));
+  --color-stone-400: oklch(70.9% var(--n-c) var(--n-h));
+  --color-stone-500: oklch(55.3% var(--n-c) var(--n-h));
+  --color-stone-600: oklch(44.4% var(--n-c) var(--n-h));
+  --color-stone-700: oklch(37.4% calc(var(--n-c) * 0.9) var(--n-h));
+  --color-stone-800: oklch(26.8% calc(var(--n-c) * 0.7) var(--n-h));
+  --color-stone-900: oklch(21.6% calc(var(--n-c) * 0.5) var(--n-h));
+  --color-stone-950: oklch(14.7% calc(var(--n-c) * 0.4) var(--n-h));
+  --color-white: oklch(100% calc(var(--n-c) * 0.12) var(--n-h));
+  --accent: var(--accent-l);
+  --accent-soft: color-mix(in oklab, var(--accent) 20%, var(--color-white));
+  --accent-ink: color-mix(in oklab, var(--accent) 55%, var(--color-stone-900));
+  --accent-glow: color-mix(in oklab, var(--accent) 22%, transparent);
+  --accent-strong: color-mix(in oklab, var(--accent) 50%, transparent);
+}
+
+:root.dark,
+.dark [data-theme] {
+  color-scheme: dark;
+  --color-stone-50: oklch(14.7% calc(var(--n-c) * 0.45) var(--n-h));
+  --color-stone-100: oklch(21.6% calc(var(--n-c) * 0.5) var(--n-h));
+  --color-stone-200: oklch(26.8% calc(var(--n-c) * 0.7) var(--n-h));
+  --color-stone-300: oklch(37.4% calc(var(--n-c) * 0.9) var(--n-h));
+  --color-stone-400: oklch(44.4% var(--n-c) var(--n-h));
+  --color-stone-600: oklch(70.9% var(--n-c) var(--n-h));
+  --color-stone-700: oklch(86.9% calc(var(--n-c) * 0.9) var(--n-h));
+  --color-stone-800: oklch(92.3% calc(var(--n-c) * 0.7) var(--n-h));
+  --color-stone-900: oklch(97% calc(var(--n-c) * 0.5) var(--n-h));
+  --color-stone-950: oklch(98.5% calc(var(--n-c) * 0.4) var(--n-h));
+  /* Cards and surfaces sit just above the near-black page (stone-50). */
+  --color-white: oklch(18.5% calc(var(--n-c) * 0.5) var(--n-h));
+  --accent: var(--accent-d);
+}
+
+.dark {
+  /* red and blue (gender highlighting) and amber, mirrored the same way */
+  --color-amber-50: oklch(27.9% 0.077 45.635);
+  --color-amber-100: oklch(41.4% 0.112 45.904);
+  --color-amber-200: oklch(47.3% 0.137 46.201);
+  --color-amber-300: oklch(55.5% 0.163 48.998);
+  --color-amber-400: oklch(66.6% 0.179 58.318);
+  --color-amber-600: oklch(82.8% 0.189 84.429);
+  --color-amber-700: oklch(87.9% 0.169 91.605);
+  --color-amber-800: oklch(92.4% 0.12 95.746);
+  --color-amber-900: oklch(96.2% 0.059 95.617);
+  --color-amber-950: oklch(98.7% 0.022 95.277);
+  --color-red-50: oklch(25.8% 0.092 26.042);
+  --color-red-100: oklch(39.6% 0.141 25.723);
+  --color-red-200: oklch(44.4% 0.177 26.899);
+  --color-red-300: oklch(50.5% 0.213 27.518);
+  --color-red-400: oklch(57.7% 0.245 27.325);
+  --color-red-600: oklch(70.4% 0.191 22.216);
+  --color-red-700: oklch(80.8% 0.114 19.571);
+  --color-red-800: oklch(88.5% 0.062 18.334);
+  --color-red-900: oklch(93.6% 0.032 17.717);
+  --color-red-950: oklch(97.1% 0.013 17.38);
+  --color-blue-50: oklch(28.2% 0.091 267.935);
+  --color-blue-100: oklch(37.9% 0.146 265.522);
+  --color-blue-200: oklch(42.4% 0.199 265.638);
+  --color-blue-300: oklch(48.8% 0.243 264.376);
+  --color-blue-400: oklch(54.6% 0.245 262.881);
+  --color-blue-600: oklch(70.7% 0.165 254.624);
+  --color-blue-700: oklch(80.9% 0.105 251.813);
+  --color-blue-800: oklch(88.2% 0.059 254.128);
+  --color-blue-900: oklch(93.2% 0.032 255.585);
+  --color-blue-950: oklch(97% 0.014 254.604);
+}
+
+/*
+ * What a theme sets:
+ *   --n-h / --n-c         hue and chroma of the neutrals (page, cards, text, lines)
+ *   --accent-l / -d       the accent in light and dark mode (your own card)
+ *   --card-radius         corner shape of the cards
+ *   --card-shadow(-hover) shadow of the cards
+ *   --font-serif          typeface of names and headings
+ *   --name-size           size of names on cards
+ *   --edge-w              thickness of the lines
+ * The background pattern is chosen in src/theme/themes.ts.
+ */
+:root,
+[data-theme] {
+  --card-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
+  --card-shadow-hover: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+  --name-size: 15px;
+  --edge-w: 1.5px;
+}
+
+@utility card-shadow {
+  --tw-shadow: var(--card-shadow);
+  box-shadow:
+    var(--tw-inset-shadow), var(--tw-inset-ring-shadow), var(--tw-ring-offset-shadow),
+    var(--tw-ring-shadow), var(--tw-shadow);
+}
+
+@utility card-shadow-hover {
+  --tw-shadow: var(--card-shadow-hover);
+  box-shadow:
+    var(--tw-inset-shadow), var(--tw-inset-ring-shadow), var(--tw-ring-offset-shadow),
+    var(--tw-ring-shadow), var(--tw-shadow);
+}
+
+/* 1 · Classic: soft, warm and rounded */
+[data-theme='classic'] {
+  --n-h: 60;
+  --n-c: 0.008;
+  --accent-l: oklch(75% 0.183 56);
+  --accent-d: oklch(85.2% 0.199 92);
+  --card-radius: 1rem;
+  --font-serif: 'Fraunces', ui-serif, Georgia, serif;
+}
+
+/* 2 · Parchment: aged paper and a scholar's serif */
+[data-theme='parchment'] {
+  --n-h: 78;
+  --n-c: 0.038;
+  --accent-l: oklch(46% 0.1 50);
+  --accent-d: oklch(80% 0.12 80);
+  --card-radius: 6px;
+  --font-serif: 'Playfair Display', ui-serif, Georgia, serif;
+  --card-shadow: 0 1px 2px 0 rgb(60 40 10 / 0.18);
+  --card-shadow-hover: 0 3px 8px -2px rgb(60 40 10 / 0.25);
+  --edge-w: 1.25px;
+}
+
+/* 3 · Forest: mossy greens */
+[data-theme='forest'] {
+  --n-h: 150;
+  --n-c: 0.026;
+  --accent-l: oklch(52% 0.15 150);
+  --accent-d: oklch(80% 0.18 148);
+  --card-radius: 12px;
+  --font-serif: 'Lora', ui-serif, Georgia, serif;
+}
+
+/* 4 · Ocean: cool, calm and roomy */
+[data-theme='ocean'] {
+  --n-h: 225;
+  --n-c: 0.03;
+  --accent-l: oklch(62% 0.13 215);
+  --accent-d: oklch(82% 0.12 200);
+  --card-radius: 22px;
+  --font-serif: 'Inter', ui-sans-serif, system-ui, sans-serif;
+  --name-size: 15px;
+}
+
+/* 5 · Midnight: deep indigo */
+[data-theme='midnight'] {
+  --n-h: 270;
+  --n-c: 0.04;
+  --accent-l: oklch(52% 0.21 275);
+  --accent-d: oklch(78% 0.15 275);
+  --card-radius: 14px;
+  --font-serif: 'Fraunces', ui-serif, Georgia, serif;
+  --card-shadow: 0 2px 8px -1px rgb(30 20 90 / 0.25);
+  --card-shadow-hover: 0 6px 16px -2px rgb(30 20 90 / 0.35);
+}
+
+/* 6 · Rosé: gentle pinks and pill-shaped cards */
+[data-theme='rose'] {
+  --n-h: 8;
+  --n-c: 0.03;
+  --accent-l: oklch(64% 0.19 8);
+  --accent-d: oklch(80% 0.14 10);
+  --card-radius: 38px;
+  --font-serif: 'Lora', ui-serif, Georgia, serif;
+}
+
+/* 7 · Blueprint: technical drawing on a grid */
+[data-theme='blueprint'] {
+  --n-h: 245;
+  --n-c: 0.05;
+  --accent-l: oklch(55% 0.16 240);
+  --accent-d: oklch(84% 0.12 205);
+  --card-radius: 2px;
+  --font-serif: 'Space Grotesk', ui-sans-serif, system-ui, sans-serif;
+  --card-shadow: 0 0 0 0 transparent;
+  --card-shadow-hover: 0 0 0 3px color-mix(in oklab, var(--accent) 25%, transparent);
+  --name-size: 14.5px;
+}
+
+/* 8 · Newsprint: black ink, square corners, no frills */
+[data-theme='newsprint'] {
+  --n-h: 90;
+  --n-c: 0;
+  --accent-l: oklch(22% 0 0);
+  --accent-d: oklch(95% 0 0);
+  --card-radius: 0px;
+  --font-serif: 'Playfair Display', ui-serif, Georgia, serif;
+  --card-shadow: 3px 3px 0 0 rgb(0 0 0 / 0.14);
+  --card-shadow-hover: 4px 4px 0 0 rgb(0 0 0 / 0.25);
+  --edge-w: 2px;
+}
+
+/* 9 · Sunset: warm coral and golden hour */
+[data-theme='sunset'] {
+  --n-h: 40;
+  --n-c: 0.034;
+  --accent-l: oklch(62% 0.22 15);
+  --accent-d: oklch(82% 0.16 60);
+  --card-radius: 26px;
+  --font-serif: 'Fraunces', ui-serif, Georgia, serif;
+}
+
+/* 10 · Lavender: soft purples and a friendly serif */
+[data-theme='lavender'] {
+  --n-h: 300;
+  --n-c: 0.03;
+  --accent-l: oklch(56% 0.19 300);
+  --accent-d: oklch(80% 0.13 300);
+  --card-radius: 18px;
+  --font-serif: 'Lora', ui-serif, Georgia, serif;
+}
+
+/* 11 · Sketchbook: hand-drawn and a little wobbly */
+[data-theme='sketchbook'] {
+  --n-h: 95;
+  --n-c: 0.022;
+  --accent-l: oklch(56% 0.2 28);
+  --accent-d: oklch(80% 0.15 85);
+  --card-radius: 255px 18px 225px 18px / 18px 225px 18px 255px;
+  --font-serif: 'Caveat', cursive;
+  --name-size: 21px;
+  --card-shadow: 2px 3px 0 0 rgb(0 0 0 / 0.12);
+  --card-shadow-hover: 3px 4px 0 0 rgb(0 0 0 / 0.2);
+  --edge-w: 2px;
+}
+
+/* 12 · Terminal: monospace on a green-tinted grid */
+[data-theme='terminal'] {
+  --n-h: 155;
+  --n-c: 0.02;
+  --accent-l: oklch(52% 0.2 148);
+  --accent-d: oklch(86% 0.25 145);
+  --card-radius: 0px;
+  --font-serif: 'JetBrains Mono', ui-monospace, monospace;
+  --name-size: 13px;
+  --card-shadow: 0 0 0 0 transparent;
+  --card-shadow-hover: 0 0 0 2px color-mix(in oklab, var(--accent) 35%, transparent);
+  --edge-w: 1px;
+}
+
+/* The page and base typeface follow the theme. */
+body {
+  font-family: var(--font-body, var(--font-sans));
+}

@@ -14,6 +14,7 @@ Unlike traditional tools that force you to start with a distant ancestor, KinGra
 *   ✨ **Classy & Animated UI:** A modern interface featuring bezier curves, smooth node transitions (via Framer Motion), and elegant typography.
 *   🔄 **Dual Views:** Switch seamlessly between a traditional "Vertical Tree" hierarchy or a historical "Horizontal Timeline."
 *   🧠 **Smart Logic:** Automatic relationship detection. Adding a sibling automatically links them to your parents; step-relations are handled intuitively.
+*   🌍 **Multilingual:** Available in English, German (Deutsch), Spanish (Español) and Korean (한국어), switchable in Settings. Relationship labels follow each language's own conventions, not word-for-word translations: German compounds (*Urgroßmutter*, *Schwiegersohn*), Spanish gender agreement (*tía abuela*, *prima segunda*), and Korean terms that depend on family side, relative age and who is asking (*외할머니*, *이모*, *언니*/*누나*, *사촌*).
 
 ### 🛠️ Tech Stack
 
@@ -23,7 +24,7 @@ KinGraph is built with modern web standards for performance and maintainability:
 *   **Styling:** Tailwind CSS (for clean, scalable design)
 *   **Visualization:** [React Flow](https://reactflow.dev/) (for the graph engine)
 *   **Animations:** Framer Motion (for spring-physics UI effects)
-*   **Backend/DB:** Supabase (PostgreSQL + Auth)
+*   **Storage:** Local-first. Your tree is saved in your browser (IndexedDB) on your device, nothing is uploaded, and you can export or import JSON backups.
 
 ### 🚀 Getting Started
 
@@ -31,7 +32,7 @@ To get a local copy up and running, follow these simple steps:
 
 1.  Clone the repo
     ```sh
-    git clone https://github.com/your-username/kin-graph.git
+    git clone https://github.com/ch0sn/kin-graph.git
     ```
 2.  Install NPM packages
     ```sh
@@ -41,6 +42,19 @@ To get a local copy up and running, follow these simple steps:
     ```sh
     npm run dev
     ```
+
+Run the tests with `npm test`.
+
+### 🌍 Translations
+
+All interface text lives in `src/i18n/`. `en.ts` is the source of truth; every other language (`de.ts`, `es.ts`, `ko.ts`) must translate every key with the same `{placeholders}`, which the compiler and the tests check. Relationship labels are built per language in `src/model/kinship*.ts`. Names and the title "KinGraph" are never translated.
+
+To add a language:
+
+1.  Add a dictionary file in `src/i18n/` typed as `Record<MessageId, string>`.
+2.  Register it in `LANGUAGES` and `DICTIONARIES` in `src/i18n/core.ts`.
+3.  Add a relationship-label module in `src/model/` and route to it from `describeKinship` in `src/model/kinship.ts`.
+4.  Add the language to the tests in `src/i18n/i18n.test.ts` and `src/model/kinship.test.ts`.
 
 ### 🎨 Visual Philosophy
 
