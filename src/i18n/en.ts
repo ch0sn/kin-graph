@@ -203,7 +203,7 @@ export const en = {
   'd.partnershipMalformed': 'a partnership is malformed.',
   'd.partnershipMissing': 'a partnership refers to someone who isn’t in the tree.',
   'd.personMissing': 'a person is missing their id or name.',
-  'd.lastName': '{name}’s last name isn’t text.',
+  'd.name': 'a name is malformed.',
   'd.flag': '{name} has an invalid {flag} flag.',
   'd.photoRef': '{name}’s photo reference is invalid.',
   'd.linkTwice': 'a parent link appears twice.',

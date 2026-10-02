@@ -8,10 +8,48 @@ export type Gender = 'female' | 'male' | 'other'
  */
 export type FuzzyDate = string
 
+/** The parts of a name. Which come first when written out is up to `NameOrder`. */
+export interface NameParts {
+  /** Given names: "Mary Ann", "민준". */
+  given: string
+  /**
+   * Surnames, in the order they're written. Usually one; Spanish and
+   * Portuguese names have two (García López).
+   */
+  surnames?: string[]
+  /** A name formed from a parent's given name: Jónsdóttir, Ivanovich. */
+  patronymic?: string
+}
+
+/** What kind of name it is, when someone has several. */
+export type NameType = 'birth' | 'married' | 'nickname' | 'alias' | 'religious' | 'other'
+
+/** Whether the given or the family name is written first: "Mary Smith" or "김 민준". */
+export type NameOrder = 'given-first' | 'family-first'
+
+/** The script of another written form of a name. */
+export type NameScript = 'hanja' | 'romanized' | 'other'
+
+/** The same name written in another script: 金敏俊 or "Kim Minjun" for 김민준. */
+export interface NameForm extends NameParts {
+  script: NameScript
+}
+
+export interface PersonName extends NameParts {
+  /** Unset for a name that is simply what someone is called. */
+  type?: NameType
+  /** Overrides the usual order (see `nameOrder`). */
+  order?: NameOrder
+  /** When the name was in use, e.g. a married name from the wedding on. */
+  from?: FuzzyDate
+  to?: FuzzyDate
+  forms?: NameForm[]
+}
+
 export interface Person {
   id: PersonId
-  givenName: string
-  familyName?: string
+  /** Every name the person has had or is known by. The first is the one shown. */
+  names: [PersonName, ...PersonName[]]
   gender?: Gender
   birthDate?: FuzzyDate
   deathDate?: FuzzyDate

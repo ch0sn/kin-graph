@@ -205,7 +205,7 @@ export const ko: Record<MessageId, string> = {
   'd.partnershipMalformed': '배우자 관계 형식이 잘못되었습니다.',
   'd.partnershipMissing': '배우자 관계가 가계도에 없는 사람을 가리킵니다.',
   'd.personMissing': 'ID나 이름이 없는 사람이 있습니다.',
-  'd.lastName': '{name} 님의 성이 텍스트가 아닙니다.',
+  'd.name': '이름 형식이 잘못되었습니다.',
   'd.flag': '{name} 님의 ‘{flag}’ 표시가 올바르지 않습니다.',
   'd.photoRef': '{name} 님의 사진 참조가 올바르지 않습니다.',
   'd.linkTwice': '부모 연결이 중복되었습니다.',

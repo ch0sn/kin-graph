@@ -14,14 +14,14 @@ import type { FamilyGraph, NewPerson, PersonId } from './types'
 
 /** Builds a sample extended family around Alex, recording each person's id by name. */
 function buildFamily() {
-  let graph: FamilyGraph = createGraph({ givenName: 'Alex', gender: 'male' })
+  let graph: FamilyGraph = createGraph({ names: [{ given: 'Alex' }], gender: 'male' })
   const ids: Record<string, PersonId> = { alex: graph.managerId }
   const add = (name: string, result: PersonResult) => {
     graph = result.graph
     ids[name] = result.person.id
   }
   const p = (givenName: string, gender: NewPerson['gender']): NewPerson => ({
-    givenName,
+    names: [{ given: givenName }],
     gender,
   })
 
@@ -110,12 +110,12 @@ describe('relationshipLabel', () => {
   })
 
   it('uses neutral words when gender is not male or female', () => {
-    const { graph: g, person } = addChild(graph, ids.alex, { givenName: 'Robin' })
+    const { graph: g, person } = addChild(graph, ids.alex, { names: [{ given: 'Robin' }] })
     expect(relationshipLabel(g, person.id)).toBe('Child')
   })
 
   it('returns null for unrelated people', () => {
-    const { graph: g, person } = addChild(graph, ids.kim, { givenName: 'Stranger' }, {
+    const { graph: g, person } = addChild(graph, ids.kim, { names: [{ given: 'Stranger' }] }, {
       coParentId: null,
     })
     expect(relationshipLabel(g, person.id)).toBeNull()
@@ -251,16 +251,16 @@ describe('relationshipLabel in Korean', () => {
   })
 
   it('names siblings and their partners by who is older and who is asking', () => {
-    let g: FamilyGraph = createGraph({ givenName: 'Mina', gender: 'female', birthDate: '1990' })
+    let g: FamilyGraph = createGraph({ names: [{ given: 'Mina' }], gender: 'female', birthDate: '1990' })
     const me = g.managerId
     const add = (result: PersonResult) => {
       g = result.graph
       return result.person.id
     }
-    const sister = add(addSibling(g, me, { givenName: 'Jia', gender: 'female', birthDate: '1985' }))
-    const brother = add(addSibling(g, me, { givenName: 'Joon', gender: 'male', birthDate: '1987-04' }))
-    const younger = add(addSibling(g, me, { givenName: 'Hana', gender: 'female', birthDate: '1995' }))
-    const husband = add(addPartner(g, sister, { givenName: 'Min', gender: 'male' }, 'married'))
+    const sister = add(addSibling(g, me, { names: [{ given: 'Jia' }], gender: 'female', birthDate: '1985' }))
+    const brother = add(addSibling(g, me, { names: [{ given: 'Joon' }], gender: 'male', birthDate: '1987-04' }))
+    const younger = add(addSibling(g, me, { names: [{ given: 'Hana' }], gender: 'female', birthDate: '1995' }))
+    const husband = add(addPartner(g, sister, { names: [{ given: 'Min' }], gender: 'male' }, 'married'))
 
     expect(relationshipLabel(g, sister)).toBe('언니')
     expect(relationshipLabel(g, brother)).toBe('오빠')

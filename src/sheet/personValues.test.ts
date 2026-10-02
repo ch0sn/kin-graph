@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest'
-import { emptyValues, toPersonFields, validate, valuesFromPerson } from './personValues'
+import type { Person } from '../model'
+import {
+  emptyValues,
+  keepNameDetails,
+  toPersonFields,
+  validate,
+  valuesFromPerson,
+} from './personValues'
 
 describe('validate', () => {
   it('requires a first name', () => {
@@ -37,8 +44,7 @@ describe('toPersonFields', () => {
     expect(
       toPersonFields(emptyValues({ givenName: ' Ann ', familyName: ' ', birthDate: '1963' })),
     ).toEqual({
-      givenName: 'Ann',
-      familyName: undefined,
+      names: [{ given: 'Ann' }],
       gender: undefined,
       birthDate: '1963',
       deceased: undefined,
@@ -59,8 +65,7 @@ describe('toPersonFields', () => {
   it('round-trips a person through the form', () => {
     const person = {
       id: '1',
-      givenName: 'Grace',
-      familyName: 'Ellis',
+      names: [{ given: 'Grace', surnames: ['Ellis'] }] as Person['names'],
       gender: 'female' as const,
       birthDate: '1934-05-19',
       deathDate: '2015',
@@ -71,5 +76,37 @@ describe('toPersonFields', () => {
       id: undefined,
       deceased: true,
     })
+  })
+})
+
+describe('keepNameDetails', () => {
+  const person: Person = {
+    id: '1',
+    names: [
+      {
+        given: '민준',
+        surnames: ['김'],
+        forms: [{ script: 'hanja', given: '敏俊', surnames: ['金'] }],
+      },
+      { type: 'nickname', given: 'MJ' },
+    ],
+  }
+  const edit = (values: Partial<ReturnType<typeof emptyValues>>) =>
+    keepNameDetails(toPersonFields({ ...valuesFromPerson(person), ...values }), person).names
+
+  it('keeps other names and what the form does not show', () => {
+    expect(edit({ givenName: '서준' })).toEqual([
+      { given: '서준', surnames: ['김'], forms: person.names[0].forms },
+      { type: 'nickname', given: 'MJ' },
+    ])
+  })
+
+  it('keeps surname parts unless the surname text changed', () => {
+    const ana: Person = { id: '2', names: [{ given: 'Ana', surnames: ['García', 'López'] }] }
+    const fields = (familyName: string) =>
+      keepNameDetails(toPersonFields({ ...valuesFromPerson(ana), familyName }), ana).names[0]
+    expect(fields('García López').surnames).toEqual(['García', 'López'])
+    expect(fields('García Pérez').surnames).toEqual(['García Pérez'])
+    expect(fields(' ').surnames).toBeUndefined()
   })
 })

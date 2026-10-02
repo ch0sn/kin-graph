@@ -202,7 +202,7 @@ export const de: Record<MessageId, string> = {
   'd.partnershipMalformed': 'eine Partnerschaft ist fehlerhaft.',
   'd.partnershipMissing': 'eine Partnerschaft verweist auf eine Person, die nicht im Stammbaum ist.',
   'd.personMissing': 'einer Person fehlt die ID oder der Name.',
-  'd.lastName': 'der Nachname von {name} ist kein Text.',
+  'd.name': 'ein Name ist fehlerhaft.',
   'd.flag': '{name} hat eine ungültige Markierung „{flag}“.',
   'd.photoRef': 'der Fotoverweis von {name} ist ungültig.',
   'd.linkTwice': 'eine Eltern-Verknüpfung kommt doppelt vor.',

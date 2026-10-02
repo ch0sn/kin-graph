@@ -1,7 +1,7 @@
 import { Camera, Mars, TriangleAlert, Venus } from 'lucide-react'
 import { AnimatePresence, motion } from 'motion/react'
 import { useEffect, useId, useRef, useState, type FormEvent, type ReactNode } from 'react'
-import type { Gender, NewPerson } from '../model'
+import { simpleName, type Gender, type NewPerson } from '../model'
 import { squareCrop, type Crop } from '../photos/crop'
 import { PhotoCropDialog } from '../photos/PhotoCropDialog'
 import { useT } from '../i18n'
@@ -140,7 +140,10 @@ export function PersonForm({
         >
           {hasPhoto ? (
             <Avatar
-              person={{ ...values, photoId: values.photoId || undefined }}
+              person={{
+                names: [simpleName(values.givenName, values.familyName)],
+                photoId: values.photoId || undefined,
+              }}
               size="lg"
               src={newPhoto ? newPhoto.url : undefined}
             />

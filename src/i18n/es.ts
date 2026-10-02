@@ -202,7 +202,7 @@ export const es: Record<MessageId, string> = {
   'd.partnershipMalformed': 'una pareja tiene un formato incorrecto.',
   'd.partnershipMissing': 'una pareja hace referencia a alguien que no está en el árbol.',
   'd.personMissing': 'a una persona le falta el identificador o el nombre.',
-  'd.lastName': 'los apellidos de {name} no son texto.',
+  'd.name': 'un nombre tiene un formato incorrecto.',
   'd.flag': '{name} tiene un indicador «{flag}» no válido.',
   'd.photoRef': 'la referencia a la foto de {name} no es válida.',
   'd.linkTwice': 'un vínculo de progenitor aparece dos veces.',

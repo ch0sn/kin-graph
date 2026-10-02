@@ -6,6 +6,7 @@ import {
   addParent,
   addPartner,
   addSibling,
+  displayName,
   fullName,
   GraphError,
   isOngoing,
@@ -27,7 +28,7 @@ import { Avatar } from '../ui/Avatar'
 import { LifeLine } from '../ui/LifeLine'
 import { Button, CheckboxGroup, Segmented, type Option } from '../ui/fields'
 import { PersonForm } from './PersonForm'
-import { emptyValues, valuesFromPerson } from './personValues'
+import { emptyValues, keepNameDetails, valuesFromPerson } from './personValues'
 
 type Relation = 'parent' | 'partner' | 'sibling' | 'child'
 
@@ -238,13 +239,13 @@ function SheetBody({
               submitLabel={t('common.save')}
               error={error}
               onCancel={() => go({ view: 'details' })}
-              onSubmit={(fields) => apply(() => updatePerson(graph, person.id, fields))}
+              onSubmit={(fields) => apply(() => updatePerson(graph, person.id, keepNameDetails(fields, person)))}
             />
           </SubView>
         )}
 
         {mode.view === 'remove' && (
-          <SubView title={t('sheet.removeTitle', { name: person.givenName })} onBack={() => go({ view: 'details' })}>
+          <SubView title={t('sheet.removeTitle', { name: displayName(person).given })} onBack={() => go({ view: 'details' })}>
             <p className="text-sm leading-relaxed text-stone-600">
               {t('sheet.removeBody', { name: fullName(person) })}
             </p>
@@ -376,7 +377,9 @@ function AddRelativeForm({
   const [childKind, setChildKind] = useState<ParentKind>('biological')
 
   const sharesFamilyName = relation === 'sibling' || relation === 'child'
-  const initial = emptyValues({ familyName: sharesFamilyName ? (person.familyName ?? '') : '' })
+  const initial = emptyValues({
+    familyName: sharesFamilyName ? (displayName(person).surnames?.join(' ') ?? '') : '',
+  })
 
   const add = (relative: NewPerson): FamilyGraph => {
     switch (relation) {

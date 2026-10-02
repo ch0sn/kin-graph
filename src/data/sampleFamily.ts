@@ -5,6 +5,7 @@ import {
   addSibling,
   createGraph,
   linkPartners,
+  simpleName,
   type FamilyGraph,
   type NewPerson,
   type PersonResult,
@@ -59,5 +60,5 @@ function person(
   birthDate?: string,
   deathDate?: string,
 ): NewPerson {
-  return { givenName, familyName, gender, birthDate, deathDate }
+  return { names: [simpleName(givenName, familyName)], gender, birthDate, deathDate }
 }
