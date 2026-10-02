@@ -1,6 +1,7 @@
 import {
   ChartNoAxesColumnDecreasing,
   ChartNoAxesColumnIncreasing,
+  ChevronDown,
   Mars,
   Monitor,
   Moon,
@@ -10,7 +11,7 @@ import {
 } from 'lucide-react'
 import { useEffect, useRef } from 'react'
 import type { ColorMode, Settings } from '../storage/settings'
-import { THEMES, type ThemeId } from '../theme/themes'
+import { THEMES, themeInfo, type ThemeId } from '../theme/themes'
 import { DEFAULT_SIBLING_ORDER, type SiblingOrder } from '../tree/siblingOrder'
 import { Button } from '../ui/fields'
 
@@ -20,7 +21,7 @@ function ThemePreview({ id }: { id: ThemeId }) {
     <div
       data-theme={id}
       aria-hidden
-      className="relative flex h-20 items-center justify-center gap-5 overflow-hidden rounded-xl bg-stone-50 px-2"
+      className="relative flex h-24 items-center justify-center gap-5 overflow-hidden rounded-xl bg-stone-50 px-2"
     >
       <span className="absolute top-1/2 right-9 left-9 h-px bg-stone-300" style={{ height: 'var(--edge-w)' }} />
       <PreviewCard name="Ana" highlight />
@@ -154,35 +155,31 @@ export function SettingsDialog({ open, settings, onChange, onClose }: SettingsDi
           </p>
         </fieldset>
 
-        <fieldset className="flex flex-col gap-2">
-          <legend className="mb-2.5 text-sm font-semibold text-stone-900">Theme</legend>
-          <div className="grid grid-cols-2 gap-2.5">
-            {THEMES.map(({ id, name, blurb }) => {
-              const checked = settings.theme === id
-              return (
-                <label
-                  key={id}
-                  className={[
-                    'cursor-pointer rounded-2xl border p-1.5 transition',
-                    'has-[:focus-visible]:ring-4 has-[:focus-visible]:ring-stone-200',
-                    checked ? 'border-stone-900 bg-stone-50' : 'border-stone-200 hover:border-stone-300',
-                  ].join(' ')}
-                >
-                  <input
-                    type="radio"
-                    name="theme"
-                    className="sr-only"
-                    checked={checked}
-                    onChange={() => onChange({ theme: id })}
-                  />
-                  <ThemePreview id={id} />
-                  <span className="mt-1.5 block px-1 text-sm font-medium text-stone-900">{name}</span>
-                  <span className="block px-1 pb-1 text-xs text-stone-500">{blurb}</span>
-                </label>
-              )
-            })}
+        <div className="flex flex-col gap-2.5">
+          <label htmlFor="theme-select" className="text-sm font-semibold text-stone-900">
+            Theme
+          </label>
+          <div className="relative">
+            <select
+              id="theme-select"
+              value={settings.theme}
+              onChange={(e) => onChange({ theme: e.target.value as ThemeId })}
+              className="w-full appearance-none rounded-xl border border-stone-200 bg-white py-2.5 pr-10 pl-3 text-base text-stone-900 outline-none transition focus:border-stone-500 focus:ring-4 focus:ring-stone-200"
+            >
+              {THEMES.map(({ id, name }) => (
+                <option key={id} value={id}>
+                  {name}
+                </option>
+              ))}
+            </select>
+            <ChevronDown
+              className="pointer-events-none absolute top-1/2 right-3 size-4 -translate-y-1/2 text-stone-500"
+              aria-hidden
+            />
           </div>
-        </fieldset>
+          <ThemePreview id={settings.theme} />
+          <p className="text-xs text-stone-500">{themeInfo(settings.theme).blurb}</p>
+        </div>
 
         <fieldset className="flex flex-col gap-2">
           <legend className="text-sm font-semibold text-stone-900">Sibling order</legend>
