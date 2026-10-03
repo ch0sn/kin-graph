@@ -1,5 +1,5 @@
 import { useEffect } from 'react'
-import type { ColorMode } from '../storage/settings'
+import type { ColorMode, ColorVision } from '../storage/settings'
 import type { ThemeId } from '../theme/themes'
 
 /**
@@ -9,6 +9,7 @@ import type { ThemeId } from '../theme/themes'
  */
 export const COLOR_MODE_STORAGE_KEY = 'kingraph-color-mode'
 export const THEME_STORAGE_KEY = 'kingraph-theme-id'
+export const VISION_STORAGE_KEY = 'kingraph-color-vision'
 
 /** Browser chrome colours: the page colour in light and dark. */
 const CHROME_COLORS = { light: '#fafaf9', dark: '#0c0a09' }
@@ -24,7 +25,21 @@ function applyColorMode(mode: ColorMode) {
 }
 
 /** Applies the theme and light/dark mode to the page; "system" follows the device. */
-export function useAppearance(colorMode: ColorMode | null, theme: ThemeId | null) {
+export function useAppearance(
+  colorMode: ColorMode | null,
+  theme: ThemeId | null,
+  colorVision: ColorVision | null,
+) {
+  useEffect(() => {
+    if (!colorVision) return
+    document.documentElement.dataset.vision = colorVision
+    try {
+      localStorage.setItem(VISION_STORAGE_KEY, colorVision)
+    } catch {
+      // As below.
+    }
+  }, [colorVision])
+
   useEffect(() => {
     if (!theme) return
     document.documentElement.dataset.theme = theme

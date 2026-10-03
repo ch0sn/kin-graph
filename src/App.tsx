@@ -24,7 +24,7 @@ function App() {
   const stored = useStoredTree()
   const [onboarded, setOnboarded] = useOnboarded()
   const [settings, updateSettings] = useSettings()
-  useAppearance(settings?.colorMode ?? null, settings?.theme ?? null)
+  useAppearance(settings?.colorMode ?? null, settings?.theme ?? null, settings?.colorVision ?? null)
   const [replayingIntro, setReplayingIntro] = useState(false)
   const { tree } = stored
   // Assigned during render, like the language, so names are written the same everywhere.

@@ -8,7 +8,7 @@ import {
   type LucideIcon,
 } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
-import type { ColorMode, Settings } from '../storage/settings'
+import type { ColorMode, ColorVision, Settings } from '../storage/settings'
 import { THEMES, type ThemeId } from '../theme/themes'
 import { DEFAULT_SIBLING_ORDER, type SiblingOrder } from '../tree/siblingOrder'
 import { fullName, peopleCount, type FamilyGraph, type NameOrder } from '../model'
@@ -66,6 +66,14 @@ const SIBLING_OPTIONS: { value: SiblingOrder; label: MessageKey }[] = [
 const NAME_ORDER_OPTIONS: { value: NameOrder; label: MessageKey }[] = [
   { value: 'given-first', label: 'nameOrder.given' },
   { value: 'family-first', label: 'nameOrder.family' },
+]
+
+const COLOR_VISION_OPTIONS: { value: ColorVision; label: MessageKey }[] = [
+  { value: 'standard', label: 'colorVision.standard' },
+  { value: 'protanopia', label: 'colorVision.protanopia' },
+  { value: 'deuteranopia', label: 'colorVision.deuteranopia' },
+  { value: 'tritanopia', label: 'colorVision.tritanopia' },
+  { value: 'monochrome', label: 'colorVision.monochrome' },
 ]
 
 const COLOR_MODE_OPTIONS: { value: ColorMode; label: MessageKey; icon: LucideIcon }[] = [
@@ -214,6 +222,38 @@ export function SettingsDialog({
           </div>
           <ThemePreview id={settings.theme} />
           <p className="text-xs text-stone-500">{t(`theme.${settings.theme}.blurb`)}</p>
+        </div>
+
+        <div className="flex flex-col gap-2.5">
+          <HelpLabel
+            id="color-vision-help"
+            about={t('settings.colorVision')}
+            help={t('settings.colorVisionHelp')}
+            label={
+              <label htmlFor="color-vision-select" className="text-sm font-semibold text-stone-900">
+                {t('settings.colorVision')}
+              </label>
+            }
+          />
+          <div className="relative">
+            <select
+              id="color-vision-select"
+              value={settings.colorVision}
+              onChange={(e) => onChange({ colorVision: e.target.value as ColorVision })}
+              className="w-full appearance-none rounded-xl border border-stone-200 bg-white py-2.5 pr-10 pl-3 text-base text-stone-900 outline-none transition focus:border-stone-500 focus:ring-4 focus:ring-stone-200"
+            >
+              {COLOR_VISION_OPTIONS.map(({ value, label }) => (
+                <option key={value} value={value}>
+                  {t(label)}
+                  {value === 'standard' ? t('settings.default') : ''}
+                </option>
+              ))}
+            </select>
+            <ChevronDown
+              className="pointer-events-none absolute top-1/2 right-3 size-4 -translate-y-1/2 text-stone-500"
+              aria-hidden
+            />
+          </div>
         </div>
 
         <div className="flex flex-col gap-2.5">

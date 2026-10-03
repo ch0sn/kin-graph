@@ -53,6 +53,42 @@ body {
   stroke-dasharray: 5 4;
 }
 
+/*
+ * Colour-blind friendly highlights. They replace the theme's accent, which
+ * colours "Me" and the lit-up lines of ancestry, with colours that stay
+ * distinct for each kind of colour blindness (after the Okabe-Ito palette).
+ * Each has a light-mode and a dark-mode colour. The selectors beat the
+ * themes' own, and also reach the theme preview in Settings.
+ */
+:root[data-vision='protanopia'],
+:root[data-vision='protanopia'] [data-theme] {
+  --accent-l: #0072b2;
+  --accent-d: #56b4e9;
+}
+
+:root[data-vision='deuteranopia'],
+:root[data-vision='deuteranopia'] [data-theme] {
+  --accent-l: #c24f00;
+  --accent-d: #ffa04d;
+}
+
+:root[data-vision='tritanopia'],
+:root[data-vision='tritanopia'] [data-theme] {
+  --accent-l: #b82d73;
+  --accent-d: #f58dbb;
+}
+
+/* No colour at all: black or white, with heavier lines to stand out by weight. */
+:root[data-vision='monochrome'],
+:root[data-vision='monochrome'] [data-theme] {
+  --accent-l: #000;
+  --accent-d: #fff;
+}
+
+:root[data-vision='monochrome'] .react-flow__edge.edge-lineage .react-flow__edge-path {
+  stroke-width: calc(var(--edge-w) * 2.6);
+}
+
 /* Invisible, zero-size attachment points so lines meet card edges exactly. */
 .react-flow .handle {
   width: 0;

@@ -11,6 +11,19 @@ import {
 export type ColorMode = 'system' | 'light' | 'dark'
 export const COLOR_MODES: readonly ColorMode[] = ['system', 'light', 'dark']
 
+/**
+ * Which colours highlight you and a person's line of ancestry, for the kinds
+ * of colour blindness. "monochrome" uses no hue at all, only black and white.
+ */
+export type ColorVision = 'standard' | 'protanopia' | 'deuteranopia' | 'tritanopia' | 'monochrome'
+export const COLOR_VISIONS: readonly ColorVision[] = [
+  'standard',
+  'protanopia',
+  'deuteranopia',
+  'tritanopia',
+  'monochrome',
+]
+
 /** Display preferences for this device. They aren't part of the tree or its backups. */
 export interface Settings {
   /** The language of the app (not of names or the title). */
@@ -18,6 +31,8 @@ export interface Settings {
   colorMode: ColorMode
   /** The look of the app; see src/theme/themes.ts. */
   theme: ThemeId
+  /** Colours for highlighting, chosen for the kind of colour blindness; see `ColorVision`. */
+  colorVision: ColorVision
   siblingOrder: SiblingOrder
   /** How names are written, except Korean, Chinese and Japanese ones, which are always family-first. */
   nameOrder: NameOrder
@@ -29,6 +44,7 @@ export const DEFAULT_SETTINGS: Settings = {
   language: DEFAULT_LANGUAGE,
   colorMode: 'system',
   theme: DEFAULT_THEME,
+  colorVision: 'standard',
   siblingOrder: DEFAULT_SIBLING_ORDER,
   nameOrder: 'given-first',
   highlightGender: false,
@@ -53,6 +69,9 @@ export function parseSettings(raw: unknown): Settings {
     theme: THEME_IDS.includes(stored.theme as ThemeId)
       ? (stored.theme as ThemeId)
       : DEFAULT_SETTINGS.theme,
+    colorVision: COLOR_VISIONS.includes(stored.colorVision as ColorVision)
+      ? (stored.colorVision as ColorVision)
+      : DEFAULT_SETTINGS.colorVision,
     siblingOrder: SIBLING_ORDERS.includes(stored.siblingOrder as SiblingOrder)
       ? (stored.siblingOrder as SiblingOrder)
       : DEFAULT_SETTINGS.siblingOrder,

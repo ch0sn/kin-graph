@@ -9,13 +9,15 @@
       // Apply the saved light/dark theme before the first paint, so dark mode
       // doesn't flash light. Kept in step by src/app/theme.ts.
       ;(function () {
-        var mode, theme
+        var mode, theme, vision
         try {
           mode = localStorage.getItem('kingraph-color-mode')
           theme = localStorage.getItem('kingraph-theme-id')
+          vision = localStorage.getItem('kingraph-color-vision')
         } catch (e) {}
         var root = document.documentElement
         if (theme && /^[a-z]+$/.test(theme)) root.setAttribute('data-theme', theme)
+        if (vision && /^[a-z]+$/.test(vision)) root.setAttribute('data-vision', vision)
         var dark =
           mode === 'dark' ||
           (mode !== 'light' && window.matchMedia('(prefers-color-scheme: dark)').matches)
