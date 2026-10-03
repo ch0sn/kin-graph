@@ -24,7 +24,7 @@ KinGraph is built with modern web standards for performance and maintainability:
 *   **Styling:** Tailwind CSS (for clean, scalable design)
 *   **Visualization:** [React Flow](https://reactflow.dev/) (for the graph engine)
 *   **Animations:** Framer Motion (for spring-physics UI effects)
-*   **Storage:** Local-first. Your tree is saved in your browser (IndexedDB) on your device, nothing is uploaded, and you can export or import JSON backups.
+*   **Storage:** Local-first. Your tree is saved in your browser (IndexedDB) on your device, nothing is uploaded, and you can export or import JSON backups. GEDCOM 5.5.1 files can be imported and exported too, for moving a tree to or from other genealogy software.
 
 ### 🚀 Getting Started
 

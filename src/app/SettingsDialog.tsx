@@ -3,15 +3,17 @@ import {
   Monitor,
   Moon,
   Sun,
+  FileDown,
   Upload,
   type LucideIcon,
 } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
-import type { ColorMode, Settings } from '../storage/settings'
+import type { ColorMode, ColorVision, Settings } from '../storage/settings'
 import { THEMES, type ThemeId } from '../theme/themes'
 import { DEFAULT_SIBLING_ORDER, type SiblingOrder } from '../tree/siblingOrder'
 import { fullName, peopleCount, type FamilyGraph, type NameOrder } from '../model'
 import { LANGUAGES, useT, type Language, type MessageKey } from '../i18n'
+import { downloadGedcom } from '../storage/backup'
 import { useBackupPicker } from '../storage/useBackupPicker'
 import { ConfirmDialog } from '../ui/ConfirmDialog'
 import { Button } from '../ui/fields'
@@ -66,6 +68,14 @@ const NAME_ORDER_OPTIONS: { value: NameOrder; label: MessageKey }[] = [
   { value: 'family-first', label: 'nameOrder.family' },
 ]
 
+const COLOR_VISION_OPTIONS: { value: ColorVision; label: MessageKey }[] = [
+  { value: 'standard', label: 'colorVision.standard' },
+  { value: 'protanopia', label: 'colorVision.protanopia' },
+  { value: 'deuteranopia', label: 'colorVision.deuteranopia' },
+  { value: 'tritanopia', label: 'colorVision.tritanopia' },
+  { value: 'monochrome', label: 'colorVision.monochrome' },
+]
+
 const COLOR_MODE_OPTIONS: { value: ColorMode; label: MessageKey; icon: LucideIcon }[] = [
   { value: 'system', label: 'colorMode.system', icon: Monitor },
   { value: 'light', label: 'colorMode.light', icon: Sun },
@@ -96,6 +106,7 @@ export function SettingsDialog({
   /** A tree chosen from a backup file, waiting for the person to confirm replacing theirs. */
   const [imported, setImported] = useState<FamilyGraph | null>(null)
   const picker = useBackupPicker(setImported)
+  const [exportError, setExportError] = useState(false)
 
   useEffect(() => {
     const dialog = ref.current
@@ -215,6 +226,38 @@ export function SettingsDialog({
 
         <div className="flex flex-col gap-2.5">
           <HelpLabel
+            id="color-vision-help"
+            about={t('settings.colorVision')}
+            help={t('settings.colorVisionHelp')}
+            label={
+              <label htmlFor="color-vision-select" className="text-sm font-semibold text-stone-900">
+                {t('settings.colorVision')}
+              </label>
+            }
+          />
+          <div className="relative">
+            <select
+              id="color-vision-select"
+              value={settings.colorVision}
+              onChange={(e) => onChange({ colorVision: e.target.value as ColorVision })}
+              className="w-full appearance-none rounded-xl border border-stone-200 bg-white py-2.5 pr-10 pl-3 text-base text-stone-900 outline-none transition focus:border-stone-500 focus:ring-4 focus:ring-stone-200"
+            >
+              {COLOR_VISION_OPTIONS.map(({ value, label }) => (
+                <option key={value} value={value}>
+                  {t(label)}
+                  {value === 'standard' ? t('settings.default') : ''}
+                </option>
+              ))}
+            </select>
+            <ChevronDown
+              className="pointer-events-none absolute top-1/2 right-3 size-4 -translate-y-1/2 text-stone-500"
+              aria-hidden
+            />
+          </div>
+        </div>
+
+        <div className="flex flex-col gap-2.5">
+          <HelpLabel
             id="sibling-order-help"
             about={t('settings.siblingOrder')}
             help={t('settings.siblingOrderHelp')}
@@ -288,6 +331,19 @@ export function SettingsDialog({
             <Upload className="size-4 text-stone-500" aria-hidden />
             {t('settings.importButton')}
           </Button>
+          <Button
+            onClick={() => {
+              try {
+                downloadGedcom(graph)
+              } catch {
+                setExportError(true)
+              }
+            }}
+            className="w-full justify-start"
+          >
+            <FileDown className="size-4 text-stone-500" aria-hidden />
+            {t('settings.exportGedcom')}
+          </Button>
           {picker.input}
         </div>
 
@@ -319,6 +375,16 @@ export function SettingsDialog({
           imported: peopleCount(imported),
         })
       )}
+    </ConfirmDialog>
+
+    <ConfirmDialog
+      open={exportError}
+      title={t('export.errorTitle')}
+      confirmLabel={t('common.ok')}
+      onConfirm={() => setExportError(false)}
+      onCancel={() => setExportError(false)}
+    >
+      {t('export.gedcomErrorBody')}
     </ConfirmDialog>
 
     <ConfirmDialog

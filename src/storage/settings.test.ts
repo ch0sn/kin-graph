@@ -5,7 +5,7 @@ describe('parseSettings', () => {
   it('uses the defaults for nothing or nonsense', () => {
     expect(parseSettings(undefined)).toEqual(DEFAULT_SETTINGS)
     expect(parseSettings('dark')).toEqual(DEFAULT_SETTINGS)
-    expect(parseSettings({ colorMode: 'sepia', theme: 'neon', siblingOrder: 7, nameOrder: 'up' })).toEqual(
+    expect(parseSettings({ colorMode: 'sepia', theme: 'neon', siblingOrder: 7, nameOrder: 'up', colorVision: 'rainbow' })).toEqual(
       DEFAULT_SETTINGS,
     )
   })
@@ -15,6 +15,7 @@ describe('parseSettings', () => {
       language: 'de',
       colorMode: 'dark',
       theme: 'blueprint',
+      colorVision: 'deuteranopia',
       siblingOrder: 'girls-first',
       nameOrder: 'family-first',
       highlightGender: true,

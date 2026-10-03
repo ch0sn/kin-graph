@@ -1,8 +1,8 @@
 import { Download, FilePlus } from 'lucide-react'
-import { useState, type ComponentProps, type ReactNode } from 'react'
+import { useEffect, useRef, useState, type ComponentProps, type ReactNode } from 'react'
 import { fullName, peopleCount, type FamilyGraph } from '../model'
 import { useT } from '../i18n'
-import { downloadBackup } from '../storage/backup'
+import { downloadBackup, downloadGedcom } from '../storage/backup'
 import { ConfirmDialog } from '../ui/ConfirmDialog'
 
 interface HeaderActionsProps {
@@ -31,6 +31,14 @@ export function HeaderActions({ graph, onStartNewTree }: HeaderActionsProps) {
     }
   }
 
+  const exportGedcom = () => {
+    try {
+      downloadGedcom(graph)
+    } catch {
+      setError(t('export.gedcomErrorBody'))
+    }
+  }
+
   const startNewTree = () => {
     setExported(false)
     setStep(1)
@@ -47,7 +55,7 @@ export function HeaderActions({ graph, onStartNewTree }: HeaderActionsProps) {
   return (
     <>
       <div className="flex items-center">
-        <HeaderButton label={t('header.export')} onClick={() => void exportBackup()} icon={<Download />} />
+        <ExportMenu onBackup={() => void exportBackup()} onGedcom={exportGedcom} />
         <HeaderButton label={t('header.newTree')} onClick={startNewTree} icon={<FilePlus />} />
       </div>
 
@@ -111,6 +119,69 @@ function HeaderButton({
     >
       {icon}
       <span className="hidden sm:inline">{label}</span>
+    </button>
+  )
+}
+
+/** The header's Export button, which asks which format to save the tree in. */
+function ExportMenu({ onBackup, onGedcom }: { onBackup: () => void; onGedcom: () => void }) {
+  const { t } = useT()
+  const [open, setOpen] = useState(false)
+  const ref = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!open) return
+    const onPointerDown = (e: PointerEvent) => {
+      if (!ref.current?.contains(e.target as Node)) setOpen(false)
+    }
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setOpen(false)
+    }
+    document.addEventListener('pointerdown', onPointerDown)
+    document.addEventListener('keydown', onKeyDown)
+    return () => {
+      document.removeEventListener('pointerdown', onPointerDown)
+      document.removeEventListener('keydown', onKeyDown)
+    }
+  }, [open])
+
+  const choose = (action: () => void) => () => {
+    setOpen(false)
+    action()
+  }
+
+  return (
+    <div ref={ref} className="relative">
+      <HeaderButton
+        label={t('header.export')}
+        aria-haspopup="menu"
+        aria-expanded={open}
+        onClick={() => setOpen(!open)}
+        icon={<Download />}
+      />
+      {open && (
+        <div
+          role="menu"
+          className="absolute top-full right-0 z-30 mt-2 w-72 origin-top-right rounded-2xl border border-stone-200 bg-white p-1.5 shadow-xl"
+        >
+          <FormatItem title={t('export.backup')} hint={t('export.backupHint')} onClick={choose(onBackup)} />
+          <FormatItem title={t('export.gedcom')} hint={t('export.gedcomHint')} onClick={choose(onGedcom)} />
+        </div>
+      )}
+    </div>
+  )
+}
+
+function FormatItem({ title, hint, onClick }: { title: string; hint: string; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      role="menuitem"
+      onClick={onClick}
+      className="flex w-full flex-col items-start rounded-xl px-3 py-2.5 text-left transition hover:bg-stone-100 focus-visible:bg-stone-100 focus-visible:outline-none"
+    >
+      <span className="text-sm text-stone-800">{title}</span>
+      <span className="text-xs text-stone-500">{hint}</span>
     </button>
   )
 }

@@ -48,6 +48,7 @@ describe('settings', () => {
       language: 'de',
       colorMode: 'dark',
       theme: 'blueprint',
+      colorVision: 'tritanopia',
       siblingOrder: 'girls-first',
       nameOrder: 'family-first',
       highlightGender: true,
