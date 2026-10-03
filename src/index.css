@@ -43,7 +43,11 @@ body {
   }
 }
 
-.react-flow__edge.edge-lineage .react-flow__edge-path {
+.react-flow__edge.edge-lineage .react-flow__edge-path,
+.react-flow__edge.edge-lineage.selected .react-flow__edge-path,
+.react-flow__edge.edge-lineage.selectable:focus .react-flow__edge-path,
+.react-flow__edge.edge-lineage.selectable:focus-visible .react-flow__edge-path {
+  /* Also beats React Flow's grey for a clicked, focused or selected line. */
   stroke: var(--accent);
   stroke-width: calc(var(--edge-w) * 1.8);
 }

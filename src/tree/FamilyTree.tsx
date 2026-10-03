@@ -176,6 +176,7 @@ function FamilyTreeCanvas({
           setClickedEdgeId(null)
           onSelect(null)
         }}
+        edgesFocusable={false}
         nodesDraggable={false}
         nodesConnectable={false}
         minZoom={0.2}
