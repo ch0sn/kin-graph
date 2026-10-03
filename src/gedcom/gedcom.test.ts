@@ -378,7 +378,7 @@ describe('import', () => {
   it('rejects files that are not GEDCOM, or have no people', () => {
     expect(() => importGedcom('hello')).toThrow(GedcomError)
     expect(() => importGedcom('{"format":"kingraph-tree"}')).toThrow(/isn’t a GEDCOM/)
-    expect(() => importGedcom(FILE())).toThrow(GedcomError)
+    expect(() => importGedcom(FILE())).toThrow(/doesn’t contain any people/)
     expect(() => importGedcom(FILE('0 @I1@ INDI', '1 _PLACEHOLDER Y'))).toThrow(GedcomError)
   })
 

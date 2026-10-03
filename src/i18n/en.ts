@@ -95,6 +95,7 @@ export const en = {
   'families_one': '{count} family',
   'families_other': '{count} families',
   'gedcom.notGedcom': 'This isn’t a GEDCOM family tree file.',
+  'gedcom.noPeople': 'This GEDCOM file doesn’t contain any people.',
   'gedcom.unknownName': 'Unknown',
   'gedcom.title': 'Import a GEDCOM file',
   'gedcom.summary': 'This file has {people} in {families}.',

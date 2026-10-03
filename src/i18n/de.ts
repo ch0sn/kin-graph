@@ -94,6 +94,7 @@ export const de: Record<MessageId, string> = {
   'families_one': '{count} Familie',
   'families_other': '{count} Familien',
   'gedcom.notGedcom': 'Das ist keine GEDCOM-Stammbaumdatei.',
+  'gedcom.noPeople': 'Diese GEDCOM-Datei enthält keine Personen.',
   'gedcom.unknownName': 'Unbekannt',
   'gedcom.title': 'GEDCOM-Datei importieren',
   'gedcom.summary': 'Diese Datei enthält {people} in {families}.',

@@ -97,6 +97,7 @@ export const ko: Record<MessageId, string> = {
   'families_one': '가족 {count}개',
   'families_other': '가족 {count}개',
   'gedcom.notGedcom': 'GEDCOM 가계도 파일이 아닙니다.',
+  'gedcom.noPeople': '이 GEDCOM 파일에는 사람이 없습니다.',
   'gedcom.unknownName': '이름 모름',
   'gedcom.title': 'GEDCOM 파일 가져오기',
   'gedcom.summary': '이 파일에는 {families}에 속한 {people}이 있습니다.',

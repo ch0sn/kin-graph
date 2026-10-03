@@ -94,6 +94,7 @@ export const es: Record<MessageId, string> = {
   'families_one': '{count} familia',
   'families_other': '{count} familias',
   'gedcom.notGedcom': 'Este no es un archivo de árbol genealógico GEDCOM.',
+  'gedcom.noPeople': 'Este archivo GEDCOM no contiene ninguna persona.',
   'gedcom.unknownName': 'Desconocido',
   'gedcom.title': 'Importar un archivo GEDCOM',
   'gedcom.summary': 'Este archivo tiene {people} en {families}.',

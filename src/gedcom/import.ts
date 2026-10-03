@@ -95,9 +95,8 @@ export function importGedcomFile(bytes: Uint8Array): GedcomImport {
 export function importGedcom(text: string): GedcomImport {
   const { records, malformedLines } = parseRecords(text)
   const individuals = records.filter((r) => r.tag === 'INDI' && r.xref)
-  if (records[0]?.tag !== 'HEAD' || individuals.length === 0) {
-    throw new GedcomError(t('gedcom.notGedcom'))
-  }
+  if (records[0]?.tag !== 'HEAD') throw new GedcomError(t('gedcom.notGedcom'))
+  if (individuals.length === 0) throw new GedcomError(t('gedcom.noPeople'))
 
   const report: ImportReport = {
     families: 0,
@@ -222,7 +221,7 @@ function chooseManager(
   if (fromFile && !people[fromFile].isPlaceholder) return fromFile
   const first = Object.values(people).find((p) => !p.isPlaceholder) ?? Object.values(people)[0]
   // A tree must be rooted in a real person, so a file of only placeholders is unusable.
-  if (first.isPlaceholder) throw new GedcomError(t('gedcom.notGedcom'))
+  if (first.isPlaceholder) throw new GedcomError(t('gedcom.noPeople'))
   return first.id
 }
 
