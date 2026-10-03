@@ -1,10 +1,11 @@
 import { t } from '../i18n'
 import { fullName, type FamilyGraph } from '../model'
+import { toGedcom } from '../gedcom/export'
 import { loadPhotos } from './photos'
 import { parseBackup, toDocument, TreeFileError, type Backup } from './treeDocument'
 
 /** e.g. "kingraph-alex-morgan-2026-10-01.json", dated in local time. */
-export function backupFileName(graph: FamilyGraph, now = new Date()): string {
+export function backupFileName(graph: FamilyGraph, now = new Date(), extension = 'json'): string {
   const manager = graph.people[graph.managerId]
   const slug = fullName(manager)
     .normalize('NFKD')
@@ -14,7 +15,7 @@ export function backupFileName(graph: FamilyGraph, now = new Date()): string {
     .replace(/^-|-$/g, '')
   const pad = (n: number) => String(n).padStart(2, '0')
   const date = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`
-  return ['kingraph', slug, date].filter(Boolean).join('-') + '.json'
+  return ['kingraph', slug, date].filter(Boolean).join('-') + `.${extension}`
 }
 
 export function photoIdsOf(graph: FamilyGraph): string[] {
@@ -39,10 +40,20 @@ export async function createBackup(
 /** Saves a backup file, photos included, through the browser's normal download. */
 export async function downloadBackup(graph: FamilyGraph): Promise<void> {
   const file = await createBackup(graph, await loadPhotos(photoIdsOf(graph)))
+  saveFile(file, backupFileName(graph))
+}
+
+/** Saves a GEDCOM file, which other family tree programs can open. Photos aren't included. */
+export function downloadGedcom(graph: FamilyGraph): void {
+  const file = new Blob([toGedcom(graph)], { type: 'text/vnd.familysearch.gedcom;charset=utf-8' })
+  saveFile(file, backupFileName(graph, new Date(), 'ged'))
+}
+
+function saveFile(file: Blob, name: string) {
   const url = URL.createObjectURL(file)
   const link = document.createElement('a')
   link.href = url
-  link.download = backupFileName(graph)
+  link.download = name
   link.click()
   setTimeout(() => URL.revokeObjectURL(url), 0)
 }

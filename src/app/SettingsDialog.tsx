@@ -3,6 +3,7 @@ import {
   Monitor,
   Moon,
   Sun,
+  FileDown,
   Upload,
   type LucideIcon,
 } from 'lucide-react'
@@ -12,6 +13,7 @@ import { THEMES, type ThemeId } from '../theme/themes'
 import { DEFAULT_SIBLING_ORDER, type SiblingOrder } from '../tree/siblingOrder'
 import { fullName, peopleCount, type FamilyGraph, type NameOrder } from '../model'
 import { LANGUAGES, useT, type Language, type MessageKey } from '../i18n'
+import { downloadGedcom } from '../storage/backup'
 import { useBackupPicker } from '../storage/useBackupPicker'
 import { ConfirmDialog } from '../ui/ConfirmDialog'
 import { Button } from '../ui/fields'
@@ -96,6 +98,7 @@ export function SettingsDialog({
   /** A tree chosen from a backup file, waiting for the person to confirm replacing theirs. */
   const [imported, setImported] = useState<FamilyGraph | null>(null)
   const picker = useBackupPicker(setImported)
+  const [exportError, setExportError] = useState(false)
 
   useEffect(() => {
     const dialog = ref.current
@@ -288,6 +291,19 @@ export function SettingsDialog({
             <Upload className="size-4 text-stone-500" aria-hidden />
             {t('settings.importButton')}
           </Button>
+          <Button
+            onClick={() => {
+              try {
+                downloadGedcom(graph)
+              } catch {
+                setExportError(true)
+              }
+            }}
+            className="w-full justify-start"
+          >
+            <FileDown className="size-4 text-stone-500" aria-hidden />
+            {t('settings.exportGedcom')}
+          </Button>
           {picker.input}
         </div>
 
@@ -319,6 +335,16 @@ export function SettingsDialog({
           imported: peopleCount(imported),
         })
       )}
+    </ConfirmDialog>
+
+    <ConfirmDialog
+      open={exportError}
+      title={t('export.errorTitle')}
+      confirmLabel={t('common.ok')}
+      onConfirm={() => setExportError(false)}
+      onCancel={() => setExportError(false)}
+    >
+      {t('export.gedcomErrorBody')}
     </ConfirmDialog>
 
     <ConfirmDialog
