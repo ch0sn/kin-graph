@@ -23,6 +23,7 @@ import {
 } from './familyLayout'
 import { TreeDisplayContext } from './display'
 import { FamilyEdge } from './edges'
+import { lineageEdgeIds } from './lineage'
 import { PersonNode, UnionNode } from './nodes'
 import type { ThemePattern } from '../theme/themes'
 import type { SiblingOrder } from './siblingOrder'
@@ -114,6 +115,19 @@ function FamilyTreeCanvas({
     }
   }, [graph, siblingOrder, reduceMotion, language, nameOrder])
 
+  /** The line the person clicked, whose lineage is lit up. */
+  const [clickedEdgeId, setClickedEdgeId] = useState<string | null>(null)
+  const edges = useMemo(() => {
+    if (!layout || !clickedEdgeId) return layout?.edges ?? []
+    const unionIds = new Set(layout.nodes.filter((n) => n.type === 'union').map((n) => n.id))
+    const lit = lineageEdgeIds(layout.edges, unionIds, clickedEdgeId)
+    return layout.edges.map((e) =>
+      lit.has(e.id)
+        ? { ...e, className: [e.className, 'edge-lineage'].filter(Boolean).join(' '), zIndex: 1 }
+        : e,
+    )
+  }, [layout, clickedEdgeId])
+
   const nodes = useMemo(
     () => shownNodes.map((n) => ({ ...n, selected: n.id === selectedId })),
     [shownNodes, selectedId],
@@ -149,14 +163,19 @@ function FamilyTreeCanvas({
     <TreeDisplayContext.Provider value={display}>
       <ReactFlow
         nodes={nodes}
-        edges={layout.edges}
+        edges={edges}
         nodeTypes={nodeTypes}
         edgeTypes={edgeTypes}
         onInit={() => centerOn(graph.managerId, { duration: 0 })}
         onNodeClick={(_, node) => {
+          setClickedEdgeId(null)
           if (node.type === 'person') onSelect(node.id)
         }}
-        onPaneClick={() => onSelect(null)}
+        onEdgeClick={(_, edge) => setClickedEdgeId(edge.id)}
+        onPaneClick={() => {
+          setClickedEdgeId(null)
+          onSelect(null)
+        }}
         nodesDraggable={false}
         nodesConnectable={false}
         minZoom={0.2}

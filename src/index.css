@@ -43,6 +43,11 @@ body {
   }
 }
 
+.react-flow__edge.edge-lineage .react-flow__edge-path {
+  stroke: var(--accent);
+  stroke-width: calc(var(--edge-w) * 1.8);
+}
+
 .react-flow__edge.edge-ended .react-flow__edge-path,
 .react-flow__edge.edge-nonbiological .react-flow__edge-path {
   stroke-dasharray: 5 4;
