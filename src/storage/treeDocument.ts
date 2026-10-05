@@ -1,8 +1,12 @@
 import { t } from '../i18n'
 import {
+  EVENT_TYPES,
   isFuzzyDate,
+  isKindOf,
+  type EventType,
   type FamilyGraph,
   type Gender,
+  type LifeEvent,
   type NameForm,
   type NameScript,
   type NameType,
@@ -16,7 +20,7 @@ import {
 } from '../model'
 
 export const TREE_FORMAT = 'kingraph-tree'
-export const TREE_VERSION = 3
+export const TREE_VERSION = 4
 
 /** How a tree is stored on this device and written to backup files. */
 export interface TreeDocument {
@@ -56,6 +60,14 @@ const MIGRATIONS: Record<number, (doc: Record<string, unknown>) => Record<string
   1: (doc) => ({ ...doc, version: 2 }),
   // v3 replaced `givenName` and `familyName` with a list of `names`.
   2: (doc) => ({ ...doc, version: 3, graph: mapPeople(doc.graph, namesFromV2) }),
+  // v4 added life events to the graph and an optional `location` and `locationCountry`
+  // to people. Dates gained
+  // qualifiers, which old plain dates already satisfy.
+  3: (doc) => ({
+    ...doc,
+    version: 4,
+    graph: isRecord(doc.graph) ? { events: [], ...doc.graph } : doc.graph,
+  }),
 }
 
 function mapPeople(graph: unknown, update: (person: Record<string, unknown>) => unknown): unknown {
@@ -188,9 +200,34 @@ function parseGraph(raw: unknown): FamilyGraph {
     }
   })
 
+  const events = parseList(raw.events, t('d.events'), (e) => parseEvent(e, exists))
+
   checkParentLinks(parentLinks)
   checkPartnerships(partnerships)
-  return { managerId, people, parentLinks, partnerships }
+  return { managerId, people, parentLinks, partnerships, events }
+}
+
+function parseEvent(raw: unknown, exists: (id: unknown) => id is PersonId): LifeEvent {
+  if (!isRecord(raw) || typeof raw.id !== 'string' || !exists(raw.personId)) {
+    throw damaged(t('d.event'))
+  }
+  const text = (value: unknown): string | undefined => {
+    if (value === undefined) return undefined
+    if (typeof value !== 'string') throw damaged(t('d.event'))
+    return value
+  }
+  const type = oneOf<EventType>(raw.type, EVENT_TYPES, t('d.event'))
+  if (raw.kind !== undefined && !isKindOf(type, raw.kind)) throw damaged(t('d.event'))
+  return {
+    id: raw.id,
+    personId: raw.personId,
+    type,
+    kind: raw.kind,
+    label: text(raw.label),
+    date: optionalDate(raw.date),
+    place: text(raw.place),
+    description: text(raw.description),
+  }
 }
 
 function parsePerson(key: string, value: unknown): Person {
@@ -208,6 +245,15 @@ function parsePerson(key: string, value: unknown): Person {
   if (value.photoId !== undefined && typeof value.photoId !== 'string') {
     throw damaged(t('d.photoRef', { name }))
   }
+  if (value.location !== undefined && typeof value.location !== 'string') {
+    throw damaged(t('d.location', { name }))
+  }
+  if (
+    value.locationCountry !== undefined &&
+    (typeof value.locationCountry !== 'string' || !/^[a-z]{2}$/.test(value.locationCountry))
+  ) {
+    throw damaged(t('d.location', { name }))
+  }
   return {
     id: key,
     names: [first, ...others],
@@ -216,6 +262,8 @@ function parsePerson(key: string, value: unknown): Person {
     birthDate: optionalDate(value.birthDate),
     deathDate: optionalDate(value.deathDate),
     deceased: value.deceased === true || undefined,
+    location: value.location || undefined,
+    locationCountry: value.location ? value.locationCountry : undefined,
     photoId: value.photoId,
     isPlaceholder: value.isPlaceholder === true || undefined,
   }

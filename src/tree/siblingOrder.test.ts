@@ -31,3 +31,18 @@ describe('compareSiblings', () => {
     expect(order('girls-first')).toEqual(['lily', 'ella', 'tom', 'max', 'sam', 'robin'])
   })
 })
+
+describe('compareSiblings with uncertain dates', () => {
+  const sorted = (birthDates: string[]) =>
+    birthDates
+      .map((birthDate, i): Person => ({ id: String(i), names: [{ given: 'X' }], birthDate }))
+      .sort(compareSiblings('oldest-first'))
+      .map((p) => p.birthDate)
+
+  it('places them by where they start, the same whatever order they arrive in', () => {
+    const dates = ['1950', '~1950', '<1950', '>1950', '1948/1952', '1949']
+    const expected = ['1948/1952', '1949', '<1950', '~1950', '1950', '>1950']
+    expect(sorted(dates)).toEqual(expected)
+    expect(sorted([...dates].reverse())).toEqual(expected)
+  })
+})

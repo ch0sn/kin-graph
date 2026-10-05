@@ -1,6 +1,7 @@
 import { t } from '../i18n'
 import {
   childIdsOf,
+  coParentFor,
   getPerson,
   isAncestor,
   parentIdsOf,
@@ -37,6 +38,7 @@ export function createGraph(manager: NewPerson): FamilyGraph {
     people: { [person.id]: person },
     parentLinks: [],
     partnerships: [],
+    events: [],
   }
 }
 
@@ -66,6 +68,7 @@ export function removePerson(graph: FamilyGraph, id: PersonId): FamilyGraph {
     people,
     parentLinks: graph.parentLinks.filter((l) => l.parentId !== id && l.childId !== id),
     partnerships: graph.partnerships.filter((p) => !p.partnerIds.includes(id)),
+    events: graph.events.filter((e) => e.personId !== id),
   })
 }
 
@@ -156,6 +159,12 @@ export interface AddParentOptions {
    * always belongs to the others too.
    */
   siblingIds?: PersonId[]
+  /**
+   * How the new parent and the child's other parent are related. When given,
+   * and the child has exactly one other parent of the same kind, the two are
+   * recorded as partners, so the other parent's partner isn't a step-parent.
+   */
+  partnerStatus?: PartnershipStatus
 }
 
 /**
@@ -167,7 +176,24 @@ export function addParent(
   graph: FamilyGraph,
   childId: PersonId,
   input: NewPerson,
-  { kind = 'biological', siblingIds }: AddParentOptions = {},
+  { kind = 'biological', siblingIds, partnerStatus }: AddParentOptions = {},
+): PersonResult {
+  const coParentId = partnerStatus ? coParentFor(graph, childId, kind) : null
+  const added = addParentOnly(graph, childId, input, kind, siblingIds)
+  if (!partnerStatus || !coParentId || coParentId === added.person.id) return added
+  if (partnershipBetween(added.graph, coParentId, added.person.id)) return added
+  return {
+    graph: linkPartners(added.graph, coParentId, added.person.id, { status: partnerStatus }),
+    person: added.person,
+  }
+}
+
+function addParentOnly(
+  graph: FamilyGraph,
+  childId: PersonId,
+  input: NewPerson,
+  kind: ParentKind,
+  siblingIds: PersonId[] | undefined,
 ): PersonResult {
   const placeholderId = parentIdsOf(graph, childId, ['biological']).find(
     (id) => graph.people[id]?.isPlaceholder,

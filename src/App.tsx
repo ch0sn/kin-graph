@@ -86,6 +86,8 @@ function TreeScreen({
 }) {
   const [selectedId, setSelectedId] = useState<PersonId | null>(null)
   const [settingsOpen, setSettingsOpen] = useState(false)
+  /** Where the tree puts its view controls: hanging from the header's right end. */
+  const [viewControls, setViewControls] = useState<HTMLElement | null>(null)
   const closeSheet = useCallback(() => setSelectedId(null), [])
 
   return (
@@ -106,6 +108,8 @@ function TreeScreen({
               onOpenSettings={() => setSettingsOpen(true)}
             />
           </div>
+          {/* Its top sits on the header's bottom border, covering it so the two read as one shape. */}
+          <div ref={setViewControls} className="absolute top-full right-0" />
         </motion.header>
         <main className="flex-1">
           {/* A different tree (import, new start) gets a fresh view and entrance. */}
@@ -121,6 +125,7 @@ function TreeScreen({
             }
             selectedId={selectedId}
             onSelect={setSelectedId}
+            controlsSlot={viewControls}
           />
         </main>
       </div>

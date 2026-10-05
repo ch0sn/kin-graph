@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { sampleFamily } from '../data/sampleFamily'
-import { addSibling, createGraph, type FamilyGraph } from '../model'
+import { addEvent, addSibling, createGraph, type FamilyGraph } from '../model'
 import {
   parseBackup,
   parseTreeDocument,
@@ -53,6 +53,22 @@ describe('toDocument / parseTreeDocument', () => {
   it('opens version 1 files, from before photos and the deceased flag', () => {
     const graph = sampleFamily()
     expect(parseTreeDocument(legacy(graph, 1))).toEqual(graph)
+  })
+
+  it('opens version 3 files, from before life events', () => {
+    const graph = sampleFamily()
+    const doc = json(graph)
+    delete doc.graph.events
+    const parsed = parseTreeDocument({ ...doc, version: 3 })
+    expect(parsed).toEqual(graph)
+    expect(parsed.events).toEqual([])
+  })
+
+  it('opens older files that carry plain dates, and keeps them as they were', () => {
+    const doc = legacy(sampleFamily(), 2)
+    const dates = Object.values<{ birthDate?: string }>(doc.graph.people).map((p) => p.birthDate)
+    const parsed = parseTreeDocument(doc)
+    expect(Object.values(parsed.people).map((p) => p.birthDate)).toEqual(dates)
   })
 
   it('opens version 2 files, turning their given and family name into a name', () => {
@@ -109,6 +125,50 @@ describe('parseTreeDocument rejects', () => {
     rejects(null, /isn’t a KinGraph/)
     rejects([], /isn’t a KinGraph/)
     rejects({ format: 'gedcom' }, /isn’t a KinGraph/)
+  })
+
+  it('keeps life events, locations and uncertain dates', () => {
+    let graph = createGraph({
+      names: [{ given: 'Pat' }],
+      birthDate: '~1890',
+      deathDate: '1950/1952',
+      location: 'Seoul, South Korea',
+      locationCountry: 'kr',
+    })
+    graph = addEvent(graph, graph.managerId, {
+      type: 'other',
+      label: 'Won a prize',
+      date: '<1920-05',
+      place: 'Oslo',
+      description: 'A big one',
+    })
+    graph = addEvent(graph, graph.managerId, { type: 'military', kind: 'deployed', date: '>1940' })
+    graph = addEvent(graph, graph.managerId, { type: 'education', label: 'Driving licence', date: '2015' })
+    const parsed = parseTreeDocument(json(graph))
+    expect(parsed).toEqual(graph)
+    expect(parsed.events).toHaveLength(3)
+  })
+
+  it('rejects damaged events and dates', () => {
+    const base = () => {
+      const family = sampleFamily()
+      return json(addEvent(family, family.managerId, { type: 'residence', place: 'Oslo' }))
+    }
+    const damage = (change: (event: Record<string, unknown>) => void) => {
+      const doc = base()
+      change(doc.graph.events[0])
+      return doc
+    }
+    rejects(damage((e) => (e.type = 'teleport')), /./)
+    rejects(damage((e) => (e.kind = 'firstJob')), /./) // a work kind on a residence
+    rejects(damage((e) => (e.kind = 'teleport')), /./)
+    rejects(damage((e) => (e.personId = 'ghost')), /./)
+    rejects(damage((e) => (e.date = '1920/1910')), /./)
+    rejects(damage((e) => (e.place = 5)), /./)
+    const doc = base()
+    Object.values<Record<string, unknown>>(doc.graph.people)[0].location = 42
+    rejects(doc, /location/)
+    rejects({ ...base(), graph: { ...base().graph, events: 'x' } }, /./)
   })
 
   it('unknown and newer versions', () => {

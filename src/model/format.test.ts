@@ -5,13 +5,14 @@ import {
   compareNames,
   formatAge,
   formatName,
+  genderCounts,
   fullName,
   initials,
-  isFuzzyDate,
   lifeYears,
   nameOrder,
   setPreferredNameOrder,
 } from './format'
+import { isFuzzyDate } from './dates'
 import type { PersonName } from './types'
 
 describe('isFuzzyDate', () => {
@@ -25,6 +26,17 @@ describe('isFuzzyDate', () => {
       expect(isFuzzyDate(text)).toBe(false)
     },
   )
+})
+
+describe('lifeYears with uncertain dates', () => {
+  const years = (extra: object) => lifeYears({ id: '1', names: [{ given: 'A' }], ...extra })
+
+  it('marks them', () => {
+    expect(years({ birthDate: '~1890', deathDate: '1950' })).toBe('~1890 – 1950')
+    expect(years({ birthDate: '1890', deathDate: '<1950-03' })).toBe('1890 – <1950')
+    expect(years({ birthDate: '1890/1892' })).toBe('b. 1890–1892')
+    expect(years({ deathDate: '>1950' })).toBe('d. >1950')
+  })
 })
 
 describe('lifeYears', () => {
@@ -76,6 +88,16 @@ describe('ageOf / formatAge', () => {
     expect(age('1934-05-19', { deathDate: '2015' })).toBe('~81')
     expect(age('1910', { deathDate: '1989' })).toBe('~79')
     expect(age('2001-03-10', { deathDate: '2001-07-01' })).toBe('3 mo')
+  })
+
+  it('stays honest about uncertain dates: always approximate, never a baby in months', () => {
+    expect(age('~1988-06-12')).toBe('~38')
+    expect(age('<1990')).toBe('~36')
+    expect(age('>1990')).toBe('~36')
+    expect(age('1985/1990')).toBe('~41')
+    expect(age('~2026-04-15')).toBe('<1')
+    expect(age('1934-05-19', { deathDate: '~2015-08-02' })).toBe('~81')
+    expect(age('~1934', { deathDate: '2015' })).toBe('~81')
   })
 
   it('has no age without the dates to work it out', () => {
@@ -198,5 +220,23 @@ describe('compareNames', () => {
       'Ana García Abad',
       'Ana García López',
     ])
+  })
+})
+
+describe('genderCounts', () => {
+  it('counts men and women, leaving out others, unknowns and placeholders', () => {
+    const person = (id: string, extra: object) => ({ id, names: [{ given: id }] as [PersonName], ...extra })
+    const people = {
+      a: person('a', { gender: 'male' }),
+      b: person('b', { gender: 'female' }),
+      c: person('c', { gender: 'female' }),
+      d: person('d', { gender: 'other' }),
+      e: person('e', {}),
+      f: person('f', { gender: 'male', isPlaceholder: true }),
+    }
+    expect(genderCounts({ managerId: 'a', people, parentLinks: [], partnerships: [], events: [] })).toEqual({
+      male: 1,
+      female: 2,
+    })
   })
 })

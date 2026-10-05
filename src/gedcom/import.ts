@@ -1,7 +1,14 @@
 import { t } from '../i18n'
 import {
+  EVENT_KINDS,
+  EVENT_TYPES,
+  isKindOf,
+  typeOfKind,
+  type EventKind,
+  type EventType,
   type FamilyGraph,
   type FuzzyDate,
+  type LifeEvent,
   type Gender,
   type NameForm,
   type NameScript,
@@ -17,7 +24,12 @@ import {
 import { fromGedcomDate } from './dates'
 import {
   COPARENTS_TAG,
+  CURRENT_TAG,
   END_TAG,
+  CATEGORY_TAG,
+  EVENT_TAGS,
+  EVENT_VALUE_TAGS,
+  KIND_TAG,
   FROM_TAG,
   PATRONYMIC_TAG,
   PLACEHOLDER_TAG,
@@ -129,10 +141,12 @@ export function importGedcom(text: string): GedcomImport {
 
   const idOf = new Map<string, PersonId>()
   const people: Record<PersonId, Person> = {}
+  const events: LifeEvent[] = []
   for (const record of individuals) {
     const person = readPerson(record, readDate, unsupported)
     idOf.set(record.xref!, person.id)
     people[person.id] = person
+    events.push(...readEvents(record, person.id, readDate, unsupported))
   }
 
   const parentLinks: ParentLink[] = []
@@ -184,7 +198,7 @@ export function importGedcom(text: string): GedcomImport {
 
   const managerId = chooseManager(records, idOf, people)
   return {
-    graph: { managerId, people, parentLinks, partnerships },
+    graph: { managerId, people, parentLinks, partnerships, events },
     report,
   }
 }
@@ -201,7 +215,12 @@ const FAMILY_TAGS = new Set([
   COPARENTS_TAG,
 ])
 
+/** GEDCOM tags read as life events, and the type each becomes. */
+const EVENT_TAG_IN = new Map(EVENT_TAGS.map((e) => [e.tag, e]))
+
 const PERSON_TAGS = new Set([
+  ...EVENT_TAG_IN.keys(),
+  'EVEN',
   'NAME',
   'SEX',
   'BIRT',
@@ -280,6 +299,8 @@ function readPerson(
   const birthDate = readDate(dateOf(child(record, 'BIRT')))
   const deathDate = readDate(dateOf(death))
   const sex = child(record, 'SEX')?.value.toUpperCase()
+  const current = childrenOf(record, 'RESI').find((r) => child(r, CURRENT_TAG))
+  const location = current && (child(current, 'PLAC')?.value.trim() || undefined)
 
   for (const c of record.children) {
     if (!PERSON_TAGS.has(c.tag)) unsupported(c.tag)
@@ -295,10 +316,71 @@ function readPerson(
     birthDate,
     deathDate,
     deceased: death && !deathDate ? true : undefined,
+    ...(location && { location }),
     isPlaceholder: child(record, PLACEHOLDER_TAG) ? true : undefined,
   }
   return person
 }
+
+function readEvents(
+  record: GedcomNode,
+  personId: PersonId,
+  readDate: DateReader,
+  unsupported: (tag: string) => void,
+): LifeEvent[] {
+  const events: LifeEvent[] = []
+  for (const node of record.children) {
+    const standard = EVENT_TAG_IN.get(node.tag)
+    if (!standard && node.tag !== 'EVEN') continue
+    const kindText = child(node, KIND_TAG)?.value.trim()
+    const categoryText = child(node, CATEGORY_TAG)?.value.trim()
+    const name = child(node, 'TYPE')?.value.trim() || undefined
+
+    // The tag says the type; KinGraph's own lines say exactly what kind, where the tag can't.
+    let type: EventType
+    let kind: EventKind | undefined
+    if (standard) {
+      type = standard.type
+      kind = isKindOf(type, kindText) ? kindText : standard.kind
+    } else if (EVENT_KINDS_ALL.has(kindText as EventKind)) {
+      kind = kindText as EventKind
+      type = typeOfKind(kind)
+    } else {
+      type = EVENT_TYPES.includes(categoryText as EventType) ? (categoryText as EventType) : 'other'
+    }
+    // A TYPE is the event's own name, unless it's just the kind's or type's name, which
+    // KinGraph writes for other programs next to its `_KIND` or `_CATEGORY`.
+    const generated = kind ? !!kindText : name === t(`event.${type}`)
+    const label = generated ? undefined : name
+    // Where someone lives now is a field of its own; see `readPerson`.
+    if (node.tag === 'RESI' && child(node, CURRENT_TAG)) continue
+
+    const value = node.value.trim()
+    const note = child(node, 'NOTE')?.value.trim()
+    const description = (EVENT_VALUE_TAGS.has(node.tag) && value && value !== 'Y' ? value : note) || undefined
+    const place = child(node, 'PLAC')?.value.trim() || undefined
+    const date = readDate(dateOf(node))
+    for (const c of node.children) {
+      if (!EVENT_SUBTAGS.has(c.tag)) unsupported(`${node.tag}.${c.tag}`)
+    }
+    // A bare custom event with nothing recorded would be an empty row.
+    if (type === 'other' && !label && !date && !place && !description) continue
+    events.push({
+      id: crypto.randomUUID(),
+      personId,
+      type,
+      ...(kind && { kind }),
+      ...(label && { label }),
+      ...(date && { date }),
+      ...(place && { place }),
+      ...(description && { description }),
+    })
+  }
+  return events
+}
+
+const EVENT_SUBTAGS = new Set(['DATE', 'PLAC', 'NOTE', 'TYPE', KIND_TAG, CATEGORY_TAG])
+const EVENT_KINDS_ALL = new Set(Object.values(EVENT_KINDS).flat())
 
 /** A NAME line and its NICK, which becomes a second name. */
 function readNames(

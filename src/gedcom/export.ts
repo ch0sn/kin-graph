@@ -1,5 +1,11 @@
+import { t } from '../i18n'
 import {
+  eventsOf,
+  sortEvents,
+  type EventKind,
+  type EventType,
   type FamilyGraph,
+  type LifeEvent,
   type NameForm,
   type NameParts,
   type NameType,
@@ -21,6 +27,8 @@ export const FROM_TAG = '_FROM'
 export const TO_TAG = '_TO'
 export const START_TAG = '_START'
 export const END_TAG = '_END'
+/** Marks the RESI that is where someone lives now, rather than a past residence. */
+export const CURRENT_TAG = '_CURRENT'
 /** On a family whose parents aren't partners, so a round trip doesn't make them so. */
 export const COPARENTS_TAG = '_COPARENTS'
 
@@ -93,6 +101,12 @@ export function toGedcom(graph: FamilyGraph, now = new Date()): string {
     writeEvent(line, 'BIRT', person.birthDate)
     if (person.deathDate) writeEvent(line, 'DEAT', person.deathDate)
     else if (person.deceased) line(1, 'DEAT', 'Y')
+    for (const event of sortEvents(eventsOf(graph, id))) writeLifeEvent(line, event)
+    if (person.location) {
+      line(1, 'RESI')
+      line(2, 'PLAC', clean(person.location))
+      line(2, CURRENT_TAG, 'Y')
+    }
     for (const { family, kind } of childOf.get(id) ?? []) {
       line(1, 'FAMC', familyRef.get(family))
       line(2, 'PEDI', PEDI_OUT[kind])
@@ -133,6 +147,67 @@ function writeEvent(line: Line, tag: string, date: string | undefined, level = 1
   if (!date) return
   line(level, tag)
   line(level + 1, 'DATE', toGedcomDate(date))
+}
+
+/**
+ * The standard GEDCOM tags life events are written with, and what each means
+ * when read. A tag with a `kind` says exactly what happened (CHR is a child
+ * baptism); one without covers its whole type (EDUC is any education).
+ */
+export const EVENT_TAGS: readonly { tag: string; type: EventType; kind?: EventKind }[] = [
+  { tag: 'BAPM', type: 'religion', kind: 'baptism' },
+  { tag: 'CHR', type: 'religion', kind: 'childBaptism' },
+  { tag: 'CONF', type: 'religion', kind: 'confirmation' },
+  { tag: 'FCOM', type: 'religion', kind: 'firstCommunion' },
+  { tag: 'BARM', type: 'religion', kind: 'barMitzvah' },
+  { tag: 'BASM', type: 'religion', kind: 'batMitzvah' },
+  { tag: 'GRAD', type: 'education', kind: 'schoolGraduation' },
+  { tag: 'EDUC', type: 'education' },
+  { tag: 'RETI', type: 'work', kind: 'retirement' },
+  { tag: 'OCCU', type: 'work' },
+  { tag: 'RESI', type: 'residence' },
+  { tag: 'EMIG', type: 'migration', kind: 'emigrated' },
+  { tag: 'IMMI', type: 'migration', kind: 'immigrated' },
+  { tag: 'NATU', type: 'migration', kind: 'naturalized' },
+  { tag: 'BURI', type: 'funeral', kind: 'burial' },
+  { tag: 'CREM', type: 'funeral', kind: 'cremation' },
+]
+
+/** Kinds without a tag of their own that are still best written as a related one. */
+const KIND_FALLBACK_TAGS: Partial<Record<EventKind, string>> = { adultBaptism: 'BAPM' }
+
+/** Keeps the exact kind (`_KIND`) or type (`_CATEGORY`) where the tag alone doesn't say it. */
+export const KIND_TAG = '_KIND'
+export const CATEGORY_TAG = '_CATEGORY'
+
+/** Events whose line value is what the event was (the occupation) rather than a Y. */
+export const EVENT_VALUE_TAGS = new Set(['OCCU', 'EDUC'])
+
+/** The tag an event is written with, and whether its kind needs spelling out with `_KIND`. */
+function tagFor(event: LifeEvent): { tag: string; exact: boolean } {
+  const { type, kind } = event
+  const exact = EVENT_TAGS.find((e) => e.type === type && e.kind === kind && kind)
+  if (exact) return { tag: exact.tag, exact: true }
+  const fallback = kind && KIND_FALLBACK_TAGS[kind]
+  if (fallback) return { tag: fallback, exact: false }
+  const general = EVENT_TAGS.find((e) => e.type === type && !e.kind)
+  return { tag: general?.tag ?? 'EVEN', exact: !kind }
+}
+
+function writeLifeEvent(line: Line, event: LifeEvent) {
+  const { tag, exact } = tagFor(event)
+  const description = event.description ? clean(event.description) : ''
+  const valueLine = EVENT_VALUE_TAGS.has(tag)
+  line(1, tag, valueLine ? description || undefined : undefined)
+  // A readable name for other programs: the event's own, its kind's, or for EVEN its type's.
+  const name = event.label ?? (event.kind && t(`eventKind.${event.kind}`))
+  if (name && !(exact && !event.label)) line(2, 'TYPE', clean(name))
+  else if (tag === 'EVEN') line(2, 'TYPE', t(`event.${event.type}`))
+  if (event.kind && !exact) line(2, KIND_TAG, event.kind)
+  if (tag === 'EVEN' && event.type !== 'other' && !event.kind) line(2, CATEGORY_TAG, event.type)
+  if (event.date) line(2, 'DATE', toGedcomDate(event.date))
+  if (event.place) line(2, 'PLAC', clean(event.place))
+  if (!valueLine && description) line(2, 'NOTE', description)
 }
 
 function clean(text: string): string {

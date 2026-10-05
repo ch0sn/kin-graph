@@ -3,12 +3,16 @@ import { sampleFamily } from '../data/sampleFamily'
 import {
   addChild,
   addParent,
+  addEvent,
   addPartner,
+  EVENT_KINDS,
+  EVENT_TYPES,
   createGraph,
   fullName,
   simpleName,
   updatePerson,
   type FamilyGraph,
+  type NewLifeEvent,
   type NewPerson,
 } from '../model'
 import { parseTreeDocument, toDocument } from '../storage/treeDocument'
@@ -36,6 +40,11 @@ function canonical(graph: FamilyGraph) {
         [partnerIds.map(label).sort().join(' + '), status, startDate, endDate].join(' | '),
       )
       .sort(),
+    events: graph.events
+      .map(({ personId, type, kind, label: own, date, place, description }) =>
+        JSON.stringify([label(personId), type, kind, own, date, place, description]),
+      )
+      .sort(),
   }
 }
 
@@ -61,11 +70,27 @@ describe('GEDCOM dates', () => {
     expect(fromGedcomDate('950')).toEqual({ kind: 'exact', date: '0950' })
   })
 
-  it('keeps the date of an approximate one or the start of a range, and says so', () => {
-    expect(fromGedcomDate('ABT 1900')).toEqual({ kind: 'approximate', date: '1900' })
-    expect(fromGedcomDate('BEF MAR 1900')).toEqual({ kind: 'approximate', date: '1900-03' })
-    expect(fromGedcomDate('BET 1900 AND 1910')).toEqual({ kind: 'approximate', date: '1900' })
-    expect(fromGedcomDate('FROM 1900 TO 1910')).toEqual({ kind: 'approximate', date: '1900' })
+  it('keeps qualifiers and ranges', () => {
+    expect(fromGedcomDate('ABT 1900')).toEqual({ kind: 'exact', date: '~1900' })
+    expect(fromGedcomDate('est 1900')).toEqual({ kind: 'exact', date: '~1900' })
+    expect(fromGedcomDate('BEF MAR 1900')).toEqual({ kind: 'exact', date: '<1900-03' })
+    expect(fromGedcomDate('AFT 4 MAR 1900')).toEqual({ kind: 'exact', date: '>1900-03-04' })
+    expect(fromGedcomDate('BET 1900 AND 1910')).toEqual({ kind: 'exact', date: '1900/1910' })
+    expect(fromGedcomDate('FROM 1900 TO 1910')).toEqual({ kind: 'exact', date: '1900/1910' })
+  })
+
+  it('reduces what has no equivalent to a plain date, and says so', () => {
+    expect(fromGedcomDate('FROM 1900')).toEqual({ kind: 'approximate', date: '1900' })
+    expect(fromGedcomDate('TO MAR 1900')).toEqual({ kind: 'approximate', date: '1900-03' })
+    // A range that runs backwards keeps its start.
+    expect(fromGedcomDate('BET 1910 AND 1900')).toEqual({ kind: 'approximate', date: '1910' })
+  })
+
+  it('writes qualifiers and ranges', () => {
+    expect(toGedcomDate('~1900')).toBe('ABT 1900')
+    expect(toGedcomDate('<1900-03')).toBe('BEF MAR 1900')
+    expect(toGedcomDate('>1900-03-04')).toBe('AFT 4 MAR 1900')
+    expect(toGedcomDate('1900/1910-02')).toBe('BET 1900 AND FEB 1910')
   })
 
   it('rejects what it cannot keep', () => {
@@ -153,6 +178,76 @@ describe('round trip', () => {
   it('keeps the sample family: people, parent kinds, partnerships and dates', () => {
     const graph = sampleFamily()
     expect(canonical(roundTrip(graph))).toEqual(canonical(graph))
+  })
+
+  it('keeps where people live now apart from past residences', () => {
+    let graph = createGraph(person('Pat', { location: 'Berlin, Germany' }))
+    graph = addEvent(graph, graph.managerId, { type: 'residence', place: 'Oslo', date: '1990' })
+    const back = roundTrip(graph)
+    expect(canonical(back)).toEqual(canonical(graph))
+    expect(Object.values(back.people)[0].location).toBe('Berlin, Germany')
+    expect(back.events).toMatchObject([{ type: 'residence', place: 'Oslo' }])
+    expect(importGedcom(toGedcom(graph)).report.unsupported).toEqual({})
+  })
+
+  it('keeps uncertain dates on people and partnerships', () => {
+    let graph = createGraph(person('Pat', { birthDate: '~1890', deathDate: '1950-02/1950-03' }))
+    const added = addPartner(graph, graph.managerId, person('Ann', { birthDate: '<1900' }), 'married')
+    graph = {
+      ...added.graph,
+      partnerships: added.graph.partnerships.map((p) => ({ ...p, startDate: '>1910', endDate: '1920/1925' })),
+    }
+    expect(canonical(roundTrip(graph))).toEqual(canonical(graph))
+  })
+
+  it('keeps life events of every type, with their dates, places and notes', () => {
+    let graph = createGraph(person('Pat'))
+    const id = graph.managerId
+    const events = [
+      { type: 'education', date: '1900/1906', description: 'Law degree' },
+      { type: 'work', date: '~1910', description: 'Baker' },
+      { type: 'residence', place: 'Chicago' },
+      { type: 'migration', date: '1923', place: 'Ellis Island' },
+      { type: 'military', date: '1941/1945', description: 'Served in the navy' },
+      { type: 'religion', date: '1890-05-01', place: 'St Mary' },
+      { type: 'funeral', date: '1975-03', place: 'Oak Hill' },
+      { type: 'other', label: 'Won the lottery', date: '1966' },
+      { type: 'education', label: 'Driving licence', date: '1950' },
+      { type: 'military', label: 'Medal of honour', date: '1944' },
+      { type: 'religion', kind: 'childBaptism', label: 'Christening at St Mary', date: '1890' },
+    ] as const
+    for (const event of events) graph = addEvent(graph, id, event)
+    const back = roundTrip(graph)
+    expect(canonical(back)).toEqual(canonical(graph))
+    expect(back.events).toHaveLength(events.length)
+  })
+
+  it('keeps every kind of every type of event', () => {
+    let graph = createGraph(person('Pat'))
+    let year = 1900
+    for (const type of EVENT_TYPES) {
+      for (const kind of EVENT_KINDS[type]) {
+        graph = addEvent(graph, graph.managerId, { type, kind, date: String(year++), description: `${kind} notes` })
+      }
+    }
+    const back = roundTrip(graph)
+    expect(canonical(back)).toEqual(canonical(graph))
+    expect(importGedcom(toGedcom(graph)).report.unsupported).toEqual({})
+  })
+
+  it('writes standard tags where GEDCOM has them, so other programs understand', () => {
+    let graph = createGraph(person('Pat'))
+    const add = (event: NewLifeEvent) => (graph = addEvent(graph, graph.managerId, event))
+    add({ type: 'religion', kind: 'childBaptism', date: '1900' })
+    add({ type: 'religion', kind: 'confirmation', date: '1914' })
+    add({ type: 'education', kind: 'schoolGraduation', date: '1918' })
+    add({ type: 'migration', kind: 'naturalized', date: '1930' })
+    add({ type: 'funeral', kind: 'cremation', date: '1980' })
+    add({ type: 'education', kind: 'firstDayOfSchool', date: '1906' })
+    const text = toGedcom(graph)
+    for (const tag of ['CHR', 'CONF', 'GRAD', 'NATU', 'CREM']) expect(text).toMatch(new RegExp(`^1 ${tag}\r?$`, 'm'))
+    // No tag of its own: the general one, with the kind spelled out.
+    expect(text).toMatch(/^1 EDUC\r?\n2 TYPE First day of school\r?\n2 _KIND firstDayOfSchool\r?$/m)
   })
 
   it('keeps several partnerships, their statuses and dates', () => {
@@ -259,7 +354,7 @@ describe('import', () => {
     )
     expect(Object.values(graph.people).map(fullName)).toEqual(['John Doe', 'Jane Roe', 'Jim'])
     const [john, jane, jim] = Object.values(graph.people)
-    expect(john.birthDate).toBe('1900')
+    expect(john.birthDate).toBe('~1900')
     expect(john.gender).toBe('male')
     expect(jane.deceased).toBe(true)
     expect(jim.birthDate).toBeUndefined()
@@ -269,9 +364,10 @@ describe('import', () => {
     expect(graph.managerId).toBe(john.id)
 
     expect(report.families).toBe(1)
-    expect(report.approximateDates).toBe(1)
+    expect(report.approximateDates).toBe(0)
     expect(report.droppedDates).toBe(1)
-    expect(report.unsupported).toEqual({ OCCU: 1, _UID: 1, 'BIRT.PLAC': 1, NOTE: 1, SOUR: 1 })
+    expect(graph.events).toMatchObject([{ personId: john.id, type: 'work', description: 'Smith' }])
+    expect(report.unsupported).toEqual({ _UID: 1, 'BIRT.PLAC': 1, NOTE: 1, SOUR: 1 })
     expect(() => parseTreeDocument(toDocument(graph))).not.toThrow()
   })
 
@@ -396,6 +492,61 @@ describe('import', () => {
   it('survives a long GEDCOM with continuation lines in names', () => {
     const { graph } = importGedcom(FILE('0 @I1@ INDI', '1 NAME A very long given', '2 CONC  name /Surname/'))
     expect(fullName(Object.values(graph.people)[0])).toBe('A very long given name Surname')
+  })
+})
+
+describe('events from other programs', () => {
+  it('reads standard event tags as the matching type and kind', () => {
+    const { graph, report } = importGedcom(
+      FILE(
+        '0 @I1@ INDI',
+        '1 NAME Pat //',
+        '1 CHR',
+        '2 DATE 1900',
+        '1 CONF',
+        '2 DATE 1914',
+        '1 BARM',
+        '2 DATE 1913',
+        '1 GRAD',
+        '2 DATE 1918',
+        '1 NATU',
+        '2 DATE 1930',
+        '1 IMMI',
+        '2 DATE 1929',
+        '1 CREM',
+        '2 DATE 1980',
+        '1 RETI',
+        '2 DATE 1965',
+        '1 OCCU Carpenter',
+        '1 EVEN',
+        '2 TYPE Won the lottery',
+        '2 DATE 1966',
+        '1 BAPM',
+        '2 TYPE Christening at St Mary',
+        '2 DATE 1900',
+      ),
+    )
+    expect(graph.events.map((e) => [e.type, e.kind, e.label])).toEqual([
+      ['religion', 'childBaptism', undefined],
+      ['religion', 'confirmation', undefined],
+      ['religion', 'barMitzvah', undefined],
+      ['education', 'schoolGraduation', undefined],
+      ['migration', 'naturalized', undefined],
+      ['migration', 'immigrated', undefined],
+      ['funeral', 'cremation', undefined],
+      ['work', 'retirement', undefined],
+      ['work', undefined, undefined],
+      ['other', undefined, 'Won the lottery'],
+      ['religion', 'baptism', 'Christening at St Mary'],
+    ])
+    expect(graph.events.find((e) => e.type === 'work' && !e.kind)?.description).toBe('Carpenter')
+    expect(report.unsupported).toEqual({})
+  })
+
+  it('ignores a kind that does not belong to the tag', () => {
+    const { graph } = importGedcom(FILE('0 @I1@ INDI', '1 NAME Pat //', '1 EDUC', '2 _KIND childBaptism', '2 DATE 1900'))
+    expect(graph.events).toMatchObject([{ type: 'education' }])
+    expect(graph.events[0].kind).toBeUndefined()
   })
 })
 
