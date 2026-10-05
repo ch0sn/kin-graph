@@ -167,6 +167,55 @@ describe('export', () => {
     expect(text).toContain('1 NAME A@@B /X Y/')
   })
 
+  it('splits lines over 255 characters with CONC and newlines with CONT', () => {
+    const longValue =
+      'Part1: ' +
+      'A'.repeat(240) +
+      ' ' +
+      'B'.repeat(200) +
+      ' 🍎 Zoë\nPart2: line after newline ' +
+      'C'.repeat(300)
+    const graph = createGraph({
+      names: [{ given: longValue }],
+    })
+    const text = toGedcom(graph)
+    const lines = text.split('\r\n').filter(Boolean)
+
+    for (const l of lines) {
+      expect(l.length).toBeLessThanOrEqual(255)
+    }
+
+    expect(text).toContain(' CONC ')
+    expect(text).toContain(' CONT ')
+
+    const imported = importGedcom(text).graph
+    const importedPerson = imported.people[imported.managerId]
+    expect(importedPerson.names[0].given).toBe(longValue)
+  })
+
+  it('splits safely at surrogate pairs and avoids trailing space on continued lines', () => {
+    const withEmojiAtBoundary = 'X'.repeat(247) + '🍎' + 'Y'.repeat(50)
+    const graph1 = createGraph({ names: [{ given: withEmojiAtBoundary }] })
+    const text1 = toGedcom(graph1)
+    for (const l of text1.split('\r\n').filter(Boolean)) {
+      expect(l.length).toBeLessThanOrEqual(255)
+    }
+    const imported1 = importGedcom(text1).graph
+    expect(imported1.people[imported1.managerId].names[0].given).toBe(withEmojiAtBoundary)
+
+    const withSpaceAtBoundary = 'X'.repeat(247) + ' ' + 'Y'.repeat(50)
+    const graph2 = createGraph({ names: [{ given: withSpaceAtBoundary }] })
+    const text2 = toGedcom(graph2)
+    for (const l of text2.split('\r\n').filter(Boolean)) {
+      expect(l.length).toBeLessThanOrEqual(255)
+      if (l.startsWith('2 GIVN') || l.startsWith('1 NAME')) {
+        expect(l.endsWith(' ')).toBe(false)
+      }
+    }
+    const imported2 = importGedcom(text2).graph
+    expect(imported2.people[imported2.managerId].names[0].given).toBe(withSpaceAtBoundary)
+  })
+
   it('records the manager so a round trip restores the root', () => {
     const graph = sampleFamily()
     expect(roundTrip(graph).managerId).toBeDefined()

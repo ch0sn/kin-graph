@@ -57,8 +57,31 @@ interface Family {
 export function toGedcom(graph: FamilyGraph, now = new Date()): string {
   const out: string[] = []
   const line = (level: number, tag: string, value?: string, xref?: string) => {
-    const text = value && !POINTER.test(value) ? value.replace(/@/g, '@@') : value
-    out.push([level, xref, tag, text].filter((p) => p !== undefined && p !== '').join(' '))
+    if (value === undefined || value === '') {
+      out.push([level, xref, tag].filter((p) => p !== undefined && p !== '').join(' '))
+      return
+    }
+    const text = !POINTER.test(value) ? value.replace(/@/g, '@@') : value
+    const lines = text.split(/\r\n|\r|\n/)
+    const mainPrefix = [level, xref, tag].filter((p) => p !== undefined && p !== '').join(' ')
+
+    const emitPieces = (prefix: string, content: string, nextPrefix: string) => {
+      const maxLen = 255 - prefix.length - 1
+      const { chunk, rest } = splitChunk(content, maxLen)
+      out.push(chunk ? `${prefix} ${chunk}` : prefix)
+      let remaining = rest
+      while (remaining.length > 0) {
+        const nextMax = 255 - nextPrefix.length - 1
+        const next = splitChunk(remaining, nextMax)
+        out.push(next.chunk ? `${nextPrefix} ${next.chunk}` : nextPrefix)
+        remaining = next.rest
+      }
+    }
+
+    emitPieces(mainPrefix, lines[0], `${level + 1} CONC`)
+    for (let i = 1; i < lines.length; i++) {
+      emitPieces(`${level + 1} CONT`, lines[i], `${level + 1} CONC`)
+    }
   }
 
   const ids = Object.keys(graph.people)
@@ -210,8 +233,38 @@ function writeLifeEvent(line: Line, event: LifeEvent) {
   if (!valueLine && description) line(2, 'NOTE', description)
 }
 
+function isHighSurrogate(code: number): boolean {
+  return code >= 0xd800 && code <= 0xdbff
+}
+
+function splitChunk(str: string, maxLen: number): { chunk: string; rest: string } {
+  if (str.length <= maxLen) {
+    return { chunk: str, rest: '' }
+  }
+  let cut = maxLen
+  if (cut > 0 && isHighSurrogate(str.charCodeAt(cut - 1))) {
+    cut--
+  }
+  while (cut > 0 && str[cut - 1] === ' ') {
+    cut--
+  }
+  if (cut > 0 && isHighSurrogate(str.charCodeAt(cut - 1))) {
+    cut--
+  }
+  if (cut === 0) {
+    cut = Math.min(maxLen, str.length)
+    if (cut > 0 && isHighSurrogate(str.charCodeAt(cut - 1))) {
+      cut--
+    }
+  }
+  return {
+    chunk: str.slice(0, cut),
+    rest: str.slice(cut),
+  }
+}
+
 function clean(text: string): string {
-  return text.replace(/[/\r\n]+/g, ' ').trim()
+  return text.replace(/\/+/g, ' ').trim()
 }
 
 function writeName(line: Line, name: PersonName) {
