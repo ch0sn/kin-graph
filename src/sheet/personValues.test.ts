@@ -22,6 +22,29 @@ describe('validate', () => {
     expect(validate(emptyValues({ names: [emptyName({ given: 'Ann' }), emptyName()] }))).toEqual({})
   })
 
+  it('accepts uncertain dates and ranges', () => {
+    for (const birthDate of ['~1890', '<1920-05', '>1920', '1910/1915']) {
+      expect(validate(named('Ann', { birthDate }))).toEqual({})
+    }
+    expect(validate(named('Ann', { birthDate: '1915/1910' }))).toEqual({
+      birthDate: 'The end can’t be before the start',
+    })
+    expect(validate(named('Ann', { birthDate: '~' }))).toHaveProperty('birthDate')
+  })
+
+  it('only objects to a death that is certainly before the birth', () => {
+    const both = (birthDate: string, deathDate: string) =>
+      validate(named('Ann', { birthDate, deceased: true, deathDate }))
+    expect(both('1950', '1949')).toHaveProperty('deathDate')
+    expect(both('1950', '<1950')).toHaveProperty('deathDate')
+    expect(both('1950-06', '1950')).toEqual({})
+    expect(both('~1950', '1950')).toEqual({})
+    expect(both('1950', '~1949')).toEqual({})
+    expect(both('1948/1952', '1950')).toEqual({})
+    expect(both('>1950', '1951')).toEqual({})
+    expect(both('>1950', '1950')).toHaveProperty('deathDate')
+  })
+
   it('accepts full dates and years, and rejects malformed ones', () => {
     expect(validate(named('Ann', { birthDate: '1950-03-14' }))).toEqual({})
     expect(validate(named('Ann', { birthDate: '1950' }))).toEqual({})

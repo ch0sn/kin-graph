@@ -10,7 +10,15 @@ import {
   linkPartners,
   removePerson,
 } from './graph'
-import { childIdsOf, parentIdsOf, siblingsOf, stepParentIdsOf } from './queries'
+import {
+  childIdsOf,
+  coParentFor,
+  parentIdsOf,
+  partnershipBetween,
+  siblingsOf,
+  stepParentIdsOf,
+  unlinkedCoParentIdsOf,
+} from './queries'
 
 const manager = () => createGraph({ names: [{ given: 'Alex' }], gender: 'male' })
 
@@ -94,6 +102,54 @@ describe('addParent', () => {
     const father = addParent(sister.graph, me, { names: [{ given: 'John' }] }, { siblingIds: [] })
 
     expect(parentIdsOf(father.graph, sister.person.id)).not.toContain(father.person.id)
+  })
+})
+
+describe('addParent with a partner status', () => {
+  it('records the two parents as partners, so neither is a step-parent', () => {
+    const graph = manager()
+    const me = graph.managerId
+    const mother = addParent(graph, me, { names: [{ given: 'Mary' }] })
+    expect(coParentFor(mother.graph, me, 'biological')).toBe(mother.person.id)
+
+    const father = addParent(mother.graph, me, { names: [{ given: 'John' }] }, { partnerStatus: 'married' })
+
+    expect(partnershipBetween(father.graph, mother.person.id, father.person.id)?.status).toBe('married')
+    expect(stepParentIdsOf(father.graph, me)).toEqual([])
+    expect(unlinkedCoParentIdsOf(father.graph, mother.person.id)).toEqual([])
+  })
+
+  it('records nothing for the first parent, or without a status', () => {
+    const graph = manager()
+    const me = graph.managerId
+    const mother = addParent(graph, me, { names: [{ given: 'Mary' }] }, { partnerStatus: 'married' })
+    expect(mother.graph.partnerships).toEqual([])
+
+    const father = addParent(mother.graph, me, { names: [{ given: 'John' }] })
+    expect(father.graph.partnerships).toEqual([])
+    expect(unlinkedCoParentIdsOf(father.graph, father.person.id)).toEqual([mother.person.id])
+  })
+
+  it('only pairs parents of the same kind', () => {
+    const graph = manager()
+    const me = graph.managerId
+    const mother = addParent(graph, me, { names: [{ given: 'Mary' }] })
+    const adoptive = addParent(
+      mother.graph,
+      me,
+      { names: [{ given: 'Ann' }] },
+      { kind: 'adoptive', partnerStatus: 'married' },
+    )
+    expect(adoptive.graph.partnerships).toEqual([])
+  })
+
+  it('keeps an existing partnership as it is', () => {
+    const graph = manager()
+    const me = graph.managerId
+    const mother = addParent(graph, me, { names: [{ given: 'Mary' }] })
+    const father = addParent(mother.graph, me, { names: [{ given: 'John' }] }, { partnerStatus: 'divorced' })
+    expect(father.graph.partnerships).toHaveLength(1)
+    expect(father.graph.partnerships[0].status).toBe('divorced')
   })
 })
 

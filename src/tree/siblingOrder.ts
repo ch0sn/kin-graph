@@ -1,4 +1,4 @@
-import type { Gender, Person } from '../model'
+import { compareOptionalDates, type Gender, type Person } from '../model'
 
 /** How brothers and sisters are ordered, left to right. */
 export type SiblingOrder = 'oldest-first' | 'youngest-first' | 'boys-first' | 'girls-first'
@@ -33,6 +33,6 @@ function byBirth(direction: 1 | -1): Compare {
   return (a, b) => {
     if (!a.birthDate) return b.birthDate ? 1 : 0
     if (!b.birthDate) return -1
-    return direction * a.birthDate.localeCompare(b.birthDate)
+    return direction * compareOptionalDates(a.birthDate, b.birthDate)
   }
 }

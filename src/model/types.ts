@@ -4,7 +4,9 @@ export type Gender = 'female' | 'male' | 'other'
 
 /**
  * Genealogical dates are often only partly known, so dates are ISO-8601
- * strings at year, month or day precision: "1950", "1950-03", "1950-03-14".
+ * strings at year, month or day precision ("1950", "1950-03", "1950-03-14"),
+ * optionally qualified: "~1890" (about), "<1920" (before), ">1920" (after) or
+ * "1910/1915" (between). See `dates.ts`.
  */
 export type FuzzyDate = string
 
@@ -53,6 +55,13 @@ export interface Person {
   deathDate?: FuzzyDate
   /** Known to have died, even if the date isn't known. Implied by `deathDate`. */
   deceased?: boolean
+  /** Where the person lives now, as written: "Berlin, Germany". */
+  location?: string
+  /**
+   * The country of `location` as an ISO 3166-1 code ("de"), when it was
+   * filled in from a postal code. Helps look up the family's next postal code.
+   */
+  locationCountry?: string
   /** A photo kept in the device's photo store; see `src/storage/photos.ts`. */
   photoId?: string
   /**
@@ -92,6 +101,76 @@ export interface Partnership {
 }
 
 /**
+ * What area of life an event belongs to. Birth and death have their own
+ * fields on the person, and marriage and divorce are on partnerships.
+ */
+export type EventType =
+  | 'education'
+  | 'work'
+  | 'religion'
+  | 'residence'
+  | 'migration'
+  | 'military'
+  | 'funeral'
+  | 'other'
+
+/** What exactly happened, within an event's type; see `EVENT_KINDS` for which belong where. */
+export type EventKind =
+  // Education
+  | 'firstDayOfSchool'
+  | 'schoolGraduation'
+  | 'apprenticeship'
+  | 'startedUniversity'
+  | 'universityDegree'
+  // Work
+  | 'firstJob'
+  | 'newJob'
+  | 'promotion'
+  | 'ownBusiness'
+  | 'retirement'
+  // Religion
+  | 'baptism'
+  | 'childBaptism'
+  | 'adultBaptism'
+  | 'confirmation'
+  | 'firstCommunion'
+  | 'barMitzvah'
+  | 'batMitzvah'
+  // Home and moving
+  | 'movedIn'
+  | 'boughtHome'
+  // Migration
+  | 'emigrated'
+  | 'immigrated'
+  | 'naturalized'
+  // Military
+  | 'enlisted'
+  | 'deployed'
+  | 'discharged'
+  // Funeral
+  | 'burial'
+  | 'cremation'
+  | 'memorial'
+
+export interface LifeEvent {
+  id: string
+  personId: PersonId
+  type: EventType
+  /** What exactly happened, when it's one of the listed kinds for `type`. */
+  kind?: EventKind
+  /**
+   * The event's own name, when none of the kinds fit: "Driving licence".
+   * Required for `other`; shown instead of the kind when set.
+   */
+  label?: string
+  date?: FuzzyDate
+  place?: string
+  description?: string
+}
+
+export type NewLifeEvent = Omit<LifeEvent, 'id' | 'personId'>
+
+/**
  * A family tree as seen by its manager. The manager is the root every
  * relationship label is computed from. Siblings, step-relations and in-laws
  * are derived from parent links and partnerships rather than stored.
@@ -101,4 +180,6 @@ export interface FamilyGraph {
   people: Record<PersonId, Person>
   parentLinks: ParentLink[]
   partnerships: Partnership[]
+  /** Life events of every person, in no particular order. */
+  events: LifeEvent[]
 }

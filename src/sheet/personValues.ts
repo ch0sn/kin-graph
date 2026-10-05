@@ -1,7 +1,8 @@
 import { t } from '../i18n'
 import {
+  dateProblem,
+  isCertainlyBefore,
   isDeceased,
-  isFuzzyDate,
   type Gender,
   type NameForm,
   type NameType,
@@ -87,19 +88,26 @@ export function valuesFromPerson(person: Person): PersonValues {
   }
 }
 
+/** The message for a date that can't be used, if any. */
+export function dateError(text: string): string | undefined {
+  const problem = text ? dateProblem(text) : null
+  if (!problem) return undefined
+  return problem === 'rangeOrder' ? t('v.rangeOrder') : t('v.dateHint')
+}
+
 export function validate(values: PersonValues): PersonErrors {
   const errors: PersonErrors = {}
   const birth = values.birthDate.trim()
   const death = values.deceased ? values.deathDate.trim() : ''
   if (!values.names[0].given.trim()) errors.givenName = t('v.firstNeeded')
-  if (birth && !isFuzzyDate(birth)) errors.birthDate = t('v.dateHint')
-  if (death && !isFuzzyDate(death)) errors.deathDate = t('v.dateHint')
-  if (!errors.birthDate && !errors.deathDate && birth && death) {
-    // Compare only as precisely as both dates are known.
-    const length = Math.min(birth.length, death.length)
-    if (death.slice(0, length) < birth.slice(0, length)) {
-      errors.deathDate = t('v.deathBeforeBirth')
-    }
+  errors.birthDate = dateError(birth)
+  errors.deathDate = dateError(death)
+  // Only a death that is certainly earlier than the birth is an error; imprecise dates may overlap.
+  if (!errors.birthDate && !errors.deathDate && birth && death && isCertainlyBefore(death, birth)) {
+    errors.deathDate = t('v.deathBeforeBirth')
+  }
+  for (const key of Object.keys(errors) as (keyof PersonErrors)[]) {
+    if (errors[key] === undefined) delete errors[key]
   }
   return errors
 }

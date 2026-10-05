@@ -1,3 +1,4 @@
+import { isCertainlyBefore } from './dates'
 import { bloodKinship, type BloodKinship, type Kinship } from './kinship'
 import { childIdsOf, getPerson, parentIdsOf, partnershipBetween } from './queries'
 import type { FamilyGraph, Gender, PartnershipStatus, Person, PersonId } from './types'
@@ -91,9 +92,9 @@ function isOlder(person: Person, other: Person): boolean | undefined {
   const a = person.birthDate
   const b = other.birthDate
   if (!a || !b) return undefined
-  const length = Math.min(a.length, b.length)
-  if (a.slice(0, length) === b.slice(0, length)) return undefined
-  return b.slice(0, length) < a.slice(0, length)
+  if (isCertainlyBefore(b, a)) return true
+  if (isCertainlyBefore(a, b)) return false
+  return undefined
 }
 
 /**

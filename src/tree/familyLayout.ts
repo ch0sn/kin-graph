@@ -1,4 +1,4 @@
-import type { Edge, Node } from '@xyflow/react'
+import { Position, type Edge, type Node, type NodeHandle } from '@xyflow/react'
 import type { ELK, ElkExtendedEdge, ElkNode, ElkPort, LayoutOptions } from 'elkjs/lib/elk-api'
 import {
   childIdsOf,
@@ -60,6 +60,44 @@ export interface UnionNodeData extends Record<string, unknown> {
 export type PersonNode = Node<PersonNodeData, 'person'>
 export type UnionNode = Node<UnionNodeData, 'union'>
 export type TreeNode = PersonNode | UnionNode
+
+/**
+ * Where lines attach to a node, matching the zero-size handles in nodes.tsx:
+ * the middle of each side. Given up front so React Flow can draw the lines
+ * straight away; otherwise it waits to measure the handles on the page, and a
+ * hidden tab or remounted cards leave the tree without lines until it does.
+ */
+function sideHandles(
+  width: number,
+  height: number,
+  types: Record<'top' | 'left' | 'right' | 'bottom', NodeHandle['type']>,
+): NodeHandle[] {
+  const at = { top: [width / 2, 0], left: [0, height / 2], right: [width, height / 2], bottom: [width / 2, height] }
+  const positions = { top: Position.Top, left: Position.Left, right: Position.Right, bottom: Position.Bottom }
+  return (Object.keys(types) as (keyof typeof types)[]).map((id) => ({
+    id,
+    type: types[id],
+    position: positions[id],
+    x: at[id][0],
+    y: at[id][1],
+    width: 0,
+    height: 0,
+  }))
+}
+
+const PERSON_HANDLES = sideHandles(PERSON_WIDTH, PERSON_HEIGHT, {
+  top: 'target',
+  left: 'source',
+  right: 'source',
+  bottom: 'source',
+})
+
+const UNION_HANDLES = sideHandles(UNION_SIZE, UNION_SIZE, {
+  top: 'target',
+  left: 'target',
+  right: 'target',
+  bottom: 'source',
+})
 
 export interface FamilyLayout {
   nodes: TreeNode[]
@@ -487,6 +525,7 @@ function toReactFlow(
         position: { x: origin.x + slotX(i) - PERSON_WIDTH / 2, y: origin.y },
         width: PERSON_WIDTH,
         height: PERSON_HEIGHT,
+        handles: PERSON_HANDLES,
         data: {
           person,
           label: relationshipLabel(graph, id),
@@ -526,6 +565,7 @@ function toReactFlow(
         position,
         width: UNION_SIZE,
         height: UNION_SIZE,
+        handles: UNION_HANDLES,
         selectable: false,
         data: { distance },
       })

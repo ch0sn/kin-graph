@@ -72,6 +72,31 @@ export function partnershipBetween(
   )
 }
 
+/**
+ * The parent a newly added parent of the given kind would share the child
+ * with: the one existing parent of that kind. Null when there are none or
+ * several, since then it isn't clear who the new parent's partner is.
+ */
+export function coParentFor(graph: FamilyGraph, childId: PersonId, kind: ParentKind): PersonId | null {
+  const parents = parentIdsOf(graph, childId, [kind]).filter((id) => !graph.people[id]?.isPlaceholder)
+  return parents.length === 1 ? parents[0] : null
+}
+
+/**
+ * People who share a child with this person but aren't recorded as their
+ * partner, e.g. a mother and father entered separately.
+ */
+export function unlinkedCoParentIdsOf(graph: FamilyGraph, personId: PersonId): PersonId[] {
+  const coParents = new Set<PersonId>()
+  for (const childId of childIdsOf(graph, personId)) {
+    for (const parentId of parentIdsOf(graph, childId)) {
+      if (parentId === personId || graph.people[parentId]?.isPlaceholder) continue
+      if (!partnershipBetween(graph, personId, parentId)) coParents.add(parentId)
+    }
+  }
+  return [...coParents]
+}
+
 /** Partners of a person's parents who aren't themselves that person's parent. */
 export function stepParentIdsOf(graph: FamilyGraph, personId: PersonId): PersonId[] {
   const parents = new Set(parentIdsOf(graph, personId))

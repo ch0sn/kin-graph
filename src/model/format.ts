@@ -1,4 +1,5 @@
 import { currentLanguage, t } from '../i18n'
+import { formatYear, isExactDate, parseDate } from './dates'
 import type {
   FamilyGraph,
   FuzzyDate,
@@ -8,13 +9,6 @@ import type {
   Person,
   PersonName,
 } from './types'
-
-const FUZZY_DATE = /^\d{4}(-(0[1-9]|1[0-2])(-(0[1-9]|[12]\d|3[01]))?)?$/
-
-/** Whether text is a year, year-month or full ISO date ("1950", "1950-03", "1950-03-14"). */
-export function isFuzzyDate(text: string): text is FuzzyDate {
-  return FUZZY_DATE.test(text)
-}
 
 /** A one-part name, as most people are entered: "Mary" or "Mary Smith". */
 export function simpleName(given: string, surname?: string): PersonName {
@@ -115,7 +109,10 @@ export interface Age {
   years: number
   /** Set for babies under a year old, when the full birth date is known. */
   months?: number
-  /** Only the birth year (or month) is known, so the birthday may still be ahead. */
+  /**
+   * Only the birth year (or month) is known, or a date is "about", "before",
+   * "after" or a range, so the age could be off.
+   */
   approximate: boolean
 }
 
@@ -136,11 +133,16 @@ export function ageOf(person: Person, today = new Date()): Age | null {
 
 /** Whole years between two dates, as precisely as the less precise one allows. */
 function ageBetween(from: FuzzyDate, to: FuzzyDate): Age | null {
-  const [fromYear, fromMonth, fromDay] = from.split('-').map(Number)
-  const [toYear, toMonth, toDay] = to.split('-').map(Number)
+  const start = parseDate(from)
+  const end = parseDate(to)
+  if (!start || !end) return null
+  // A qualified date counts as the date it names (a range, as its first day),
+  // but the age is flagged approximate.
+  const [fromYear, fromMonth, fromDay] = start.start.split('-').map(Number)
+  const [toYear, toMonth, toDay] = end.start.split('-').map(Number)
 
   let years = toYear - fromYear
-  let approximate = false
+  let approximate = !isExactDate(from) || !isExactDate(to)
   if (fromMonth === undefined || toMonth === undefined) approximate = true
   else if (toMonth < fromMonth) years--
   else if (toMonth === fromMonth) {
@@ -149,7 +151,7 @@ function ageBetween(from: FuzzyDate, to: FuzzyDate): Age | null {
   }
   if (years < 0) return null
 
-  if (years === 0 && fromDay !== undefined && toDay !== undefined) {
+  if (!approximate && years === 0 && fromDay !== undefined && toDay !== undefined) {
     const months = (toYear - fromYear) * 12 + toMonth - fromMonth - (toDay < fromDay ? 1 : 0)
     return { years, months, approximate: false }
   }
@@ -163,28 +165,17 @@ export function formatAge(age: Age): string {
   return age.approximate ? `~${age.years}` : String(age.years)
 }
 
-/** "12 June 1988", "June 1988" or "1988", in the reader's language. */
-export function formatFuzzyDate(date: string): string {
-  const [year, month, day] = date.split('-').map(Number)
-  const value = new Date(year, (month ?? 1) - 1, day ?? 1)
-  return new Intl.DateTimeFormat(currentLanguage(), {
-    year: 'numeric',
-    ...(month !== undefined && { month: 'long' }),
-    ...(day !== undefined && { day: 'numeric' }),
-  }).format(value)
-}
-
 export function isDeceased(person: Person): boolean {
   return person.deceased === true || person.deathDate !== undefined
 }
 
 /**
- * "1934 – 2015", "1934 – ?" (died, date unknown), "b. 1988", "d. 1902",
+ * "1934 – 2015", "~1934 – 2015", "1934 – ?" (died, date unknown), "b. 1988", "d. 1902",
  * "Deceased", or null when nothing is known.
  */
 export function lifeYears(person: Person): string | null {
-  const born = person.birthDate?.slice(0, 4)
-  const died = person.deathDate?.slice(0, 4)
+  const born = person.birthDate && formatYear(person.birthDate)
+  const died = person.deathDate && formatYear(person.deathDate)
   if (born && died) return `${born} – ${died}`
   if (born) return isDeceased(person) ? `${born} – ?` : t('life.bornShort', { year: born })
   if (died) return t('life.diedShort', { year: died })
@@ -195,4 +186,14 @@ export function lifeYears(person: Person): string | null {
 export function peopleCount(graph: FamilyGraph): string {
   const count = Object.values(graph.people).filter((p) => !p.isPlaceholder).length
   return t('people', { count })
+}
+
+/** How many men and women the tree has; placeholder parents don't count. */
+export function genderCounts(graph: FamilyGraph): { male: number; female: number } {
+  const counts = { male: 0, female: 0 }
+  for (const person of Object.values(graph.people)) {
+    if (person.isPlaceholder) continue
+    if (person.gender === 'male' || person.gender === 'female') counts[person.gender]++
+  }
+  return counts
 }

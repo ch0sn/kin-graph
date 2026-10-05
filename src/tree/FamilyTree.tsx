@@ -1,17 +1,17 @@
 import {
   Background,
   BackgroundVariant,
-  Panel,
   ReactFlow,
   ReactFlowProvider,
   useReactFlow,
   useStore,
   type XYPosition,
 } from '@xyflow/react'
-import { Mars, Venus } from 'lucide-react'
+import { Expand, LocateFixed, Mars, Venus } from 'lucide-react'
 import { animate, useReducedMotion, type AnimationPlaybackControls } from 'motion/react'
-import { useCallback, useEffect, useMemo, useRef, useState, type ComponentProps } from 'react'
-import type { FamilyGraph, PersonId } from '../model'
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { createPortal } from 'react-dom'
+import { genderCounts, type FamilyGraph, type PersonId } from '../model'
 import { useT } from '../i18n'
 import { elk } from './elk'
 import {
@@ -55,6 +55,8 @@ interface FamilyTreeProps {
   onToggleHighlightGender: () => void
   selectedId: PersonId | null
   onSelect: (id: PersonId | null) => void
+  /** Where the view controls are drawn, outside the canvas; none are shown until it exists. */
+  controlsSlot: HTMLElement | null
 }
 
 export function FamilyTree(props: FamilyTreeProps) {
@@ -74,8 +76,9 @@ function FamilyTreeCanvas({
   onToggleHighlightGender,
   selectedId,
   onSelect,
+  controlsSlot,
 }: FamilyTreeProps) {
-  const { t, language } = useT()
+  const { language } = useT()
   const display = useMemo(() => ({ highlightGender }), [highlightGender])
   /** The latest layout, i.e. where everything is heading. */
   const [layout, setLayout] = useState<FamilyLayout | null>(null)
@@ -157,6 +160,8 @@ function FamilyTreeCanvas({
     })
   }, [selectedId, centerOn, getZoom, viewportHeight])
 
+  const counts = useMemo(() => genderCounts(graph), [graph])
+
   if (!layout) return null
 
   return (
@@ -191,34 +196,17 @@ function FamilyTreeCanvas({
             color="var(--color-stone-300)"
           />
         )}
-        <Panel position="bottom-right" className="flex gap-2">
-          <button
-            type="button"
-            aria-label={t('tree.highlight')}
-            aria-pressed={highlightGender}
-            title={highlightGender ? t('tree.highlightOff') : t('tree.highlight')}
-            onClick={onToggleHighlightGender}
-            className={[
-              'flex items-center gap-0.5 rounded-full border px-3 py-2 shadow-sm backdrop-blur transition active:scale-95',
-              highlightGender
-                ? 'border-stone-900 bg-stone-900'
-                : 'border-stone-200 bg-white/90 hover:bg-white',
-            ].join(' ')}
-          >
-            <Mars
-              className={`size-4 ${highlightGender ? 'text-blue-400' : 'text-stone-500'}`}
-              aria-hidden
-            />
-            <Venus
-              className={`size-4 ${highlightGender ? 'text-red-400' : 'text-stone-500'}`}
-              aria-hidden
-            />
-          </button>
-          <ToolbarButton onClick={() => fitView({ padding: 0.15, duration: 600 })}>
-            {t('tree.whole')}
-          </ToolbarButton>
-          <ToolbarButton onClick={() => centerOn(graph.managerId)}>{t('tree.focus')}</ToolbarButton>
-        </Panel>
+        {controlsSlot &&
+          createPortal(
+            <ViewControls
+              onFocus={() => centerOn(graph.managerId)}
+              onWhole={() => fitView({ padding: 0.15, duration: 600 })}
+              highlightGender={highlightGender}
+              onToggleHighlightGender={onToggleHighlightGender}
+              counts={counts}
+            />,
+            controlsSlot,
+          )}
       </ReactFlow>
     </TreeDisplayContext.Provider>
   )
@@ -246,12 +234,94 @@ function lerp(from: XYPosition, to: XYPosition, t: number): XYPosition {
   return { x: from.x + (to.x - from.x) * t, y: from.y + (to.y - from.y) * t }
 }
 
-function ToolbarButton(props: ComponentProps<'button'>) {
+/**
+ * The tree's view controls in a narrow box hanging from the header: icons
+ * only, widening to the left on hover or focus to show what each does.
+ */
+function ViewControls({
+  onFocus,
+  onWhole,
+  highlightGender,
+  onToggleHighlightGender,
+  counts,
+}: {
+  onFocus: () => void
+  onWhole: () => void
+  highlightGender: boolean
+  onToggleHighlightGender: () => void
+  counts: { male: number; female: number }
+}) {
+  const { t } = useT()
+  return (
+    <div
+      role="toolbar"
+      aria-label={t('tree.view')}
+      // Flush with the window's right edge. 57px less the padding and left border leaves 40px: a 20px icon with 10px either side.
+      className="group/view flex w-[57px] flex-col gap-1 overflow-hidden rounded-bl-2xl border border-t-0 border-r-0 border-stone-200 bg-white/80 p-2 shadow-[0_8px_30px_-12px_rgb(0_0_0/0.25)] backdrop-blur transition-[width] duration-200 ease-out focus-within:w-48 hover:w-48 motion-reduce:transition-none"
+    >
+      <ViewButton label={t('tree.focus')} onClick={onFocus}>
+        <LocateFixed className="size-5" aria-hidden />
+      </ViewButton>
+      <ViewButton label={t('tree.whole')} onClick={onWhole}>
+        <Expand className="size-5" aria-hidden />
+      </ViewButton>
+      <hr className="mx-1 my-0.5 border-stone-200" />
+      <ViewButton
+        label={t('tree.genderShort')}
+        hint={highlightGender ? t('tree.highlightOff') : t('tree.highlight')}
+        ariaLabel={
+          highlightGender
+            ? `${t('tree.highlight')}: ${t('tree.genderCounts', counts)}`
+            : t('tree.highlight')
+        }
+        pressed={highlightGender}
+        onClick={onToggleHighlightGender}
+      >
+        {/* Stacked, each with its count while the highlight is on. */}
+        <span className="flex flex-col items-center gap-0.5 text-[11px] leading-none font-semibold tabular-nums">
+          <Mars className={`size-4 ${highlightGender ? 'text-blue-500' : 'text-stone-500'}`} aria-hidden />
+          {highlightGender && <span>{counts.male}</span>}
+          <Venus className={`size-4 ${highlightGender ? 'text-red-500' : 'text-stone-500'}`} aria-hidden />
+          {highlightGender && <span>{counts.female}</span>}
+        </span>
+      </ViewButton>
+    </div>
+  )
+}
+
+function ViewButton({
+  label,
+  hint = label,
+  ariaLabel = label,
+  pressed,
+  onClick,
+  children,
+}: {
+  label: string
+  /** The tooltip, when it should say more than the label. */
+  hint?: string
+  ariaLabel?: string
+  pressed?: boolean
+  onClick: () => void
+  children: ReactNode
+}) {
   return (
     <button
       type="button"
-      className="rounded-full border border-stone-200 bg-white/90 px-4 py-2 text-sm font-medium text-stone-700 shadow-sm backdrop-blur transition hover:bg-white hover:text-stone-900 active:scale-95"
-      {...props}
-    />
+      aria-label={ariaLabel}
+      aria-pressed={pressed}
+      title={hint}
+      onClick={onClick}
+      className={[
+        // Reversed so the icon stays at the right edge while the box widens to the left.
+        'flex w-full flex-row-reverse items-center gap-3 rounded-xl px-2.5 py-2.5 text-[11px] font-medium whitespace-nowrap transition active:scale-[0.98] focus-visible:ring-4 focus-visible:ring-stone-200 focus-visible:outline-none',
+        pressed ? 'bg-stone-100 text-stone-900' : 'text-stone-700 hover:bg-stone-100 hover:text-stone-900',
+      ].join(' ')}
+    >
+      <span className="flex w-5 shrink-0 justify-center">{children}</span>
+      <span className="opacity-0 transition-opacity duration-150 group-focus-within/view:opacity-100 group-hover/view:opacity-100 motion-reduce:transition-none">
+        {label}
+      </span>
+    </button>
   )
 }

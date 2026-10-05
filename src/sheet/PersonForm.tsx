@@ -285,6 +285,7 @@ export function PersonForm({
         value={values.birthDate}
         onChange={(date) => update('birthDate', date)}
         error={errors.birthDate}
+        qualifiers={false}
       />
 
       <div className="flex flex-col gap-3">
@@ -311,6 +312,7 @@ export function PersonForm({
                 value={values.deathDate}
                 onChange={(date) => update('deathDate', date)}
                 error={errors.deathDate}
+                qualifiers={false}
               />
             </motion.div>
           )}
