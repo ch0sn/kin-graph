@@ -8,7 +8,15 @@ import {
   type LucideIcon,
 } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
-import type { ColorMode, ColorVision, Settings } from '../storage/settings'
+import {
+  CLOSE_TAB_ACTIONS,
+  DEFAULT_SETTINGS,
+  NEW_TREE_TARGETS,
+  START_TABS,
+  type ColorMode,
+  type ColorVision,
+  type Settings,
+} from '../storage/settings'
 import { THEMES, type ThemeId } from '../theme/themes'
 import { DEFAULT_SIBLING_ORDER, type SiblingOrder } from '../tree/siblingOrder'
 import { fullName, peopleCount, type FamilyGraph, type NameOrder } from '../model'
@@ -84,9 +92,10 @@ const COLOR_MODE_OPTIONS: { value: ColorMode; label: MessageKey; icon: LucideIco
 
 interface SettingsDialogProps {
   open: boolean
-  graph: FamilyGraph
-  /** Replaces the tree with one imported from a backup file. */
-  onReplaceTree: (graph: FamilyGraph) => void
+  /** The tree on show, if any. */
+  graph: FamilyGraph | null
+  /** Opens a tree imported from a backup file, in a new tab or in place of `graph` as settings say. */
+  onImportTree: (graph: FamilyGraph) => void
   settings: Settings
   onChange: (patch: Partial<Settings>) => void
   onClose: () => void
@@ -96,7 +105,7 @@ interface SettingsDialogProps {
 export function SettingsDialog({
   open,
   graph,
-  onReplaceTree,
+  onImportTree,
   settings,
   onChange,
   onClose,
@@ -105,7 +114,12 @@ export function SettingsDialog({
   const ref = useRef<HTMLDialogElement>(null)
   /** A tree chosen from a backup file, waiting for the person to confirm replacing theirs. */
   const [imported, setImported] = useState<FamilyGraph | null>(null)
-  const picker = useBackupPicker(setImported)
+  const replaces = settings.newTreeIn === 'replace' && graph !== null
+  const picker = useBackupPicker((picked) => {
+    if (replaces) return setImported(picked)
+    onImportTree(picked)
+    onClose()
+  })
   const [exportError, setExportError] = useState(false)
 
   useEffect(() => {
@@ -320,6 +334,52 @@ export function SettingsDialog({
           </div>
         </div>
 
+        <fieldset className="flex flex-col gap-3" aria-labelledby="tabs-label">
+          <HelpLabel
+            id="tabs-help"
+            about={t('settings.tabs')}
+            help={t('settings.tabsHelp')}
+            label={
+              <span id="tabs-label" className="text-sm font-semibold text-stone-900">
+                {t('settings.tabs')}
+              </span>
+            }
+          />
+          <SettingSelect
+            id="close-tab-select"
+            label={t('settings.closeTab')}
+            value={settings.closeTab}
+            options={CLOSE_TAB_ACTIONS.map((value) => ({
+              value,
+              label: t(`closeTab.${value}`),
+              isDefault: value === DEFAULT_SETTINGS.closeTab,
+            }))}
+            onChange={(closeTab) => onChange({ closeTab })}
+          />
+          <SettingSelect
+            id="new-tree-select"
+            label={t('settings.newTreeIn')}
+            value={settings.newTreeIn}
+            options={NEW_TREE_TARGETS.map((value) => ({
+              value,
+              label: t(`newTreeIn.${value}`),
+              isDefault: value === DEFAULT_SETTINGS.newTreeIn,
+            }))}
+            onChange={(newTreeIn) => onChange({ newTreeIn })}
+          />
+          <SettingSelect
+            id="on-start-select"
+            label={t('settings.onStart')}
+            value={settings.onStart}
+            options={START_TABS.map((value) => ({
+              value,
+              label: t(`onStart.${value}`),
+              isDefault: value === DEFAULT_SETTINGS.onStart,
+            }))}
+            onChange={(onStart) => onChange({ onStart })}
+          />
+        </fieldset>
+
         <div className="flex flex-col gap-2.5">
           <HelpLabel
             id="import-help"
@@ -331,7 +391,7 @@ export function SettingsDialog({
             <Upload className="size-4 text-stone-500" aria-hidden />
             {t('settings.importButton')}
           </Button>
-          <Button
+          {graph && <Button
             onClick={() => {
               try {
                 downloadGedcom(graph)
@@ -343,7 +403,7 @@ export function SettingsDialog({
           >
             <FileDown className="size-4 text-stone-500" aria-hidden />
             {t('settings.exportGedcom')}
-          </Button>
+          </Button>}
           {picker.input}
         </div>
 
@@ -362,13 +422,13 @@ export function SettingsDialog({
       cancelLabel={t('common.cancel')}
       tone="danger"
       onConfirm={() => {
-        if (imported) onReplaceTree(imported)
+        if (imported) onImportTree(imported)
         setImported(null)
         onClose()
       }}
       onCancel={() => setImported(null)}
     >
-      {imported && (
+      {imported && graph && (
         t('import.replaceBody', {
           current: peopleCount(graph),
           name: fullName(imported.people[imported.managerId]),
@@ -397,5 +457,48 @@ export function SettingsDialog({
       {picker.error}
     </ConfirmDialog>
     </>
+  )
+}
+
+/** A smaller labelled select, for settings grouped under one heading. */
+function SettingSelect<T extends string>({
+  id,
+  label,
+  value,
+  options,
+  onChange,
+}: {
+  id: string
+  label: string
+  value: T
+  options: { value: T; label: string; isDefault: boolean }[]
+  onChange: (value: T) => void
+}) {
+  const { t } = useT()
+  return (
+    <div className="flex flex-col gap-1.5">
+      <label htmlFor={id} className="text-xs font-medium text-stone-600">
+        {label}
+      </label>
+      <div className="relative">
+        <select
+          id={id}
+          value={value}
+          onChange={(e) => onChange(e.target.value as T)}
+          className="w-full appearance-none rounded-xl border border-stone-200 bg-white py-2.5 pr-10 pl-3 text-base text-stone-900 outline-none transition focus:border-stone-500 focus:ring-4 focus:ring-stone-200"
+        >
+          {options.map((option) => (
+            <option key={option.value} value={option.value}>
+              {option.label}
+              {option.isDefault ? t('settings.default') : ''}
+            </option>
+          ))}
+        </select>
+        <ChevronDown
+          className="pointer-events-none absolute top-1/2 right-3 size-4 -translate-y-1/2 text-stone-500"
+          aria-hidden
+        />
+      </div>
+    </div>
   )
 }

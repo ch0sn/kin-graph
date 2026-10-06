@@ -1,6 +1,5 @@
-import { Lock, TriangleAlert, Upload } from 'lucide-react'
+import { FileText, Lock, Star, TriangleAlert, Upload } from 'lucide-react'
 import { motion } from 'motion/react'
-import { sampleFamily } from '../data/sampleFamily'
 import { createGraph, type FamilyGraph } from '../model'
 import { PersonForm } from '../sheet/PersonForm'
 import { emptyValues } from '../sheet/personValues'
@@ -8,8 +7,20 @@ import { useT } from '../i18n'
 import { useBackupPicker } from '../storage/useBackupPicker'
 import { Button } from '../ui/fields'
 
-/** Shown when nothing is saved yet: start a tree, import one, or try the sample. */
-export function Welcome({ onStart }: { onStart: (graph: FamilyGraph) => void }) {
+interface WelcomeProps {
+  onStart: (graph: FamilyGraph) => void
+  /** Saved trees with no tab open, offered above starting a new one. */
+  savedTrees?: { id: string; label: string; own: boolean }[]
+  onOpenSaved?: (treeId: string) => void
+  /** When starting another tree, a way back. */
+  onCancel?: () => void
+}
+
+/**
+ * Start a tree or import one: shown when nothing is saved
+ * yet, when starting another tree, and when no tab is open.
+ */
+export function Welcome({ onStart, savedTrees = [], onOpenSaved, onCancel }: WelcomeProps) {
   const { t } = useT()
   const picker = useBackupPicker(onStart)
 
@@ -25,6 +36,24 @@ export function Welcome({ onStart }: { onStart: (graph: FamilyGraph) => void }) 
           <h1 className="font-serif text-4xl tracking-tight text-stone-900">KinGraph</h1>
           <p className="mt-2 text-stone-600">{t('welcome.tagline')}</p>
         </header>
+
+        {savedTrees.length > 0 && onOpenSaved && (
+          <section aria-labelledby="welcome-saved" className="flex flex-col gap-2">
+            <h2 id="welcome-saved" className="text-sm font-semibold text-stone-900">
+              {t('welcome.savedTrees')}
+            </h2>
+            {savedTrees.map((tree) => (
+              <Button key={tree.id} className="w-full justify-start py-3" onClick={() => onOpenSaved(tree.id)}>
+                {tree.own ? (
+                  <Star className="size-4 fill-(--accent) text-(--accent)" aria-hidden />
+                ) : (
+                  <FileText className="size-4 text-stone-500" aria-hidden />
+                )}
+                <span className="truncate">{tree.label}</span>
+              </Button>
+            ))}
+          </section>
+        )}
 
         <section
           aria-labelledby="welcome-start"
@@ -66,13 +95,11 @@ export function Welcome({ onStart }: { onStart: (graph: FamilyGraph) => void }) 
         </div>
 
         <footer className="flex flex-col items-center gap-3 text-sm">
-          <button
-            type="button"
-            onClick={() => onStart(sampleFamily())}
-            className="font-medium text-stone-700 underline decoration-stone-300 underline-offset-4 hover:text-stone-900 hover:decoration-stone-500"
-          >
-            {t('welcome.sample')}
-          </button>
+          {onCancel && (
+            <Button variant="ghost" onClick={onCancel}>
+              {t('common.cancel')}
+            </Button>
+          )}
           <p className="flex items-center gap-1.5 text-xs text-stone-500">
             <Lock className="size-3.5" aria-hidden />
             {t('welcome.private')}

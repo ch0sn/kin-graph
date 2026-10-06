@@ -38,7 +38,20 @@ export interface Settings {
   nameOrder: NameOrder
   /** Colours card borders by gender: blue for male, red for female. */
   highlightGender: boolean
+  /** What closing a tab does to its tree: keep it in "My trees", delete it, or ask. */
+  closeTab: CloseTabAction
+  /** Where a new or imported tree opens: in a new tab, or in place of the current one. */
+  newTreeIn: NewTreeTarget
+  /** Which tabs are open when KinGraph starts. */
+  onStart: StartTabs
 }
+
+export type CloseTabAction = 'keep' | 'delete' | 'ask'
+export const CLOSE_TAB_ACTIONS: readonly CloseTabAction[] = ['keep', 'delete', 'ask']
+export type NewTreeTarget = 'new-tab' | 'replace'
+export const NEW_TREE_TARGETS: readonly NewTreeTarget[] = ['new-tab', 'replace']
+export type StartTabs = 'last-tabs' | 'own-tree'
+export const START_TABS: readonly StartTabs[] = ['last-tabs', 'own-tree']
 
 export const DEFAULT_SETTINGS: Settings = {
   language: DEFAULT_LANGUAGE,
@@ -48,7 +61,13 @@ export const DEFAULT_SETTINGS: Settings = {
   siblingOrder: DEFAULT_SIBLING_ORDER,
   nameOrder: 'given-first',
   highlightGender: false,
+  closeTab: 'keep',
+  newTreeIn: 'new-tab',
+  onStart: 'last-tabs',
 }
+
+const oneOf = <T>(options: readonly T[], value: unknown, fallback: T): T =>
+  options.includes(value as T) ? (value as T) : fallback
 
 const isColorMode = (value: unknown): value is ColorMode =>
   COLOR_MODES.includes(value as ColorMode)
@@ -83,5 +102,8 @@ export function parseSettings(raw: unknown): Settings {
       typeof stored.highlightGender === 'boolean'
         ? stored.highlightGender
         : DEFAULT_SETTINGS.highlightGender,
+    closeTab: oneOf(CLOSE_TAB_ACTIONS, stored.closeTab, DEFAULT_SETTINGS.closeTab),
+    newTreeIn: oneOf(NEW_TREE_TARGETS, stored.newTreeIn, DEFAULT_SETTINGS.newTreeIn),
+    onStart: oneOf(START_TABS, stored.onStart, DEFAULT_SETTINGS.onStart),
   }
 }

@@ -1,31 +1,19 @@
-import { Download, FilePlus } from 'lucide-react'
+import { Download } from 'lucide-react'
 import { useEffect, useRef, useState, type ComponentProps, type ReactNode } from 'react'
-import { fullName, peopleCount, type FamilyGraph } from '../model'
+import type { FamilyGraph } from '../model'
 import { useT } from '../i18n'
 import { downloadBackup, downloadGedcom } from '../storage/backup'
 import { ConfirmDialog } from '../ui/ConfirmDialog'
 
-interface HeaderActionsProps {
-  graph: FamilyGraph
-  /** Removes the saved tree and returns to the start screen. */
-  onStartNewTree: () => void
-}
-
-/**
- * Export and New tree. Starting a new tree deletes the current one from this
- * device, so it takes two confirmations; the first offers to export a backup.
- */
-export function HeaderActions({ graph, onStartNewTree }: HeaderActionsProps) {
+/** Export, for the tree on show; nothing while starting one or with no tab open. */
+export function HeaderActions({ graph }: { graph: FamilyGraph | null }) {
   const { t } = useT()
-  /** 0 = closed; 1 = "are you sure?"; 2 = the final "delete permanently". */
-  const [step, setStep] = useState<0 | 1 | 2>(0)
-  const [exported, setExported] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  if (!graph) return null
 
-  const exportBackup = async ({ fromDialog = false } = {}) => {
+  const exportBackup = async () => {
     try {
       await downloadBackup(graph)
-      if (fromDialog) setExported(true)
     } catch {
       setError(t('export.errorBody'))
     }
@@ -39,57 +27,9 @@ export function HeaderActions({ graph, onStartNewTree }: HeaderActionsProps) {
     }
   }
 
-  const startNewTree = () => {
-    setExported(false)
-    setStep(1)
-  }
-
-  const close = () => {
-    setStep(0)
-    setExported(false)
-  }
-
-  const treeName = t('newTree.treeName', { name: fullName(graph.people[graph.managerId]) })
-  const people = peopleCount(graph)
-
   return (
     <>
-      <div className="flex items-center">
-        <ExportMenu onBackup={() => void exportBackup()} onGedcom={exportGedcom} />
-        <HeaderButton label={t('header.newTree')} onClick={startNewTree} icon={<FilePlus />} />
-      </div>
-
-      <ConfirmDialog
-        open={step === 1}
-        title={t('newTree.title')}
-        confirmLabel={t('common.continue')}
-        cancelLabel={t('common.cancel')}
-        secondaryLabel={exported ? t('newTree.exported') : t('newTree.exportFirst')}
-        onSecondary={() => void exportBackup({ fromDialog: true })}
-        tone="danger"
-        onConfirm={() => setStep(2)}
-        onCancel={close}
-      >
-        {t('newTree.bodyBefore')}
-        <strong className="font-semibold text-stone-800">{t('newTree.bodyBold')}</strong>
-        {t('newTree.bodyAfter', { tree: treeName, people })}
-      </ConfirmDialog>
-
-      <ConfirmDialog
-        open={step === 2}
-        title={t('newTree.finalTitle')}
-        confirmLabel={t('newTree.finalConfirm')}
-        cancelLabel={t('newTree.finalCancel')}
-        tone="danger"
-        onConfirm={() => {
-          close()
-          onStartNewTree()
-        }}
-        onCancel={close}
-      >
-        {t('newTree.finalBody', { tree: treeName, people })}
-      </ConfirmDialog>
-
+      <ExportMenu onBackup={() => void exportBackup()} onGedcom={exportGedcom} />
       <ConfirmDialog
         open={error !== null}
         title={t('export.errorTitle')}
