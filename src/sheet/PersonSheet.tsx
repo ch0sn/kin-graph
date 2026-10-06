@@ -1,4 +1,4 @@
-import { ArrowLeft, ArrowUp, Baby, Heart, Mars, Pencil, Plus, Trash, Users, Venus, X } from 'lucide-react'
+import { ArrowLeft, ArrowUp, Baby, Eye, FileText, FileUp, Heart, Mars, Pencil, Plus, Trash, Users, Venus, X } from 'lucide-react'
 import { AnimatePresence, motion, useDragControls } from 'motion/react'
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
@@ -19,6 +19,7 @@ import {
   coParentFor,
   unlinkedCoParentIdsOf,
   partnerOf,
+  peopleCount,
   relationshipLabel,
   removeEvent,
   removePerson,
@@ -36,6 +37,7 @@ import {
   type PersonId,
 } from '../model'
 import { useT } from '../i18n'
+import { useBackupPicker } from '../storage/useBackupPicker'
 import { Avatar } from '../ui/Avatar'
 import { ConfirmDialog } from '../ui/ConfirmDialog'
 import { LifeLine } from '../ui/LifeLine'
@@ -62,15 +64,48 @@ type Mode =
   /** Editing a partnership, or recording a new one with someone already in the tree. */
   | { view: 'partnership'; partnerId: PersonId; partnership?: Partnership }
 
+/** Seeing the family from someone else's side. */
+export interface Perspectives {
+  /** Shows the tree with the person as its root, first asking whether to make it their tree. */
+  onViewAs: (personId: PersonId) => void
+  /** Opens the person's own tree. */
+  onOpenOwnTree: (personId: PersonId) => void
+  /** The person's own tree on this device, if they have one. */
+  ownTree: (personId: PersonId) => OwnTree | null
+  /** Opens a file as the person's own tree. */
+  onOpenFile: (personId: PersonId, graph: FamilyGraph) => void
+  /** Removes the person and deletes their own tree. */
+  onRemoveWithTree: (personId: PersonId, graph: FamilyGraph) => void
+  /** Whether the sheet shows a view, whose root is only seen from, not the tree's own. */
+  isView: boolean
+  /** Asks to delete the whole tree, as removing its root means. */
+  onDeleteTree: () => void
+}
+
+/** A toolbox action; greyed out with its title saying why when it isn't available. */
+interface Tool {
+  available: boolean
+  title: string
+  onClick: () => void
+}
+
+export interface OwnTree {
+  /** e.g. "Mary Morgan's tree". */
+  name: string
+  /** e.g. "12 people". */
+  people: string
+}
+
 interface PersonSheetProps {
   graph: FamilyGraph
   personId: PersonId | null
   onChange: (graph: FamilyGraph) => void
   onClose: () => void
+  perspectives?: Perspectives
 }
 
 /** Details and actions for the selected person, sliding up from the bottom. */
-export function PersonSheet({ graph, personId, onChange, onClose }: PersonSheetProps) {
+export function PersonSheet({ graph, personId, onChange, onClose, perspectives }: PersonSheetProps) {
   const person = personId ? graph.people[personId] : undefined
   return (
     <AnimatePresence>
@@ -83,6 +118,7 @@ export function PersonSheet({ graph, personId, onChange, onClose }: PersonSheetP
             person={person}
             onChange={onChange}
             onClose={onClose}
+            perspectives={perspectives}
           />
         </Sheet>
       )}
@@ -159,11 +195,13 @@ function SheetBody({
   person,
   onChange,
   onClose,
+  perspectives,
 }: {
   graph: FamilyGraph
   person: Person
   onChange: (graph: FamilyGraph) => void
   onClose: () => void
+  perspectives?: Perspectives
 }) {
   const { t } = useT()
   const [mode, setMode] = useState<Mode>({ view: 'details' })
@@ -186,6 +224,37 @@ function SheetBody({
 
   const label = relationshipLabel(graph, person.id)
   const isManager = person.id === graph.managerId
+  const [confirmingTree, setConfirmingTree] = useState(false)
+  const name = fullName(person)
+  /** The tree's own root, who is "you" here and can only go with the whole tree. */
+  const isTreeRoot = isManager && perspectives !== undefined && !perspectives.isView
+  const showsTree = perspectives && !person.isPlaceholder
+  const ownTree = showsTree && !isTreeRoot ? perspectives.ownTree(person.id) : null
+  const treeTools: { viewAs: Tool; ownTree: Tool } | undefined = showsTree
+    ? {
+        viewAs: {
+          available: !isManager,
+          title: isManager ? t('view.isRoot', { name }) : t('view.as', { name }),
+          onClick: () => perspectives.onViewAs(person.id),
+        },
+        ownTree: {
+          available: ownTree !== null,
+          title: isTreeRoot
+            ? t('view.isOwnTree', { name })
+            : ownTree
+              ? t('view.open', { name })
+              : t('view.noTree', { name }),
+          onClick: () => perspectives.onOpenOwnTree(person.id),
+        },
+      }
+    : undefined
+  const removeTool: Tool | undefined = !isManager
+    ? { available: true, title: t('sheet.removePerson'), onClick: () => go({ view: 'remove' }) }
+    : isTreeRoot
+      ? { available: true, title: t('sheet.deleteTree'), onClick: () => go({ view: 'remove' }) }
+      : perspectives?.isView
+        ? { available: false, title: t('view.onlyView'), onClick: () => {} }
+        : undefined
 
   return (
     <AnimatePresence mode="wait" initial={false}>
@@ -229,10 +298,13 @@ function SheetBody({
               onEdit={(partnerId, partnership) => go({ view: 'partnership', partnerId, partnership })}
             />
 
+            {showsTree && !isManager && !ownTree && <PerspectiveRow person={person} perspectives={perspectives} />}
+
             <Toolbox
               onAddRelative={() => go({ view: 'relative' })}
               onEdit={() => go({ view: 'edit' })}
-              onRemove={isManager ? undefined : () => go({ view: 'remove' })}
+              treeTools={treeTools}
+              remove={removeTool}
             />
 
             <Timeline
@@ -260,15 +332,21 @@ function SheetBody({
                 <Pencil className="size-4" aria-hidden />
                 {t('sheet.edit')}
               </Button>
-              {!isManager && (
-                <Button
-                  variant="ghost"
-                  className="ml-auto text-red-700 hover:bg-red-50 hover:text-red-800"
-                  onClick={() => go({ view: 'remove' })}
-                >
+              {treeTools && (
+                <>
+                  <RowTool tool={treeTools.viewAs}>
+                    <Eye className="size-4" aria-hidden />
+                  </RowTool>
+                  <RowTool tool={treeTools.ownTree}>
+                    <FileText className="size-4" aria-hidden />
+                  </RowTool>
+                </>
+              )}
+              {removeTool && (
+                <RowTool tool={removeTool} className="ml-auto text-red-700 hover:bg-red-50 hover:text-red-800">
                   <Trash className="size-4" aria-hidden />
-                  {t('common.remove')}
-                </Button>
+                  {isManager ? t('sheet.deleteTree') : t('common.remove')}
+                </RowTool>
               )}
             </div>
           </div>
@@ -375,20 +453,81 @@ function SheetBody({
           </SubView>
         )}
 
-        {mode.view === 'remove' && (
+        {mode.view === 'remove' && isTreeRoot && (
+          <SubView
+            title={t('sheet.removeRootTitle', { tree: t('newTree.treeName', { name }) })}
+            onBack={() => go({ view: 'details' })}
+          >
+            <p className="text-sm leading-relaxed text-stone-600">
+              {t('sheet.removeRootBody', {
+                name,
+                tree: t('newTree.treeName', { name }),
+                people: peopleCount(graph),
+              })}
+            </p>
+            <div className="mt-5 flex justify-end gap-2">
+              <Button variant="ghost" onClick={() => go({ view: 'details' })}>
+                {t('common.cancel')}
+              </Button>
+              <Button
+                variant="danger"
+                onClick={() => {
+                  go({ view: 'details' })
+                  perspectives.onDeleteTree()
+                }}
+              >
+                {t('sheet.removeRootConfirm')}
+              </Button>
+            </div>
+          </SubView>
+        )}
+
+        {mode.view === 'remove' && !isTreeRoot && (
           <SubView title={t('sheet.removeTitle', { name: displayName(person).given })} onBack={() => go({ view: 'details' })}>
             <p className="text-sm leading-relaxed text-stone-600">
               {t('sheet.removeBody', { name: fullName(person) })}
             </p>
+            {ownTree && (
+              <p className="mt-2 text-sm leading-relaxed font-medium text-red-800">
+                {t('sheet.removeTreeToo', { tree: ownTree.name, people: ownTree.people })}
+              </p>
+            )}
             {error && <p className="mt-3 text-sm text-red-800">{error}</p>}
             <div className="mt-5 flex justify-end gap-2">
               <Button variant="ghost" onClick={() => go({ view: 'details' })}>
                 {t('common.cancel')}
               </Button>
-              <Button variant="danger" onClick={() => apply(() => removePerson(graph, person.id), onClose)}>
+              <Button
+                variant="danger"
+                onClick={() =>
+                  ownTree ? setConfirmingTree(true) : apply(() => removePerson(graph, person.id), onClose)
+                }
+              >
                 {t('common.remove')}
               </Button>
             </div>
+            {ownTree && perspectives && (
+              <ConfirmDialog
+                open={confirmingTree}
+                title={t('sheet.removeTreeTitle', { name: fullName(person) })}
+                confirmLabel={t('sheet.removeTreeConfirm')}
+                cancelLabel={t('newTree.finalCancel')}
+                tone="danger"
+                onConfirm={() => {
+                  setConfirmingTree(false)
+                  try {
+                    perspectives.onRemoveWithTree(person.id, removePerson(graph, person.id))
+                    onClose()
+                  } catch (e) {
+                    if (!(e instanceof GraphError)) throw e
+                    setError(e.message)
+                  }
+                }}
+                onCancel={() => setConfirmingTree(false)}
+              >
+                {t('sheet.removeTreeBody', { name: fullName(person), tree: ownTree.name, people: ownTree.people })}
+              </ConfirmDialog>
+            )}
           </SubView>
         )}
       </motion.div>
@@ -506,11 +645,15 @@ function SubView({
 function Toolbox({
   onAddRelative,
   onEdit,
-  onRemove,
+  treeTools,
+  remove,
 }: {
   onAddRelative: () => void
   onEdit: () => void
-  onRemove?: () => void
+  /** "View as …", and opening the person's own tree. */
+  treeTools?: { viewAs: Tool; ownTree: Tool }
+  /** Removing the person, or for the tree's root, deleting the tree. */
+  remove?: Tool
 }) {
   const { t } = useT()
   const slot = useContext(ToolboxSlot)
@@ -545,19 +688,84 @@ function Toolbox({
         <Pencil aria-hidden />
         <span className={label}>{t('sheet.edit')}</span>
       </button>
-      {onRemove && (
-        <button
-          type="button"
-          onClick={onRemove}
-          title={t('sheet.removePerson')}
-          className={`${tool} text-red-700 hover:bg-red-50 hover:text-red-800`}
+      {treeTools && (
+        <>
+          <ToolboxButton tool={treeTools.viewAs} className={tool} label={t('sheet.viewAs')} labelClassName={label}>
+            <Eye aria-hidden />
+          </ToolboxButton>
+          <ToolboxButton tool={treeTools.ownTree} className={tool} label={t('sheet.ownTree')} labelClassName={label}>
+            <FileText aria-hidden />
+          </ToolboxButton>
+        </>
+      )}
+      {remove && (
+        <ToolboxButton
+          tool={remove}
+          className={tool}
+          label={remove.title}
+          labelClassName={label}
+          tone="danger"
         >
           <Trash aria-hidden />
-          <span className={label}>{t('sheet.removePerson')}</span>
-        </button>
+        </ToolboxButton>
       )}
     </div>,
     slot,
+  )
+}
+
+/**
+ * A toolbox button. One that isn't available stays focusable and is greyed
+ * out rather than `disabled`, so its hover text can still say why.
+ */
+function ToolboxButton({
+  tool,
+  className,
+  label,
+  labelClassName,
+  tone = 'default',
+  children,
+}: {
+  tool: Tool
+  className: string
+  label: string
+  labelClassName: string
+  tone?: 'default' | 'danger'
+  children: ReactNode
+}) {
+  const colours = !tool.available
+    ? 'cursor-not-allowed text-stone-300 active:scale-100'
+    : tone === 'danger'
+      ? 'text-red-700 hover:bg-red-50 hover:text-red-800'
+      : 'text-stone-700 hover:bg-stone-100 hover:text-stone-900'
+  return (
+    <button
+      type="button"
+      onClick={tool.available ? tool.onClick : undefined}
+      title={tool.title}
+      aria-label={tool.title}
+      aria-disabled={!tool.available}
+      className={`${className} ${colours}`}
+    >
+      {children}
+      <span className={labelClassName}>{label}</span>
+    </button>
+  )
+}
+
+/** The narrow-screen version of a toolbox button, in the row under the details. */
+function RowTool({ tool, className = '', children }: { tool: Tool; className?: string; children: ReactNode }) {
+  return (
+    <Button
+      variant="ghost"
+      title={tool.title}
+      aria-label={tool.title}
+      aria-disabled={!tool.available}
+      onClick={tool.available ? tool.onClick : undefined}
+      className={tool.available ? className : 'cursor-not-allowed opacity-40 active:scale-100'}
+    >
+      {children}
+    </Button>
   )
 }
 
@@ -777,5 +985,25 @@ function AddRelativeForm({
         </>
       )}
     </PersonForm>
+  )
+}
+
+/** "Import …'s file", for someone with no tree of their own yet. */
+function PerspectiveRow({ person, perspectives }: { person: Person; perspectives: Perspectives }) {
+  const { t } = useT()
+  const picker = useBackupPicker((graph) => perspectives.onOpenFile(person.id, graph))
+  return (
+    <div className="flex flex-col gap-2">
+      <Button variant="ghost" className="self-start px-3 py-2" onClick={picker.open}>
+        <FileUp className="size-4 text-stone-500" aria-hidden />
+        {t('view.linkFile', { name: fullName(person) })}
+      </Button>
+      {picker.input}
+      {picker.error && (
+        <p role="alert" className="text-sm text-red-800">
+          {picker.error}
+        </p>
+      )}
+    </div>
   )
 }
