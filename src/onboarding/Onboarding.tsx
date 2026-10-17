@@ -3,6 +3,7 @@ import { AnimatePresence, motion } from 'motion/react'
 import { useState } from 'react'
 import { useT } from '../i18n'
 import { Button } from '../ui/fields'
+import { Logo } from '../ui/Logo'
 
 const STEPS = [
   { icon: Sprout, title: 'onboarding.step1.title', body: 'onboarding.step1.body' },
@@ -21,7 +22,10 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
   return (
     <div className="flex h-full flex-col overflow-y-auto bg-stone-50 px-4">
       <header className="mx-auto flex w-full max-w-md items-center justify-between py-4">
-        <span className="font-serif text-xl tracking-tight">KinGraph</span>
+        <span className="flex items-center gap-2 font-serif text-xl tracking-tight">
+          <Logo />
+          KinGraph
+        </span>
         {/* Hidden rather than removed on the last step so the header doesn't shift. */}
         <Button variant="ghost" onClick={onDone} className={isLast ? 'invisible' : ''}>
           {t('common.skip')}
