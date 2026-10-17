@@ -32,6 +32,7 @@ import { linkedTree, unviewGraph, viewGraph, type Tab, type TreeId } from './sto
 import { themeInfo } from './theme/themes'
 import { FamilyTree } from './tree/FamilyTree'
 import { ConfirmDialog } from './ui/ConfirmDialog'
+import { Logo } from './ui/Logo'
 
 function App() {
   const [onboarded, setOnboarded] = useOnboarded()
@@ -201,7 +202,10 @@ function WorkspaceScreen({
           animate={{ opacity: 1, y: 0 }}
           className="relative z-10 flex items-center justify-between gap-3 border-b border-stone-200 bg-white/80 py-2 pr-2 pl-4 backdrop-blur"
         >
-          <h1 className="font-serif text-xl tracking-tight">KinGraph</h1>
+          <h1 className="flex items-center gap-2 font-serif text-xl tracking-tight">
+            <Logo />
+            KinGraph
+          </h1>
           <div className="flex items-center gap-1">
             <SaveIndicator state={stored.saveState} />
             <HeaderActions graph={shownGraph} />

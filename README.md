@@ -1,4 +1,6 @@
-# KinGraph 🌳
+# KinGraph
+
+<img src="assets/branding/kin-graph-logo.png" alt="KinGraph logo" width="96" height="96" />
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE) 
 [![GitHub Repo stars](https://img.shields.io/github/stars/ch0sn/kin-graph?style=social)]()

@@ -6,6 +6,7 @@ import { emptyValues } from '../sheet/personValues'
 import { useT } from '../i18n'
 import { useBackupPicker } from '../storage/useBackupPicker'
 import { Button } from '../ui/fields'
+import { Logo } from '../ui/Logo'
 
 interface WelcomeProps {
   onStart: (graph: FamilyGraph) => void
@@ -32,8 +33,9 @@ export function Welcome({ onStart, savedTrees = [], onOpenSaved, onCancel }: Wel
         transition={{ duration: 0.3, ease: 'easeOut' }}
         className="mx-auto flex min-h-full w-full max-w-md flex-col justify-center gap-6 py-10"
       >
-        <header className="text-center">
-          <h1 className="font-serif text-4xl tracking-tight text-stone-900">KinGraph</h1>
+        <header className="flex flex-col items-center text-center">
+          <Logo className="size-16" />
+          <h1 className="mt-3 font-serif text-4xl tracking-tight text-stone-900">KinGraph</h1>
           <p className="mt-2 text-stone-600">{t('welcome.tagline')}</p>
         </header>
 
