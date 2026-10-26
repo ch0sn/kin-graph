@@ -26,7 +26,13 @@ export interface Tab {
   viewRootId?: PersonId
   /** The person chose to edit the viewed tree itself rather than make a tree of its own. */
   editChoice?: 'shared'
+  /** How the tab shows its tree; the top-to-bottom tree when unset. */
+  view?: TreeView
 }
+
+/** The ways a tab can show its tree. */
+export type TreeView = 'tree' | 'fan'
+export const TREE_VIEWS: readonly TreeView[] = ['tree', 'fan']
 
 export interface Workspace {
   tabs: Tab[]
@@ -68,6 +74,7 @@ export function parseWorkspace(raw: unknown): Workspace | null {
         treeId: item.treeId,
         ...(typeof item.viewRootId === 'string' && { viewRootId: item.viewRootId }),
         ...(item.editChoice === 'shared' && { editChoice: 'shared' as const }),
+        ...(TREE_VIEWS.includes(item.view as TreeView) && item.view !== 'tree' && { view: item.view as TreeView }),
       },
     ]
   })

@@ -44,7 +44,12 @@ export interface Settings {
   newTreeIn: NewTreeTarget
   /** Which tabs are open when KinGraph starts. */
   onStart: StartTabs
+  /** How many generations of ancestors the fan chart shows. */
+  fanGenerations: number
 }
+
+export const MIN_FAN_GENERATIONS = 2
+export const MAX_FAN_GENERATIONS = 7
 
 export type CloseTabAction = 'keep' | 'delete' | 'ask'
 export const CLOSE_TAB_ACTIONS: readonly CloseTabAction[] = ['keep', 'delete', 'ask']
@@ -64,6 +69,7 @@ export const DEFAULT_SETTINGS: Settings = {
   closeTab: 'keep',
   newTreeIn: 'new-tab',
   onStart: 'last-tabs',
+  fanGenerations: 4,
 }
 
 const oneOf = <T>(options: readonly T[], value: unknown, fallback: T): T =>
@@ -105,5 +111,11 @@ export function parseSettings(raw: unknown): Settings {
     closeTab: oneOf(CLOSE_TAB_ACTIONS, stored.closeTab, DEFAULT_SETTINGS.closeTab),
     newTreeIn: oneOf(NEW_TREE_TARGETS, stored.newTreeIn, DEFAULT_SETTINGS.newTreeIn),
     onStart: oneOf(START_TABS, stored.onStart, DEFAULT_SETTINGS.onStart),
+    fanGenerations:
+      Number.isInteger(stored.fanGenerations) &&
+      (stored.fanGenerations as number) >= MIN_FAN_GENERATIONS &&
+      (stored.fanGenerations as number) <= MAX_FAN_GENERATIONS
+        ? (stored.fanGenerations as number)
+        : DEFAULT_SETTINGS.fanGenerations,
   }
 }

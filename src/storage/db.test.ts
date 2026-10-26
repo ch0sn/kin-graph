@@ -92,6 +92,7 @@ describe('settings', () => {
       closeTab: 'ask',
       newTreeIn: 'replace',
       onStart: 'own-tree',
+      fanGenerations: 5,
     } as const
     await saveSettings(settings)
     expect(await loadSettings()).toEqual(settings)

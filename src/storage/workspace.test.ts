@@ -111,4 +111,17 @@ describe('parsing', () => {
     })
     expect(parseWorkspace('nope')).toBeNull()
   })
+
+  it('keeps how each tab shows its tree, dropping unknown views', () => {
+    const tabs = [
+      { id: 'a', treeId: 'x', view: 'fan' },
+      { id: 'b', treeId: 'x', view: 'tree' },
+      { id: 'c', treeId: 'x', view: 'globe' },
+    ]
+    expect(parseWorkspace({ tabs, activeTabId: 'a' })?.tabs).toEqual([
+      { id: 'a', treeId: 'x', view: 'fan' },
+      { id: 'b', treeId: 'x' },
+      { id: 'c', treeId: 'x' },
+    ])
+  })
 })

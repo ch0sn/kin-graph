@@ -6,6 +6,8 @@ import { ReplaceTreeConfirm } from './app/ReplaceTreeConfirm'
 import { SettingsDialog } from './app/SettingsDialog'
 import { TabBar, type SavedTreeItem, type TabItem } from './app/TabBar'
 import { useAppearance } from './app/theme'
+import { ViewSwitcher } from './app/ViewSwitcher'
+import { FanChart } from './fan/FanChart'
 import { DEFAULT_LANGUAGE, LanguageProvider, useT } from './i18n'
 import {
   fullName,
@@ -18,7 +20,7 @@ import {
 import { DamagedTree } from './onboarding/DamagedTree'
 import { Onboarding } from './onboarding/Onboarding'
 import { Welcome } from './onboarding/Welcome'
-import { PersonSheet, type Perspectives } from './sheet/PersonSheet'
+import { PersonSheet, type Perspectives, type Relation } from './sheet/PersonSheet'
 import { downloadBackup } from './storage/backup'
 import type { Settings } from './storage/settings'
 import { useBackupPicker } from './storage/useBackupPicker'
@@ -489,7 +491,14 @@ function TreeTab({
 }) {
   const { t } = useT()
   const [selectedId, setSelectedId] = useState<PersonId | null>(null)
-  const closeSheet = useCallback(() => setSelectedId(null), [])
+  /** Opens the sheet on a form for adding this kind of relative, e.g. from an empty slot in the fan. */
+  const [sheetStart, setSheetStart] = useState<Relation | undefined>(undefined)
+  const select = useCallback((id: PersonId | null) => {
+    setSelectedId(id)
+    setSheetStart(undefined)
+  }, [])
+  const closeSheet = useCallback(() => select(null), [select])
+  const view = tab.view ?? 'tree'
 
   /** Applies an edit; `then` runs once it is applied, which in a view may wait for a question. */
   const onChange = (edited: FamilyGraph, then?: () => void) => {
@@ -542,24 +551,42 @@ function TreeTab({
   return (
     <>
       {/* A different root (import, new start) gets a fresh view and entrance. */}
-      <FamilyTree
-        key={graph.managerId}
-        graph={graph}
-        siblingOrder={settings.siblingOrder}
-        nameOrder={settings.nameOrder}
-        pattern={themeInfo(settings.theme).pattern}
-        highlightGender={settings.highlightGender}
-        onToggleHighlightGender={() => onSettingsChange({ highlightGender: !settings.highlightGender })}
-        selectedId={selectedId}
-        onSelect={setSelectedId}
-        controlsSlot={controlsSlot}
-      />
+      {view === 'fan' ? (
+        <FanChart
+          key={graph.managerId}
+          graph={graph}
+          generations={settings.fanGenerations}
+          onGenerationsChange={(fanGenerations) => onSettingsChange({ fanGenerations })}
+          selectedId={selectedId}
+          onSelect={select}
+          onAddParent={(childId) => {
+            setSelectedId(childId)
+            setSheetStart('parent')
+          }}
+          controlsSlot={controlsSlot}
+        />
+      ) : (
+        <FamilyTree
+          key={graph.managerId}
+          graph={graph}
+          siblingOrder={settings.siblingOrder}
+          nameOrder={settings.nameOrder}
+          pattern={themeInfo(settings.theme).pattern}
+          highlightGender={settings.highlightGender}
+          onToggleHighlightGender={() => onSettingsChange({ highlightGender: !settings.highlightGender })}
+          selectedId={selectedId}
+          onSelect={select}
+          controlsSlot={controlsSlot}
+        />
+      )}
+      <ViewSwitcher view={view} onChange={(next) => stored.setTabView(tab.id, next)} />
       <PersonSheet
         graph={graph}
         personId={selectedId}
         onChange={onChange}
         onClose={closeSheet}
         perspectives={perspectives}
+        startWith={sheetStart}
       />
     </>
   )
