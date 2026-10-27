@@ -1,6 +1,6 @@
 import { TriangleAlert } from 'lucide-react'
 import { AnimatePresence, motion } from 'motion/react'
-import { useState, type FormEvent } from 'react'
+import { useId, useState, type FormEvent } from 'react'
 import { useT } from '../i18n'
 import { EVENT_KINDS, EVENT_TYPES } from '../model'
 import { DateField } from '../ui/DateField'
@@ -15,6 +15,7 @@ import {
   type EventValues,
 } from './eventValues'
 import type { NewLifeEvent } from '../model'
+import { FormActions } from './FormActions'
 
 interface EventFormProps {
   initial: EventValues
@@ -29,6 +30,7 @@ export function EventForm({ initial, onRemove, onSubmit, onCancel }: EventFormPr
   const { t } = useT()
   const [values, setValues] = useState(initial)
   const [errors, setErrors] = useState<EventErrors>({})
+  const formId = useId()
 
   const update = <K extends keyof EventValues>(field: K, value: EventValues[K]) => {
     setValues((v) => ({ ...v, [field]: value }))
@@ -50,7 +52,7 @@ export function EventForm({ initial, onRemove, onSubmit, onCancel }: EventFormPr
   }
 
   return (
-    <form onSubmit={submit} noValidate className="flex flex-col gap-4">
+    <form id={formId} onSubmit={submit} noValidate className="flex flex-col gap-4">
       <Field label={t('event.type')}>
         {(id) => (
           <SelectInput
@@ -137,23 +139,17 @@ export function EventForm({ initial, onRemove, onSubmit, onCancel }: EventFormPr
           {errors.content}
         </p>
       )}
-      <div className="flex justify-end gap-2 pt-1">
-        {onRemove && (
-          <Button
-            variant="ghost"
-            className="mr-auto text-red-700 hover:bg-red-50 hover:text-red-800"
-            onClick={onRemove}
-          >
-            {t('common.remove')}
-          </Button>
-        )}
-        <Button variant="ghost" onClick={onCancel}>
-          {t('common.cancel')}
+      {/* Removing stays down here, away from Save. */}
+      {onRemove && (
+        <Button
+          variant="ghost"
+          className="w-fit text-red-700 hover:bg-red-50 hover:text-red-800"
+          onClick={onRemove}
+        >
+          {t('common.remove')}
         </Button>
-        <Button variant="primary" type="submit">
-          {t('common.save')}
-        </Button>
-      </div>
+      )}
+      <FormActions formId={formId} submitLabel={t('common.save')} onCancel={onCancel} />
     </form>
   )
 }

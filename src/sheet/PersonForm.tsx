@@ -26,6 +26,7 @@ import {
   type PersonErrors,
   type PersonValues,
 } from './personValues'
+import { FormActions } from './FormActions'
 
 interface PersonFormProps {
   initial: PersonValues
@@ -64,6 +65,7 @@ export function PersonForm({
   const [cropping, setCropping] = useState<{ source: PhotoSource; crop: Crop } | null>(null)
   const [photoError, setPhotoError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
+  const formId = useId()
   const fileInput = useRef<HTMLInputElement>(null)
 
   // Release image memory once a photo or its original are no longer needed.
@@ -165,7 +167,7 @@ export function PersonForm({
   )
 
   return (
-    <form onSubmit={submit} noValidate className="flex flex-col gap-4">
+    <form id={formId} onSubmit={submit} noValidate className="flex flex-col gap-4">
       <div className="flex items-center gap-4">
         <button
           type="button"
@@ -353,16 +355,7 @@ export function PersonForm({
           {error}
         </p>
       )}
-      <div className="flex justify-end gap-2 pt-1">
-        {onCancel && (
-          <Button variant="ghost" onClick={onCancel}>
-            {t('common.cancel')}
-          </Button>
-        )}
-        <Button variant="primary" type="submit" disabled={busy}>
-          {submitLabel}
-        </Button>
-      </div>
+      <FormActions formId={formId} submitLabel={submitLabel} onCancel={onCancel} busy={busy} />
     </form>
   )
 }
