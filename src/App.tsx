@@ -1,7 +1,7 @@
 import { motion, MotionConfig } from 'motion/react'
 import { useCallback, useMemo, useState } from 'react'
 import { AppMenu, SaveIndicator } from './app/AppMenu'
-import { CheckButton, CheckPanel } from './app/CheckPanel'
+import { CheckPanel } from './app/CheckPanel'
 import { HeaderActions } from './app/HeaderActions'
 import { HistoryDialog } from './app/HistoryDialog'
 import { ReplaceTreeConfirm } from './app/ReplaceTreeConfirm'
@@ -258,21 +258,20 @@ function WorkspaceScreen({
           <div className="flex items-center gap-1">
             <SaveIndicator state={stored.saveState} />
             {editable && (
-              <>
-                <UndoButtons
-                  canUndo={Boolean(stored.undoable[editable]?.undo)}
-                  canRedo={Boolean(stored.undoable[editable]?.redo)}
-                  onUndo={undoActive}
-                  onRedo={redoActive}
-                />
-                <CheckButton count={openIssues.length} onClick={() => setPanel('check')} />
-              </>
+              <UndoButtons
+                canUndo={Boolean(stored.undoable[editable]?.undo)}
+                canRedo={Boolean(stored.undoable[editable]?.redo)}
+                onUndo={undoActive}
+                onRedo={redoActive}
+              />
             )}
             <HeaderActions graph={shownGraph} />
             <AppMenu
               persisted={stored.persisted}
               onShowIntro={onShowIntro}
               onOpenSettings={() => setSettingsOpen(true)}
+              onOpenCheck={editable ? () => setPanel('check') : undefined}
+              issueCount={openIssues.length}
               onOpenHistory={editable ? () => setPanel('history') : undefined}
               backupReminder={backupReminder}
             />

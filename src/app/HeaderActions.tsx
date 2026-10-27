@@ -56,7 +56,7 @@ export function HeaderActions({ graph }: { graph: FamilyGraph | null }) {
 }
 
 /** An icon button that shows its label beside the icon on wider screens. */
-export function HeaderButton({
+function HeaderButton({
   label,
   icon,
   ...props

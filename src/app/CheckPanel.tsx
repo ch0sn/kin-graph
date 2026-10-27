@@ -1,4 +1,4 @@
-import { CircleAlert, ShieldAlert, ShieldCheck, TriangleAlert } from 'lucide-react'
+import { CircleAlert, TriangleAlert } from 'lucide-react'
 import { useState } from 'react'
 import { useT, type Language, type MessageKey, type Params } from '../i18n'
 import {
@@ -14,7 +14,6 @@ import {
 } from '../model'
 import { ConfirmDialog } from '../ui/ConfirmDialog'
 import { Button } from '../ui/fields'
-import { HeaderButton } from './HeaderActions'
 
 /** What an issue says, in the reader's language. */
 function issueMessage(
@@ -118,14 +117,3 @@ export function CheckPanel({
   )
 }
 
-/** The header's button for checking the tree, showing how many issues it has. */
-export function CheckButton({ count, onClick }: { count: number; onClick: () => void }) {
-  const { t } = useT()
-  return (
-    <HeaderButton
-      label={count > 0 ? t('check.buttonIssues', { count }) : t('check.button')}
-      onClick={onClick}
-      icon={count > 0 ? <ShieldAlert className="text-amber-600" /> : <ShieldCheck />}
-    />
-  )
-}
