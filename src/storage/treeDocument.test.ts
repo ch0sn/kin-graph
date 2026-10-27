@@ -134,6 +134,9 @@ describe('parseTreeDocument rejects', () => {
       deathDate: '1950/1952',
       location: 'Seoul, South Korea',
       locationCountry: 'kr',
+      birthPlace: 'Busan',
+      deathPlace: 'Seoul',
+      notes: 'Ran a bakery.',
     })
     graph = addEvent(graph, graph.managerId, {
       type: 'other',
@@ -168,6 +171,12 @@ describe('parseTreeDocument rejects', () => {
     const doc = base()
     Object.values<Record<string, unknown>>(doc.graph.people)[0].location = 42
     rejects(doc, /location/)
+    const placed = base()
+    Object.values<Record<string, unknown>>(placed.graph.people)[0].birthPlace = 42
+    rejects(placed, /location/)
+    const noted = base()
+    Object.values<Record<string, unknown>>(noted.graph.people)[0].notes = ['x']
+    rejects(noted, /notes/)
     rejects({ ...base(), graph: { ...base().graph, events: 'x' } }, /./)
   })
 

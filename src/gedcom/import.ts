@@ -92,6 +92,8 @@ const STATUSES: Record<string, PartnershipStatus> = {
 
 /** Reads a date from an event's DATE line, counting what had to be dropped or simplified. */
 type DateReader = (dateLine: GedcomNode | undefined) => FuzzyDate | undefined
+/** The text of a structure's NOTE and SNOTE lines, with shared notes looked up. */
+type NoteReader = (node: GedcomNode) => string | undefined
 
 const dateOf = (event: GedcomNode | undefined) => event && child(event, 'DATE')
 
@@ -134,19 +136,40 @@ export function importGedcom(text: string): GedcomImport {
     return parsed.date
   }
 
-  // Records other than people and families (sources, notes, repositories) have no home.
-  for (const record of records) {
-    if (!['HEAD', 'INDI', 'FAM', 'TRLR', 'SUBM'].includes(record.tag)) unsupported(record.tag)
+  // Notes kept as records of their own (`0 @N1@ NOTE`, or SNOTE in GEDCOM 7) and pointed to.
+  const sharedNotes = new Map(
+    records.filter((r) => (r.tag === 'NOTE' || r.tag === 'SNOTE') && r.xref).map((r) => [r.xref!, r.value]),
+  )
+  const usedNotes = new Set<string>()
+  const notesOf: NoteReader = (node) => {
+    const texts = node.children
+      .filter((c) => c.tag === 'NOTE' || c.tag === 'SNOTE')
+      .map((c) => {
+        const shared = sharedNotes.get(c.value.trim())
+        if (shared === undefined) return c.value
+        usedNotes.add(c.value.trim())
+        return shared
+      })
+      .map((text) => text.trim())
+      .filter(Boolean)
+    return texts.length ? texts.join('\n\n') : undefined
   }
 
   const idOf = new Map<string, PersonId>()
   const people: Record<PersonId, Person> = {}
   const events: LifeEvent[] = []
   for (const record of individuals) {
-    const person = readPerson(record, readDate, unsupported)
+    const person = readPerson(record, readDate, notesOf, unsupported)
     idOf.set(record.xref!, person.id)
     people[person.id] = person
-    events.push(...readEvents(record, person.id, readDate, unsupported))
+    events.push(...readEvents(record, person.id, readDate, notesOf, unsupported))
+  }
+
+  // Records other than people and families (sources, repositories, notes nobody uses) have no home.
+  for (const record of records) {
+    if (['HEAD', 'INDI', 'FAM', 'TRLR', 'SUBM'].includes(record.tag)) continue
+    if (record.xref && usedNotes.has(record.xref)) continue
+    unsupported(record.tag)
   }
 
   const parentLinks: ParentLink[] = []
@@ -227,6 +250,8 @@ const PERSON_TAGS = new Set([
   'DEAT',
   'FAMC',
   'FAMS',
+  'NOTE',
+  'SNOTE',
   PLACEHOLDER_TAG,
 ])
 
@@ -292,21 +317,28 @@ function readPartnership(
 function readPerson(
   record: GedcomNode,
   readDate: DateReader,
+  notesOf: NoteReader,
   unsupported: (tag: string) => void,
 ): Person {
   const names = childrenOf(record, 'NAME').flatMap((n) => readNames(n, readDate, unsupported))
+  const birth = child(record, 'BIRT')
   const death = child(record, 'DEAT')
-  const birthDate = readDate(dateOf(child(record, 'BIRT')))
+  const birthDate = readDate(dateOf(birth))
   const deathDate = readDate(dateOf(death))
+  const birthPlace = birth && placeOf(birth)
+  const deathPlace = death && placeOf(death)
+  const notes = notesOf(record)
   const sex = child(record, 'SEX')?.value.toUpperCase()
   const current = childrenOf(record, 'RESI').find((r) => child(r, CURRENT_TAG))
-  const location = current && (child(current, 'PLAC')?.value.trim() || undefined)
+  const location = current && placeOf(current)
 
   for (const c of record.children) {
     if (!PERSON_TAGS.has(c.tag)) unsupported(c.tag)
   }
   for (const event of ['BIRT', 'DEAT']) {
-    for (const c of child(record, event)?.children ?? []) if (c.tag !== 'DATE') unsupported(`${event}.${c.tag}`)
+    for (const c of child(record, event)?.children ?? []) {
+      if (c.tag !== 'DATE' && c.tag !== 'PLAC') unsupported(`${event}.${c.tag}`)
+    }
   }
 
   const person: Person = {
@@ -314,8 +346,11 @@ function readPerson(
     names: names.length > 0 ? (names as Person['names']) : [{ given: t('gedcom.unknownName') }],
     gender: sex ? SEXES[sex] : undefined,
     birthDate,
+    ...(birthPlace && { birthPlace }),
     deathDate,
-    deceased: death && !deathDate ? true : undefined,
+    ...(deathPlace && { deathPlace }),
+    deceased: death && !deathDate && !deathPlace ? true : undefined,
+    ...(notes && { notes }),
     ...(location && { location }),
     isPlaceholder: child(record, PLACEHOLDER_TAG) ? true : undefined,
   }
@@ -326,6 +361,7 @@ function readEvents(
   record: GedcomNode,
   personId: PersonId,
   readDate: DateReader,
+  notesOf: NoteReader,
   unsupported: (tag: string) => void,
 ): LifeEvent[] {
   const events: LifeEvent[] = []
@@ -356,9 +392,9 @@ function readEvents(
     if (node.tag === 'RESI' && child(node, CURRENT_TAG)) continue
 
     const value = node.value.trim()
-    const note = child(node, 'NOTE')?.value.trim()
+    const note = notesOf(node)
     const description = (EVENT_VALUE_TAGS.has(node.tag) && value && value !== 'Y' ? value : note) || undefined
-    const place = child(node, 'PLAC')?.value.trim() || undefined
+    const place = placeOf(node)
     const date = readDate(dateOf(node))
     for (const c of node.children) {
       if (!EVENT_SUBTAGS.has(c.tag)) unsupported(`${node.tag}.${c.tag}`)
@@ -379,7 +415,15 @@ function readEvents(
   return events
 }
 
-const EVENT_SUBTAGS = new Set(['DATE', 'PLAC', 'NOTE', 'TYPE', KIND_TAG, CATEGORY_TAG])
+/** An event's PLAC; a GEDCOM 7 residence may say where in its own line instead. */
+function placeOf(node: GedcomNode): string | undefined {
+  const place = child(node, 'PLAC')?.value.trim()
+  if (place) return place
+  const value = node.value.trim()
+  return node.tag === 'RESI' && value && value !== 'Y' ? value : undefined
+}
+
+const EVENT_SUBTAGS = new Set(['DATE', 'PLAC', 'NOTE', 'SNOTE', 'TYPE', KIND_TAG, CATEGORY_TAG])
 const EVENT_KINDS_ALL = new Set(Object.values(EVENT_KINDS).flat())
 
 /** A NAME line and its NICK, which becomes a second name. */
@@ -389,9 +433,12 @@ function readNames(
   unsupported: (tag: string) => void,
 ): PersonName[] {
   const parts = readParts(node)
+  // GEDCOM 7 writes types it has no word for as OTHER, with the word in a PHRASE.
+  const typeNode = child(node, 'TYPE')
+  const typeText = typeNode?.value.toUpperCase() === 'OTHER' ? child(typeNode, 'PHRASE')?.value : typeNode?.value
   const name: PersonName = {
     ...parts,
-    type: NAME_TYPES[child(node, 'TYPE')?.value.toLowerCase() ?? ''],
+    type: NAME_TYPES[typeText?.trim().toLowerCase() ?? ''],
     from: readDate(child(node, FROM_TAG)),
     to: readDate(child(node, TO_TAG)),
     forms: readForms(node),
@@ -413,6 +460,8 @@ const NAME_TAGS = new Set([
   'NICK',
   'ROMN',
   'FONE',
+  'TRAN',
+  'SPFX',
   PATRONYMIC_TAG,
   FROM_TAG,
   TO_TAG,
@@ -428,6 +477,12 @@ function readForms(node: GedcomNode): NameForm[] {
     const type = child(variant, 'TYPE')?.value.toLowerCase()
     const script: NameScript =
       variant.tag === 'ROMN' ? 'romanized' : type === 'hanja' ? 'hanja' : 'other'
+    forms.push({ ...readParts(variant), script })
+  }
+  // GEDCOM 7's translations of a name, whose language tag says the script: "ko-Hani".
+  for (const variant of childrenOf(node, 'TRAN')) {
+    const lang = child(variant, 'LANG')?.value.trim() ?? ''
+    const script: NameScript = /-Hani$/i.test(lang) ? 'hanja' : /-Latn$/i.test(lang) ? 'romanized' : 'other'
     forms.push({ ...readParts(variant), script })
   }
   return forms

@@ -2,13 +2,17 @@ import { Download } from 'lucide-react'
 import { useEffect, useRef, useState, type ComponentProps, type ReactNode } from 'react'
 import type { FamilyGraph } from '../model'
 import { useT } from '../i18n'
+import { DEFAULT_GEDCOM_CHOICES } from '../gedcom/export'
 import { downloadBackup, downloadGedcom } from '../storage/backup'
 import { ConfirmDialog } from '../ui/ConfirmDialog'
+import { GedcomExportDialog } from './GedcomExportDialog'
 
 /** Export, for the tree on show; nothing while starting one or with no tab open. */
 export function HeaderActions({ graph }: { graph: FamilyGraph | null }) {
   const { t } = useT()
   const [error, setError] = useState<string | null>(null)
+  const [choosingGedcom, setChoosingGedcom] = useState(false)
+  const [gedcomChoices, setGedcomChoices] = useState(DEFAULT_GEDCOM_CHOICES)
   if (!graph) return null
 
   const exportBackup = async () => {
@@ -20,8 +24,9 @@ export function HeaderActions({ graph }: { graph: FamilyGraph | null }) {
   }
 
   const exportGedcom = () => {
+    setChoosingGedcom(false)
     try {
-      downloadGedcom(graph)
+      downloadGedcom(graph, gedcomChoices)
     } catch {
       setError(t('export.gedcomErrorBody'))
     }
@@ -29,7 +34,14 @@ export function HeaderActions({ graph }: { graph: FamilyGraph | null }) {
 
   return (
     <>
-      <ExportMenu onBackup={() => void exportBackup()} onGedcom={exportGedcom} />
+      <ExportMenu onBackup={() => void exportBackup()} onGedcom={() => setChoosingGedcom(true)} />
+      <GedcomExportDialog
+        graph={choosingGedcom ? graph : null}
+        choices={gedcomChoices}
+        onChange={setGedcomChoices}
+        onConfirm={exportGedcom}
+        onCancel={() => setChoosingGedcom(false)}
+      />
       <ConfirmDialog
         open={error !== null}
         title={t('export.errorTitle')}

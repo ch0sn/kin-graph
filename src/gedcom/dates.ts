@@ -39,7 +39,8 @@ export type ParsedGedcomDate =
   /** Phrases, other calendars, BC years and anything else that can't be kept. */
   | { kind: 'unsupported' }
 
-const GREGORIAN = /^@#DGREGORIAN@\s*/i
+/** The calendar KinGraph's dates are in, as 5.5.1 ("@#DGREGORIAN@") and 7.0 ("GREGORIAN") write it. */
+const GREGORIAN = /^(?:@#DGREGORIAN@|GREGORIAN\b)\s*/i
 const KEPT: Record<string, '~' | '<' | '>'> = {
   ABT: '~',
   ABOUT: '~',
@@ -49,7 +50,7 @@ const KEPT: Record<string, '~' | '<' | '>'> = {
   AFT: '>',
 }
 
-/** Reads a GEDCOM 5.5.1 date value, keeping the qualifier and range where KinGraph has one. */
+/** Reads a GEDCOM 5.5.1 or 7.0 date value, keeping the qualifier and range where KinGraph has one. */
 export function fromGedcomDate(value: string): ParsedGedcomDate {
   const text = value.trim().replace(GREGORIAN, '')
 

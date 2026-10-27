@@ -20,7 +20,7 @@ import {
 } from '../model'
 
 export const TREE_FORMAT = 'kingraph-tree'
-export const TREE_VERSION = 4
+export const TREE_VERSION = 5
 
 /** How a tree is stored on this device and written to backup files. */
 export interface TreeDocument {
@@ -68,6 +68,8 @@ const MIGRATIONS: Record<number, (doc: Record<string, unknown>) => Record<string
     version: 4,
     graph: isRecord(doc.graph) ? { events: [], ...doc.graph } : doc.graph,
   }),
+  // v5 added an optional `birthPlace`, `deathPlace` and `notes` to people.
+  4: (doc) => ({ ...doc, version: 5 }),
 }
 
 function mapPeople(graph: unknown, update: (person: Record<string, unknown>) => unknown): unknown {
@@ -245,8 +247,13 @@ function parsePerson(key: string, value: unknown): Person {
   if (value.photoId !== undefined && typeof value.photoId !== 'string') {
     throw damaged(t('d.photoRef', { name }))
   }
-  if (value.location !== undefined && typeof value.location !== 'string') {
-    throw damaged(t('d.location', { name }))
+  for (const field of ['location', 'birthPlace', 'deathPlace'] as const) {
+    if (value[field] !== undefined && typeof value[field] !== 'string') {
+      throw damaged(t('d.location', { name }))
+    }
+  }
+  if (value.notes !== undefined && typeof value.notes !== 'string') {
+    throw damaged(t('d.notes', { name }))
   }
   if (
     value.locationCountry !== undefined &&
@@ -260,9 +267,12 @@ function parsePerson(key: string, value: unknown): Person {
     gender:
       value.gender === undefined ? undefined : oneOf(value.gender, GENDERS, t('d.gender', { name })),
     birthDate: optionalDate(value.birthDate),
+    birthPlace: (value.birthPlace as string | undefined) || undefined,
     deathDate: optionalDate(value.deathDate),
+    deathPlace: (value.deathPlace as string | undefined) || undefined,
     deceased: value.deceased === true || undefined,
-    location: value.location || undefined,
+    notes: (value.notes as string | undefined) || undefined,
+    location: (value.location as string | undefined) || undefined,
     locationCountry: value.location ? value.locationCountry : undefined,
     photoId: value.photoId,
     isPlaceholder: value.isPlaceholder === true || undefined,

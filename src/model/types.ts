@@ -52,9 +52,14 @@ export interface Person {
   names: [PersonName, ...PersonName[]]
   gender?: Gender
   birthDate?: FuzzyDate
+  /** Where the person was born, as written: "Cork, Ireland". */
+  birthPlace?: string
   deathDate?: FuzzyDate
-  /** Known to have died, even if the date isn't known. Implied by `deathDate`. */
+  deathPlace?: string
+  /** Known to have died, even if the date isn't known. Implied by `deathDate` and `deathPlace`. */
   deceased?: boolean
+  /** Anything else worth knowing about the person, in their own words. */
+  notes?: string
   /** Where the person lives now, as written: "Berlin, Germany". */
   location?: string
   /**

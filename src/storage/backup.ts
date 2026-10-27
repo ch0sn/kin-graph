@@ -1,6 +1,6 @@
 import { t } from '../i18n'
 import { fullName, type FamilyGraph } from '../model'
-import { toGedcom } from '../gedcom/export'
+import { toGedcom, type GedcomOptions } from '../gedcom/export'
 import { loadPhotos } from './photos'
 import { parseBackup, toDocument, TreeFileError, type Backup } from './treeDocument'
 
@@ -44,8 +44,8 @@ export async function downloadBackup(graph: FamilyGraph): Promise<void> {
 }
 
 /** Saves a GEDCOM file, which other family tree programs can open. Photos aren't included. */
-export function downloadGedcom(graph: FamilyGraph): void {
-  const file = new Blob([toGedcom(graph)], { type: 'text/vnd.familysearch.gedcom;charset=utf-8' })
+export function downloadGedcom(graph: FamilyGraph, options: GedcomOptions = {}): void {
+  const file = new Blob([toGedcom(graph, options)], { type: 'text/vnd.familysearch.gedcom;charset=utf-8' })
   saveFile(file, backupFileName(graph, new Date(), 'ged'))
 }
 
