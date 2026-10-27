@@ -49,16 +49,19 @@ describe('lineageEdgeIds', () => {
     const graph = sampleFamily()
     const { nodes, edges: all } = await layoutFamily(graph, new ELK(), { siblingOrder: 'oldest-first' })
     const unionIds = new Set(nodes.filter((n) => n.type === 'union').map((n) => n.id))
-    const toAlex = all.find((e) => e.target === graph.managerId)!
+    const toJoseph = all.find((e) => e.target === graph.managerId)!
 
-    const lit = lineageEdgeIds(all, unionIds, toAlex.id)
+    const lit = lineageEdgeIds(all, unionIds, toJoseph.id)
     const givenOf = (id: string) => graph.people[id]?.names[0].given
     const peopleLit = new Set([...lit].flatMap((id) => {
       const e = all.find((x) => x.id === id)!
       return [givenOf(e.source), givenOf(e.target)].filter(Boolean)
     }))
-    // Alex, his parents, both sets of grandparents known, and Grace's mother Ruth.
-    expect([...peopleLit].sort()).toEqual(['Alex', 'George', 'Grace', 'John', 'Mary', 'Ruth'])
-    expect(lit.size).toBe(7)
+    // Joseph and his forebears back to Terah, reached by both his parents.
+    expect([...peopleLit].sort()).toEqual([
+      'Abraham', 'Bethuel', 'Isaac', 'Jacob', 'Joseph', 'Laban',
+      'Milcah', 'Nahor', 'Rachel', 'Rebekah', 'Sarah', 'Terah',
+    ])
+    expect(lit.size).toBe(17)
   })
 })

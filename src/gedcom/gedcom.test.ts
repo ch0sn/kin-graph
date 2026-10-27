@@ -224,7 +224,7 @@ describe('export', () => {
   it('records the manager so a round trip restores the root', () => {
     const graph = sampleFamily()
     expect(roundTrip(graph).managerId).toBeDefined()
-    expect(canonical(roundTrip(graph)).manager).toBe('Alex Morgan')
+    expect(canonical(roundTrip(graph)).manager).toBe('Joseph')
   })
 })
 

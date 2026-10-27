@@ -7,7 +7,7 @@ import { TreeFileError } from './treeDocument'
 describe('backupFileName', () => {
   it("includes the manager's name and the local date", () => {
     expect(backupFileName(sampleFamily(), new Date(2026, 9, 1))).toBe(
-      'kingraph-alex-morgan-2026-10-01.json',
+      'kingraph-joseph-2026-10-01.json',
     )
   })
 

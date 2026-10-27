@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { sampleFamily } from '../data/sampleFamily'
-import { addEvent, addSibling, createGraph, type FamilyGraph } from '../model'
+import { addEvent, addSibling, createGraph, simpleName, type FamilyGraph } from '../model'
 import {
   parseBackup,
   parseTreeDocument,
@@ -77,7 +77,9 @@ describe('toDocument / parseTreeDocument', () => {
   })
 
   it('opens version 2 files, turning their given and family name into a name', () => {
-    const graph = sampleFamily()
+    const family = sampleFamily()
+    expect(parseTreeDocument(legacy(family, 2))).toEqual(family)
+    const graph = createGraph({ names: [simpleName('Alex', 'Morgan')] })
     const parsed = parseTreeDocument(legacy(graph, 2))
     expect(parsed).toEqual(graph)
     expect(parsed.people[graph.managerId].names).toEqual([{ given: 'Alex', surnames: ['Morgan'] }])
