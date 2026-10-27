@@ -166,7 +166,7 @@ export function formatAge(age: Age): string {
 }
 
 export function isDeceased(person: Person): boolean {
-  return person.deceased === true || person.deathDate !== undefined
+  return person.deceased === true || person.deathDate !== undefined || person.deathPlace !== undefined
 }
 
 /**

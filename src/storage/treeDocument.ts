@@ -3,6 +3,7 @@ import {
   EVENT_TYPES,
   isFuzzyDate,
   isKindOf,
+  PARENT_KINDS,
   type EventType,
   type FamilyGraph,
   type Gender,
@@ -20,7 +21,7 @@ import {
 } from '../model'
 
 export const TREE_FORMAT = 'kingraph-tree'
-export const TREE_VERSION = 4
+export const TREE_VERSION = 5
 
 /** How a tree is stored on this device and written to backup files. */
 export interface TreeDocument {
@@ -68,6 +69,9 @@ const MIGRATIONS: Record<number, (doc: Record<string, unknown>) => Record<string
     version: 4,
     graph: isRecord(doc.graph) ? { events: [], ...doc.graph } : doc.graph,
   }),
+  // v5 added an optional `birthPlace`, `deathPlace` and `notes` to people, and
+  // `alsoKinds` to parent links, for a parent related to a child in more than one way.
+  4: (doc) => ({ ...doc, version: 5 }),
 }
 
 function mapPeople(graph: unknown, update: (person: Record<string, unknown>) => unknown): unknown {
@@ -145,7 +149,6 @@ function parsePhotos(raw: unknown): Map<string, Blob> {
 const GENDERS: readonly Gender[] = ['female', 'male', 'other']
 const NAME_TYPES: readonly NameType[] = ['birth', 'married', 'nickname', 'alias', 'religious', 'other']
 const NAME_SCRIPTS: readonly NameScript[] = ['hanja', 'romanized', 'other']
-const PARENT_KINDS: readonly ParentKind[] = ['biological', 'adoptive', 'foster']
 const STATUSES: readonly PartnershipStatus[] = [
   'married',
   'partnered',
@@ -177,10 +180,12 @@ function parseGraph(raw: unknown): FamilyGraph {
       throw damaged(t('d.linkMissing'))
     }
     if (link.parentId === link.childId) throw damaged(t('d.ownParent'))
+    const kind = oneOf(link.kind, PARENT_KINDS, t('d.kind'))
     return {
       parentId: link.parentId,
       childId: link.childId,
-      kind: oneOf(link.kind, PARENT_KINDS, t('d.kind')),
+      kind,
+      alsoKinds: parseAlsoKinds(link.alsoKinds, kind),
     }
   })
   const partnerships = parseList(raw.partnerships, t('d.partnerships'), (p): Partnership => {
@@ -230,6 +235,19 @@ function parseEvent(raw: unknown, exists: (id: unknown) => id is PersonId): Life
   }
 }
 
+/** Other kinds of one link: each further than the main one, and none twice. */
+function parseAlsoKinds(raw: unknown, kind: ParentKind): ParentKind[] | undefined {
+  if (raw === undefined) return undefined
+  if (!Array.isArray(raw)) throw damaged(t('d.kind'))
+  let previous = PARENT_KINDS.indexOf(kind)
+  for (const value of raw) {
+    const rank = PARENT_KINDS.indexOf(oneOf(value, PARENT_KINDS, t('d.kind')))
+    if (rank <= previous) throw damaged(t('d.kind'))
+    previous = rank
+  }
+  return raw.length > 0 ? (raw as ParentKind[]) : undefined
+}
+
 function parsePerson(key: string, value: unknown): Person {
   if (!isRecord(value) || value.id !== key || !Array.isArray(value.names) || value.names.length === 0) {
     throw damaged(t('d.personMissing'))
@@ -245,8 +263,13 @@ function parsePerson(key: string, value: unknown): Person {
   if (value.photoId !== undefined && typeof value.photoId !== 'string') {
     throw damaged(t('d.photoRef', { name }))
   }
-  if (value.location !== undefined && typeof value.location !== 'string') {
-    throw damaged(t('d.location', { name }))
+  for (const field of ['location', 'birthPlace', 'deathPlace'] as const) {
+    if (value[field] !== undefined && typeof value[field] !== 'string') {
+      throw damaged(t('d.location', { name }))
+    }
+  }
+  if (value.notes !== undefined && typeof value.notes !== 'string') {
+    throw damaged(t('d.notes', { name }))
   }
   if (
     value.locationCountry !== undefined &&
@@ -260,9 +283,12 @@ function parsePerson(key: string, value: unknown): Person {
     gender:
       value.gender === undefined ? undefined : oneOf(value.gender, GENDERS, t('d.gender', { name })),
     birthDate: optionalDate(value.birthDate),
+    birthPlace: (value.birthPlace as string | undefined) || undefined,
     deathDate: optionalDate(value.deathDate),
+    deathPlace: (value.deathPlace as string | undefined) || undefined,
     deceased: value.deceased === true || undefined,
-    location: value.location || undefined,
+    notes: (value.notes as string | undefined) || undefined,
+    location: (value.location as string | undefined) || undefined,
     locationCountry: value.location ? value.locationCountry : undefined,
     photoId: value.photoId,
     isPlaceholder: value.isPlaceholder === true || undefined,

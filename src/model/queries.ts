@@ -1,6 +1,8 @@
+import { PARENT_KINDS } from './types'
 import type {
   FamilyGraph,
   ParentKind,
+  ParentLink,
   Partnership,
   PartnershipStatus,
   Person,
@@ -24,13 +26,25 @@ export function getPerson(graph: FamilyGraph, id: PersonId): Person {
   return person
 }
 
+/** Every way a parent is related to the child through one link, closest first. */
+export function linkKinds(link: ParentLink): ParentKind[] {
+  return [link.kind, ...(link.alsoKinds ?? [])]
+}
+
+/** The link with `kind` added to the ways it relates parent and child, closest kept first. */
+export function withKind(link: ParentLink, kind: ParentKind): ParentLink {
+  const kinds = PARENT_KINDS.filter((k) => k === kind || linkKinds(link).includes(k))
+  const { alsoKinds: _old, ...rest } = link
+  return { ...rest, kind: kinds[0], ...(kinds.length > 1 && { alsoKinds: kinds.slice(1) }) }
+}
+
 export function parentIdsOf(
   graph: FamilyGraph,
   childId: PersonId,
   kinds?: readonly ParentKind[],
 ): PersonId[] {
   return graph.parentLinks
-    .filter((l) => l.childId === childId && (!kinds || kinds.includes(l.kind)))
+    .filter((l) => l.childId === childId && (!kinds || linkKinds(l).some((k) => kinds.includes(k))))
     .map((l) => l.parentId)
 }
 

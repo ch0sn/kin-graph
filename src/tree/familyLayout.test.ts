@@ -161,6 +161,18 @@ describe('layoutFamily', () => {
       }
     }
 
+    it('draw a birth parent who also adopted as a birth parent', async () => {
+      let graph = createGraph({ names: [{ given: 'Kid' }] })
+      graph = addParent(graph, graph.managerId, { names: [{ given: 'Dad' }] }).graph
+      const adopted = {
+        ...graph,
+        parentLinks: graph.parentLinks.map((l) => ({ ...l, alsoKinds: ['adoptive' as const] })),
+      }
+      const { lines } = await familyLines(adopted)
+      expect(lines.map(({ edge }) => edge.className)).toEqual([undefined])
+      expect(parentIdsOf(adopted, adopted.managerId, ['adoptive'])).toHaveLength(1)
+    })
+
     it('run their horizontal part in the gap between rows', async () => {
       const { lines } = await familyLines(sampleFamily())
       const gapBetweenRows = 64

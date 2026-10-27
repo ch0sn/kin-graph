@@ -14,7 +14,7 @@ import {
 } from '../photos/preparePhoto'
 import { Avatar } from '../ui/Avatar'
 import { DateField } from '../ui/DateField'
-import { Button } from '../ui/fields'
+import { Button, Field, TextInput } from '../ui/fields'
 import { HelpLabel } from '../ui/HelpLabel'
 import { NameEditor } from './NameEditor'
 import {
@@ -287,6 +287,11 @@ export function PersonForm({
         error={errors.birthDate}
         qualifiers={false}
       />
+      <PlaceField
+        label={t('form.birthPlace')}
+        value={values.birthPlace}
+        onChange={(place) => update('birthPlace', place)}
+      />
 
       <div className="flex flex-col gap-3">
         <label className="flex w-fit items-center gap-2.5 text-sm text-stone-800">
@@ -314,10 +319,29 @@ export function PersonForm({
                 error={errors.deathDate}
                 qualifiers={false}
               />
+              <div className="mt-3">
+                <PlaceField
+                  label={t('form.deathPlace')}
+                  value={values.deathPlace}
+                  onChange={(place) => update('deathPlace', place)}
+                />
+              </div>
             </motion.div>
           )}
         </AnimatePresence>
       </div>
+
+      <Field label={t('form.notes')}>
+        {(id) => (
+          <textarea
+            id={id}
+            value={values.notes}
+            onChange={(e) => update('notes', e.target.value)}
+            rows={3}
+            className="w-full resize-y rounded-xl border border-stone-200 bg-white px-3 py-2.5 text-base text-stone-900 outline-none transition placeholder:text-stone-400 focus:border-stone-500 focus:ring-4 focus:ring-stone-200"
+          />
+        )}
+      </Field>
 
       {children}
       {error && (
@@ -340,6 +364,14 @@ export function PersonForm({
         </Button>
       </div>
     </form>
+  )
+}
+
+function PlaceField({ label, value, onChange }: { label: string; value: string; onChange: (value: string) => void }) {
+  return (
+    <Field label={label}>
+      {(id) => <TextInput id={id} value={value} onChange={(e) => onChange(e.target.value)} autoComplete="off" />}
+    </Field>
   )
 }
 

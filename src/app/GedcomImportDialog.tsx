@@ -43,6 +43,7 @@ export function GedcomImportDialog({ imported, onConfirm, onCancel }: GedcomImpo
   if (report.skippedLinks) notes.push(t('gedcom.links', { count: report.skippedLinks }))
   if (report.malformedLines) notes.push(t('gedcom.malformed', { count: report.malformedLines }))
   if (report.legacyEncoding) notes.push(t('gedcom.legacy'))
+  if (report.missingPhotos) notes.push(t('gedcom.missingPhotos', { count: report.missingPhotos }))
   if (disconnected) notes.push(t('gedcom.disconnected', { count: disconnected }))
 
   return (

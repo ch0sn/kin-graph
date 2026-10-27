@@ -9,7 +9,9 @@ import {
   EVENT_TYPES,
   createGraph,
   fullName,
+  isDeceased,
   simpleName,
+  timelineOf,
   updatePerson,
   type FamilyGraph,
   type NewLifeEvent,
@@ -18,6 +20,7 @@ import {
 import { parseTreeDocument, toDocument } from '../storage/treeDocument'
 import { fromGedcomDate, toGedcomDate } from './dates'
 import { toGedcom } from './export'
+import { livingIds } from './privacy'
 import { GedcomError, importGedcom, importGedcomFile } from './import'
 import { decodeGedcom, parseRecords } from './records'
 
@@ -34,7 +37,9 @@ function canonical(graph: FamilyGraph) {
   return {
     manager: label(graph.managerId),
     people,
-    links: graph.parentLinks.map((l) => `${label(l.parentId)} > ${label(l.childId)} ${l.kind}`).sort(),
+    links: graph.parentLinks
+      .map((l) => `${label(l.parentId)} > ${label(l.childId)} ${[l.kind, ...(l.alsoKinds ?? [])].join('+')}`)
+      .sort(),
     partnerships: graph.partnerships
       .map(({ partnerIds, status, startDate, endDate }) =>
         [partnerIds.map(label).sort().join(' + '), status, startDate, endDate].join(' | '),
@@ -131,7 +136,7 @@ describe('GEDCOM lines', () => {
 
 describe('export', () => {
   it('writes a lineage-linked 5.5.1 file with linked records', () => {
-    const text = toGedcom(sampleFamily(), new Date(2026, 9, 3))
+    const text = toGedcom(sampleFamily(), { now: new Date(2026, 9, 3) })
     expect(text.startsWith('0 HEAD\r\n1 SOUR KinGraph')).toBe(true)
     expect(text).toContain('1 DATE 3 OCT 2026')
     expect(text).toContain('2 VERS 5.5.1')
@@ -416,7 +421,9 @@ describe('import', () => {
     expect(report.approximateDates).toBe(0)
     expect(report.droppedDates).toBe(1)
     expect(graph.events).toMatchObject([{ personId: john.id, type: 'work', description: 'Smith' }])
-    expect(report.unsupported).toEqual({ _UID: 1, 'BIRT.PLAC': 1, NOTE: 1, SOUR: 1 })
+    // The family's NOTE has nowhere to go; sources are left out on purpose.
+    expect(report.unsupported).toEqual({ _UID: 1, NOTE: 1, SOUR: 1 })
+    expect(john.birthPlace).toBeDefined()
     expect(() => parseTreeDocument(toDocument(graph))).not.toThrow()
   })
 
@@ -615,5 +622,266 @@ describe('families without a partnership', () => {
     graph = addParent(graph, graph.managerId, person('P2')).graph
     expect(graph.partnerships).toHaveLength(0)
     expect(toGedcom(graph).match(/^0 @F\d+@ FAM/gm)).toHaveLength(1)
+  })
+})
+
+describe('living people', () => {
+  const NOW = new Date(2026, 9, 1)
+  /** Grandpa (died) > Mum (alive, b. 1960) > Me (alive) and Sis (died young), with Mum's partner Dad. */
+  function family() {
+    let graph = createGraph(person('Me', { birthDate: '1990' }))
+    const me = graph.managerId
+    let r = addParent(graph, me, person('Mum', { birthDate: '1960-04-02' }), { partnerStatus: 'married' })
+    graph = r.graph
+    const mum = r.person.id
+    r = addParent(graph, me, person('Dad', { gender: 'male' }), { partnerStatus: 'married' })
+    graph = r.graph
+    const dad = r.person.id
+    r = addParent(graph, mum, person('Grandpa', { birthDate: '1930', deathDate: '2001' }))
+    graph = r.graph
+    r = addChild(graph, mum, person('Sis', { birthDate: '1992', deathDate: '1993' }), { coParentId: dad })
+    graph = addEvent(r.graph, mum, { type: 'work', description: 'Nurse' })
+    return { graph, me, mum, dad }
+  }
+  const names = (graph: FamilyGraph) => Object.values(graph.people).map(fullName).sort()
+
+  it('counts people with no death born in the last 100 years, guessing from relatives', () => {
+    const { graph, me, mum, dad } = family()
+    expect([...livingIds(graph, NOW)].sort()).toEqual([me, mum, dad].sort())
+    // Born long ago, or a parent of someone who was, means not alive.
+    const old = createGraph(person('Old', { birthDate: '1890' }))
+    expect(livingIds(addParent(old, old.managerId, person('Older')).graph, NOW).size).toBe(0)
+    // With no dates anywhere, assume alive.
+    expect(livingIds(createGraph(person('Nobody')), NOW).size).toBe(1)
+  })
+
+  it('includes everyone by default', () => {
+    const { graph } = family()
+    expect(canonical(importGedcom(toGedcom(graph, { now: NOW })).graph)).toEqual(canonical(graph))
+  })
+
+  it('names living people "Living" and drops what is known about them', () => {
+    const { graph } = family()
+    const text = toGedcom(graph, { living: 'anonymise', now: NOW })
+    expect(text).not.toMatch(/Mum|Nurse|1960|1990/)
+    const back = importGedcom(text).graph
+    expect(names(back)).toEqual(['Grandpa', 'Living', 'Living', 'Living', 'Sis'])
+    expect(back.parentLinks).toHaveLength(graph.parentLinks.length)
+    expect(back.partnerships).toMatchObject([{ status: 'married' }])
+    expect(back.partnerships[0].startDate).toBeUndefined()
+    expect(Object.values(back.people).find((p) => p.gender === 'male')).toBeDefined()
+    expect(back.events).toEqual([])
+  })
+
+  it('leaves living people out, keeping parents of those who stay as placeholders', () => {
+    const { graph } = family()
+    const text = toGedcom(graph, { living: 'omit', now: NOW })
+    expect(text).not.toMatch(/Mum|Dad|Me\b|Nurse|_ROOT/)
+    const { graph: back, report } = importGedcom(text)
+    expect(report.skippedLinks).toBe(0)
+    // Sis keeps both parents as unnamed stand-ins, and through Mum's, her grandfather.
+    expect(names(back)).toEqual(['Grandpa', 'Sis', 'Unknown', 'Unknown'])
+    expect(Object.values(back.people).filter((p) => p.isPlaceholder)).toHaveLength(2)
+    expect(back.parentLinks).toHaveLength(3)
+    expect(back.partnerships).toEqual([])
+    expect(fullName(back.people[back.managerId])).toBe('Grandpa')
+    expect(() => parseTreeDocument(toDocument(back))).not.toThrow()
+  })
+})
+
+describe('GEDCOM 7', () => {
+  const v7 = (graph: FamilyGraph) => toGedcom(graph, { version: '7.0' })
+
+  it('writes a 7.0 header that lists its custom tags, without CHAR or FORM', () => {
+    const text = v7(sampleFamily())
+    expect(text).toMatch(/^1 GEDC\r\n2 VERS 7\.0\r\n1 SCHMA\r\n2 TAG _ROOT https:\/\/\S+$/m)
+    expect(text).not.toMatch(/^1 CHAR|^2 FORM/m)
+    for (const tag of new Set(text.match(/^\d+ (_[A-Z]+)/gm)?.map((l) => l.split(' ')[1]))) {
+      expect(text).toContain(`2 TAG ${tag} `)
+    }
+  })
+
+  it('round trips the sample family and every kind of name', () => {
+    expect(canonical(importGedcom(v7(sampleFamily())).graph)).toEqual(canonical(sampleFamily()))
+    const graph = createGraph({
+      names: [
+        {
+          given: '민준',
+          surnames: ['김'],
+          forms: [
+            { given: 'Minjun', surnames: ['Kim'], script: 'romanized' },
+            { given: '敏俊', surnames: ['金'], script: 'hanja' },
+          ],
+        },
+        { given: 'Joon', type: 'nickname' },
+        { given: 'Ann', type: 'alias' },
+      ],
+    })
+    const text = v7(graph)
+    expect(text).toContain('2 TRAN 敏俊 /金/\r\n3 GIVN 敏俊\r\n3 SURN 金\r\n3 LANG ko-Hani')
+    expect(text).toContain('2 TYPE OTHER\r\n3 PHRASE nickname')
+    expect(text).not.toMatch(/ROMN|FONE/)
+    const { graph: back, report } = importGedcom(text)
+    expect(canonical(back)).toEqual(canonical(graph))
+    expect(report.unsupported).toEqual({})
+  })
+
+  it('writes standard values in capitals and never splits long lines with CONC', () => {
+    let graph = createGraph(person('Kid', { location: 'Oslo' }))
+    graph = addParent(graph, graph.managerId, person('Adopt'), { kind: 'adoptive' }).graph
+    graph = addEvent(graph, graph.managerId, { type: 'other', label: 'Trip', description: 'x'.repeat(400) })
+    const text = v7(graph)
+    expect(text).toContain('2 PEDI ADOPTED')
+    expect(text).toContain('1 RESI Oslo')
+    expect(text).not.toContain('CONC')
+    expect(canonical(importGedcom(text).graph)).toEqual(canonical(graph))
+  })
+
+  it('escapes only a leading @', () => {
+    const text = v7(createGraph({ names: [{ given: '@home a@b' }] }))
+    expect(text).toContain('1 NAME @@home a@b //')
+  })
+
+  it('reads a 7.0 file from another program', () => {
+    const { graph, report } = importGedcom(
+      [
+        '0 HEAD',
+        '1 GEDC',
+        '2 VERS 7.0',
+        '1 SCHMA',
+        '2 TAG _SKYPEID http://xmlns.com/foaf/0.1/skypeID',
+        '0 @I1@ INDI',
+        '1 NAME Ann /Lee/',
+        '2 TYPE OTHER',
+        '3 PHRASE Nickname',
+        '1 SEX F',
+        '1 BIRT',
+        '2 DATE GREGORIAN 6 APR 1952',
+        '1 RESI 12 Main St, Springfield',
+        '1 EXID 123',
+        '2 TYPE http://example.com',
+        '1 FAMC @VOID@',
+        '2 PEDI BIRTH',
+        '0 @F1@ FAM',
+        '1 HUSB @VOID@',
+        '1 WIFE @I1@',
+        '1 CHIL @VOID@',
+        '0 TRLR',
+      ].join('\n'),
+    )
+    const ann = Object.values(graph.people)[0]
+    expect(ann).toMatchObject({ names: [{ given: 'Ann', surnames: ['Lee'], type: 'nickname' }], birthDate: '1952-04-06' })
+    expect(graph.events).toMatchObject([{ type: 'residence', place: '12 Main St, Springfield' }])
+    expect(graph.parentLinks).toEqual([])
+    expect(report.unsupported).toEqual({ EXID: 1 })
+  })
+})
+
+describe('places and notes', () => {
+  it('round trip places of birth and death, and notes on people and events', () => {
+    let graph = createGraph(
+      person('Pat', { birthPlace: 'Cork, Ireland', deathPlace: 'Boston', notes: 'Kept bees.\nLoved jazz.' }),
+    )
+    graph = addEvent(graph, graph.managerId, { type: 'military', date: '1941', description: 'Navy' })
+    const text = toGedcom(graph)
+    expect(text).toContain('1 BIRT\r\n2 PLAC Cork, Ireland')
+    expect(text).toContain('1 DEAT\r\n2 PLAC Boston')
+    expect(text).toContain('1 NOTE Kept bees.\r\n2 CONT Loved jazz.')
+    const { graph: back, report } = importGedcom(text)
+    expect(canonical(back)).toEqual(canonical(graph))
+    expect(report.unsupported).toEqual({})
+    expect(canonical(importGedcom(toGedcom(graph, { version: '7.0' })).graph)).toEqual(canonical(graph))
+  })
+
+  it('counts a death known only by its place as a death', () => {
+    const { graph } = importGedcom(FILE('0 @I1@ INDI', '1 NAME A', '1 DEAT', '2 PLAC Rome'))
+    const [a] = Object.values(graph.people)
+    expect(a).toMatchObject({ deathPlace: 'Rome' })
+    expect(a.deceased).toBeUndefined()
+    expect(isDeceased(a)).toBe(true)
+  })
+
+  it('reads shared notes that people and events point to, and reports unused ones', () => {
+    const { graph, report } = importGedcom(
+      FILE(
+        '0 @I1@ INDI',
+        '1 NAME A',
+        '1 NOTE @N1@',
+        '1 NOTE inline',
+        '1 OCCU',
+        '2 SNOTE @N2@',
+        '0 @N1@ NOTE Shared',
+        '1 CONT text',
+        '0 @N2@ SNOTE Baker',
+        '0 @N3@ NOTE Nobody uses this',
+      ),
+    )
+    const [a] = Object.values(graph.people)
+    expect(a.notes).toBe('Shared\ntext\n\ninline')
+    expect(graph.events).toMatchObject([{ type: 'work', description: 'Baker' }])
+    expect(report.unsupported).toEqual({ NOTE: 1 })
+  })
+
+  it('shows them on the timeline, even without dates', () => {
+    const graph = createGraph(person('Pat', { birthPlace: 'Cork', deathDate: '1950', deathPlace: 'Rome' }))
+    expect(timelineOf(graph, graph.managerId)).toMatchObject([
+      { type: 'birth', place: 'Cork' },
+      { type: 'death', date: '1950', place: 'Rome' },
+    ])
+  })
+})
+
+describe('a parent related to a child in two ways', () => {
+  /** The case in 555SAMPLE.GED: Joe's birth father adopted him too, in a family of his own. */
+  const SAMPLE = FILE(
+    '0 @I1@ INDI', '1 NAME Robert /Williams/', '1 SEX M', '1 FAMS @F1@', '1 FAMS @F2@',
+    '0 @I2@ INDI', '1 NAME Mary /Wilson/', '1 SEX F', '1 FAMS @F1@',
+    '0 @I3@ INDI', '1 NAME Joe /Williams/', '1 FAMC @F1@', '1 FAMC @F2@', '2 PEDI adopted',
+    '0 @F1@ FAM', '1 HUSB @I1@', '1 WIFE @I2@', '1 CHIL @I3@', '1 MARR',
+    '0 @F2@ FAM', '1 HUSB @I1@', '1 CHIL @I3@',
+  )
+  const links = (graph: FamilyGraph) => canonical(graph).links
+
+  it('keeps both the birth and the adoption', () => {
+    const { graph, report } = importGedcom(SAMPLE)
+    expect(report.skippedLinks).toBe(0)
+    expect(links(graph)).toEqual([
+      'Mary Wilson > Joe Williams biological',
+      'Robert Williams > Joe Williams biological+adoptive',
+    ])
+    expect(graph.partnerships).toHaveLength(1)
+    expect(() => parseTreeDocument(toDocument(graph))).not.toThrow()
+  })
+
+  it('round trips, in both versions, with the extra kind in a family of its own', () => {
+    const { graph } = importGedcom(SAMPLE)
+    for (const version of ['5.5.1', '7.0'] as const) {
+      const text = toGedcom(graph, { version })
+      expect(text.match(/^0 @F\d+@ FAM/gm)).toHaveLength(2)
+      expect(canonical(importGedcom(text).graph)).toEqual(canonical(graph))
+    }
+  })
+
+  it('keeps a couple who fostered their own child before adopting them back', () => {
+    let graph = createGraph(person('Kid'))
+    for (const name of ['A', 'B']) graph = addParent(graph, graph.managerId, person(name), { kind: 'adoptive' }).graph
+    graph = { ...graph, parentLinks: graph.parentLinks.map((l) => ({ ...l, alsoKinds: ['foster' as const] })) }
+    expect(canonical(roundTrip(graph))).toEqual(canonical(graph))
+    expect(importGedcom(toGedcom(graph)).graph.partnerships).toEqual([])
+  })
+
+  it('never makes a third birth parent out of a second family', () => {
+    const { graph, report } = importGedcom(
+      FILE(
+        '0 @I1@ INDI', '1 NAME A', '0 @I2@ INDI', '1 NAME B', '0 @I3@ INDI', '1 NAME C',
+        '0 @I4@ INDI', '1 NAME Kid', '1 FAMC @F1@', '1 FAMC @F2@', '2 PEDI adopted', '1 FAMC @F3@',
+        '0 @F1@ FAM', '1 HUSB @I1@', '1 WIFE @I2@', '1 CHIL @I4@',
+        '0 @F2@ FAM', '1 HUSB @I3@', '1 CHIL @I4@',
+        // C is already an adoptive parent, and Kid already has two birth parents.
+        '0 @F3@ FAM', '1 HUSB @I3@', '1 CHIL @I4@',
+      ),
+    )
+    expect(links(graph)).toEqual(['A > Kid biological', 'B > Kid biological', 'C > Kid adoptive'])
+    expect(report.skippedLinks).toBe(1)
   })
 })

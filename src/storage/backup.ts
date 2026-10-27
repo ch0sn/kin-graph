@@ -1,6 +1,7 @@
 import { t } from '../i18n'
 import { fullName, type FamilyGraph } from '../model'
-import { toGedcom } from '../gedcom/export'
+import { createGedcomArchive } from '../gedcom/archive'
+import { toGedcom, type GedcomChoices } from '../gedcom/export'
 import { loadPhotos } from './photos'
 import { parseBackup, toDocument, TreeFileError, type Backup } from './treeDocument'
 
@@ -43,9 +44,20 @@ export async function downloadBackup(graph: FamilyGraph): Promise<void> {
   saveFile(file, backupFileName(graph))
 }
 
-/** Saves a GEDCOM file, which other family tree programs can open. Photos aren't included. */
-export function downloadGedcom(graph: FamilyGraph): void {
-  const file = new Blob([toGedcom(graph)], { type: 'text/vnd.familysearch.gedcom;charset=utf-8' })
+/**
+ * Saves a GEDCOM file, which other family tree programs can open. With
+ * photos, it's a .zip of the .ged file and a folder of the photos.
+ */
+export async function downloadGedcom(graph: FamilyGraph, choices: GedcomChoices): Promise<void> {
+  const { photos, ...options } = choices
+  const photoIds = photos ? photoIdsOf(graph) : []
+  if (photoIds.length > 0) {
+    const name = backupFileName(graph, new Date(), 'ged').replace(/\.ged$/, '')
+    const file = await createGedcomArchive(graph, name, await loadPhotos(photoIds), options)
+    saveFile(file, `${name}.zip`)
+    return
+  }
+  const file = new Blob([toGedcom(graph, options)], { type: 'text/vnd.familysearch.gedcom;charset=utf-8' })
   saveFile(file, backupFileName(graph, new Date(), 'ged'))
 }
 

@@ -35,9 +35,12 @@ export interface PersonValues {
   names: [NameValues, ...NameValues[]]
   gender: Gender | ''
   birthDate: string
+  birthPlace: string
   deceased: boolean
-  /** Only used when `deceased` is ticked. */
+  /** Only used when `deceased` is ticked, like `deathPlace`. */
   deathDate: string
+  deathPlace: string
+  notes: string
   /** The stored photo, or '' for none. A newly chosen photo is stored on submit. */
   photoId: string
 }
@@ -56,8 +59,11 @@ export function emptyValues(overrides: Partial<PersonValues> = {}): PersonValues
     names: [emptyName()],
     gender: '',
     birthDate: '',
+    birthPlace: '',
     deceased: false,
     deathDate: '',
+    deathPlace: '',
+    notes: '',
     photoId: '',
     ...overrides,
   }
@@ -82,8 +88,11 @@ export function valuesFromPerson(person: Person): PersonValues {
     names: [shown, ...others],
     gender: person.gender ?? '',
     birthDate: person.birthDate ?? '',
+    birthPlace: person.birthPlace ?? '',
     deceased: isDeceased(person),
     deathDate: person.deathDate ?? '',
+    deathPlace: person.deathPlace ?? '',
+    notes: person.notes ?? '',
     photoId: person.photoId ?? '',
   }
 }
@@ -145,8 +154,11 @@ export function toPersonFields(values: PersonValues): NewPerson {
     names: [shown!, ...others.filter((n): n is PersonName => n !== null)],
     gender: values.gender || undefined,
     birthDate: optional(values.birthDate),
+    birthPlace: optional(values.birthPlace),
     deceased: values.deceased || undefined,
     deathDate: values.deceased ? optional(values.deathDate) : undefined,
+    deathPlace: values.deceased ? optional(values.deathPlace) : undefined,
+    notes: optional(values.notes),
     photoId: values.photoId || undefined,
   }
 }
