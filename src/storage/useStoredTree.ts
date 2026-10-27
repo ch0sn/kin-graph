@@ -66,7 +66,7 @@ export interface StoredTrees extends Data {
   forkView: (tabId: string, graph: FamilyGraph) => Promise<void>
   /** Remembers that edits in a view should change the viewed tree. */
   shareView: (tabId: string) => void
-  /** Switches how a tab shows its tree: the tree itself, or a fan chart. */
+  /** Switches how a tab shows its tree: the tree itself, a fan chart or a timeline. */
   setTabView: (tabId: string, view: TreeView) => void
   /** Removes a tree from this device, closing its tabs. */
   deleteTree: (treeId: TreeId) => Promise<void>
