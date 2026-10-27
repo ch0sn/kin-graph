@@ -328,6 +328,15 @@ function SheetBody({
               }
             />
 
+            {person.notes && (
+              <section aria-labelledby="notes-title" className="flex flex-col gap-2 border-t border-stone-100 pt-4">
+                <h3 id="notes-title" className="text-xs font-semibold tracking-wide text-stone-500 uppercase">
+                  {t('form.notes')}
+                </h3>
+                <p className="text-sm break-words whitespace-pre-line text-stone-700">{person.notes}</p>
+              </section>
+            )}
+
             <div className="flex gap-2 border-t border-stone-100 pt-4 sm:hidden">
               <Button variant="primary" onClick={() => go({ view: 'relative' })}>
                 <Plus className="size-4" aria-hidden />
