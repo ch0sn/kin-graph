@@ -3,6 +3,7 @@ import { GEDCOM_VERSIONS, type GedcomChoices, type GedcomVersion } from '../gedc
 import { LIVING_POLICIES, livingIds, type LivingPolicy } from '../gedcom/privacy'
 import { useT } from '../i18n'
 import type { FamilyGraph } from '../model'
+import { photoIdsOf } from '../storage/backup'
 import { ConfirmDialog } from '../ui/ConfirmDialog'
 import { Segmented } from '../ui/fields'
 
@@ -30,6 +31,7 @@ export function GedcomExportDialog({
 }) {
   const { t } = useT()
   const living = useMemo(() => (graph ? livingIds(graph).size : 0), [graph])
+  const hasPhotos = graph !== null && photoIdsOf(graph).length > 0
 
   return (
     <ConfirmDialog
@@ -58,6 +60,20 @@ export function GedcomExportDialog({
             {living > 0 ? t('gedcomExport.livingHelp', { people: t('people', { count: living }) }) : t('gedcomExport.livingNone')}
           </p>
         </div>
+        {hasPhotos && (
+          <div className="flex flex-col gap-1.5">
+            <Segmented<'off' | 'on'>
+              label={t('gedcomExport.photos')}
+              options={[
+                { value: 'off', label: t('gedcomExport.photosOff') },
+                { value: 'on', label: t('gedcomExport.photosOn') },
+              ]}
+              value={choices.photos ? 'on' : 'off'}
+              onChange={(value) => onChange({ ...choices, photos: value === 'on' })}
+            />
+            <p className="text-xs text-stone-500">{t('gedcomExport.photosHelp')}</p>
+          </div>
+        )}
       </div>
     </ConfirmDialog>
   )

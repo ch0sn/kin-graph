@@ -23,10 +23,10 @@ export function HeaderActions({ graph }: { graph: FamilyGraph | null }) {
     }
   }
 
-  const exportGedcom = () => {
+  const exportGedcom = async () => {
     setChoosingGedcom(false)
     try {
-      downloadGedcom(graph, gedcomChoices)
+      await downloadGedcom(graph, gedcomChoices)
     } catch {
       setError(t('export.gedcomErrorBody'))
     }
@@ -39,7 +39,7 @@ export function HeaderActions({ graph }: { graph: FamilyGraph | null }) {
         graph={choosingGedcom ? graph : null}
         choices={gedcomChoices}
         onChange={setGedcomChoices}
-        onConfirm={exportGedcom}
+        onConfirm={() => void exportGedcom()}
         onCancel={() => setChoosingGedcom(false)}
       />
       <ConfirmDialog

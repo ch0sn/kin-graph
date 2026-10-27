@@ -60,12 +60,20 @@ export interface ImportReport {
   malformedLines: number
   /** The file wasn't UTF-8, so accents may be wrong. */
   legacyEncoding: boolean
+  /** Photos the file points to that weren't included with it, or couldn't be read. */
+  missingPhotos: number
 }
 
 export interface GedcomImport {
   /** The tree, with `managerId` set to the file's own choice or to the first person. */
   graph: FamilyGraph
   report: ImportReport
+  /**
+   * The image file each person's photo is in, as the file names it
+   * ("photos/1.jpg"). They're read from the archive the file came in; see
+   * `importGedcomArchive`.
+   */
+  photoFiles: Record<PersonId, string>
 }
 
 const SEXES: Record<string, Gender> = { M: 'male', F: 'female', X: 'other' }
@@ -120,6 +128,7 @@ export function importGedcom(text: string): GedcomImport {
     skippedLinks: 0,
     malformedLines,
     legacyEncoding: false,
+    missingPhotos: 0,
   }
   const unsupported = (tag: string) => {
     report.unsupported[tag] = (report.unsupported[tag] ?? 0) + 1
@@ -155,20 +164,38 @@ export function importGedcom(text: string): GedcomImport {
     return texts.length ? texts.join('\n\n') : undefined
   }
 
+  // Photos and other media, kept as records of their own (`0 @O1@ OBJE`) or inline.
+  const mediaRecords = new Map(records.filter((r) => r.tag === 'OBJE' && r.xref).map((r) => [r.xref!, r]))
+  const usedMedia = new Set<string>()
+  const photoFileOf = (record: GedcomNode): string | undefined => {
+    let found: string | undefined
+    for (const obje of childrenOf(record, 'OBJE')) {
+      const target = obje.value.trim() ? mediaRecords.get(obje.value.trim()) : obje
+      if (target && target !== obje) usedMedia.add(target.xref!)
+      const file = target && imageFileOf(target)
+      if (!file) unsupported('OBJE')
+      else found ??= file
+    }
+    return found
+  }
+
   const idOf = new Map<string, PersonId>()
   const people: Record<PersonId, Person> = {}
   const events: LifeEvent[] = []
+  const photoFiles: Record<PersonId, string> = {}
   for (const record of individuals) {
     const person = readPerson(record, readDate, notesOf, unsupported)
     idOf.set(record.xref!, person.id)
     people[person.id] = person
     events.push(...readEvents(record, person.id, readDate, notesOf, unsupported))
+    const photo = photoFileOf(record)
+    if (photo) photoFiles[person.id] = photo
   }
 
   // Records other than people and families (sources, repositories, notes nobody uses) have no home.
   for (const record of records) {
     if (['HEAD', 'INDI', 'FAM', 'TRLR', 'SUBM'].includes(record.tag)) continue
-    if (record.xref && usedNotes.has(record.xref)) continue
+    if (record.xref && (usedNotes.has(record.xref) || usedMedia.has(record.xref))) continue
     unsupported(record.tag)
   }
 
@@ -223,6 +250,7 @@ export function importGedcom(text: string): GedcomImport {
   return {
     graph: { managerId, people, parentLinks, partnerships, events },
     report,
+    photoFiles,
   }
 }
 
@@ -252,8 +280,23 @@ const PERSON_TAGS = new Set([
   'FAMS',
   'NOTE',
   'SNOTE',
+  'OBJE',
   PLACEHOLDER_TAG,
 ])
+
+const IMAGE = /^(?:image\/)?(?:jpe?g|png|gif|webp|bmp)$/i
+const IMAGE_FILE = /\.(?:jpe?g|png|gif|webp|bmp)$/i
+
+/** The first image file of a media record or inline OBJE, by its FORM or else its extension. */
+function imageFileOf(obje: GedcomNode): string | undefined {
+  for (const file of childrenOf(obje, 'FILE')) {
+    const path = file.value.trim()
+    // GEDCOM 5.5 put FORM beside FILE; 5.5.1 and 7.0 put it under it.
+    const form = (child(file, 'FORM') ?? child(obje, 'FORM'))?.value.trim()
+    if (path && (form ? IMAGE.test(form) : IMAGE_FILE.test(path))) return path
+  }
+  return undefined
+}
 
 function chooseManager(
   records: GedcomNode[],

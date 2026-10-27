@@ -77,11 +77,19 @@ export interface GedcomOptions {
   /** What to do with people who may still be alive; see `applyLivingPolicy`. */
   living?: LivingPolicy
   now?: Date
+  /**
+   * Where each photo is, by photo id, as a path next to the file
+   * ("photos/1.jpg"). People whose photo isn't listed are written without one.
+   */
+  photos?: ReadonlyMap<string, string>
 }
 
 /** What the person picks when exporting. */
-export type GedcomChoices = Required<Pick<GedcomOptions, 'version' | 'living'>>
-export const DEFAULT_GEDCOM_CHOICES: GedcomChoices = { version: '5.5.1', living: 'include' }
+export type GedcomChoices = Required<Pick<GedcomOptions, 'version' | 'living'>> & {
+  /** Save a .zip with the photos next to the .ged, rather than the .ged alone. */
+  photos: boolean
+}
+export const DEFAULT_GEDCOM_CHOICES: GedcomChoices = { version: '5.5.1', living: 'include', photos: false }
 
 /**
  * Where the custom tags are described, which GEDCOM 7 asks for in the header
@@ -91,7 +99,7 @@ export const SCHEMA_BASE = 'https://github.com/ch0sn/kin-graph/blob/main/docs/ge
 
 /** Writes the tree as a lineage-linked GEDCOM file in UTF-8. */
 export function toGedcom(source: FamilyGraph, options: GedcomOptions = {}): string {
-  const { version = '5.5.1', living = 'include', now = new Date() } = options
+  const { version = '5.5.1', living = 'include', now = new Date(), photos = new Map<string, string>() } = options
   const v7 = version === '7.0'
   const graph = applyLivingPolicy(source, living, now)
   const out: string[] = []
@@ -133,6 +141,8 @@ export function toGedcom(source: FamilyGraph, options: GedcomOptions = {}): stri
   const personRef = new Map(ids.map((id, i) => [id, `@I${i + 1}@`]))
   const families = buildFamilies(graph)
   const familyRef = new Map(families.map((f, i) => [f, `@F${i + 1}@`]))
+  const photoIds = [...new Set(ids.flatMap((id) => graph.people[id].photoId ?? []))].filter((p) => photos.has(p))
+  const photoRef = new Map(photoIds.map((photoId, i) => [photoId, `@O${i + 1}@`]))
 
   line(0, 'HEAD')
   line(1, 'SOUR', 'KinGraph')
@@ -184,6 +194,7 @@ export function toGedcom(source: FamilyGraph, options: GedcomOptions = {}): stri
       line(2, CURRENT_TAG, 'Y')
     }
     if (person.notes) line(1, 'NOTE', person.notes)
+    if (person.photoId && photoRef.has(person.photoId)) line(1, 'OBJE', photoRef.get(person.photoId))
     for (const { family, kind } of childOf.get(id) ?? []) {
       line(1, 'FAMC', familyRef.get(family))
       line(2, 'PEDI', v7 ? PEDI_OUT[kind].toUpperCase() : PEDI_OUT[kind])
@@ -205,11 +216,25 @@ export function toGedcom(source: FamilyGraph, options: GedcomOptions = {}): stri
     else if (family.parents.length === 2) line(1, COPARENTS_TAG, 'Y')
   }
 
+  for (const [photoId, ref] of photoRef) {
+    const path = photos.get(photoId)!
+    line(0, 'OBJE', undefined, ref)
+    line(1, 'FILE', path)
+    line(2, 'FORM', mediaFormat(path, v7))
+  }
+
   line(0, 'TRLR')
   return out.join('\r\n') + '\r\n'
 }
 
 const POINTER = /^@[^@\s]+@$/
+
+/** GEDCOM 5.5.1 names a file's format by its extension ("jpg"); 7.0 by its media type. */
+function mediaFormat(path: string, v7: boolean): string {
+  const extension = /\.(\w+)$/.exec(path)?.[1].toLowerCase() ?? 'jpg'
+  if (!v7) return extension === 'jpeg' ? 'jpg' : extension
+  return `image/${extension === 'jpg' ? 'jpeg' : extension}`
+}
 
 const rank = (person: Person | undefined) => (person?.gender === 'female' ? 1 : 0)
 
