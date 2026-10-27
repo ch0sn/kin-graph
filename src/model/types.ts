@@ -87,8 +87,18 @@ export type ParentKind = 'biological' | 'adoptive' | 'foster'
 export interface ParentLink {
   parentId: PersonId
   childId: PersonId
+  /** The closest way they're related, which the tree draws: birth before adoption before fostering. */
   kind: ParentKind
+  /**
+   * Other ways the same parent is related to the child, such as a birth
+   * father who later adopted his son too. Each comes after `kind` in
+   * `PARENT_KINDS`, so this never holds `biological`.
+   */
+  alsoKinds?: ParentKind[]
 }
+
+/** Parent kinds from closest to furthest; a link's `kind` is the first that applies. */
+export const PARENT_KINDS: readonly ParentKind[] = ['biological', 'adoptive', 'foster']
 
 export type PartnershipStatus =
   | 'married'

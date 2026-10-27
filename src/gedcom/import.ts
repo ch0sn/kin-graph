@@ -3,7 +3,9 @@ import {
   EVENT_KINDS,
   EVENT_TYPES,
   isKindOf,
+  linkKinds,
   typeOfKind,
+  withKind,
   type EventKind,
   type EventType,
   type FamilyGraph,
@@ -207,6 +209,13 @@ export function importGedcom(text: string): GedcomImport {
   const addLink = (parentId: PersonId, childId: PersonId, kind: ParentKind) => {
     const parents = parentsOfChild.get(childId) ?? []
     const biological = parentLinks.filter((l) => l.childId === childId && l.kind === 'biological')
+    const existing = parentLinks.findIndex((l) => l.parentId === parentId && l.childId === childId)
+    // A parent in two of the child's families, such as a birth father who adopted later.
+    if (existing >= 0 && !linkKinds(parentLinks[existing]).includes(kind)) {
+      if (kind === 'biological' && biological.length >= 2) report.skippedLinks++
+      else parentLinks[existing] = withKind(parentLinks[existing], kind)
+      return
+    }
     if (
       parentId === childId ||
       parents.includes(parentId) ||

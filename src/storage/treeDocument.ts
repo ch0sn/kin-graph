@@ -3,6 +3,7 @@ import {
   EVENT_TYPES,
   isFuzzyDate,
   isKindOf,
+  PARENT_KINDS,
   type EventType,
   type FamilyGraph,
   type Gender,
@@ -68,7 +69,8 @@ const MIGRATIONS: Record<number, (doc: Record<string, unknown>) => Record<string
     version: 4,
     graph: isRecord(doc.graph) ? { events: [], ...doc.graph } : doc.graph,
   }),
-  // v5 added an optional `birthPlace`, `deathPlace` and `notes` to people.
+  // v5 added an optional `birthPlace`, `deathPlace` and `notes` to people, and
+  // `alsoKinds` to parent links, for a parent related to a child in more than one way.
   4: (doc) => ({ ...doc, version: 5 }),
 }
 
@@ -147,7 +149,6 @@ function parsePhotos(raw: unknown): Map<string, Blob> {
 const GENDERS: readonly Gender[] = ['female', 'male', 'other']
 const NAME_TYPES: readonly NameType[] = ['birth', 'married', 'nickname', 'alias', 'religious', 'other']
 const NAME_SCRIPTS: readonly NameScript[] = ['hanja', 'romanized', 'other']
-const PARENT_KINDS: readonly ParentKind[] = ['biological', 'adoptive', 'foster']
 const STATUSES: readonly PartnershipStatus[] = [
   'married',
   'partnered',
@@ -179,10 +180,12 @@ function parseGraph(raw: unknown): FamilyGraph {
       throw damaged(t('d.linkMissing'))
     }
     if (link.parentId === link.childId) throw damaged(t('d.ownParent'))
+    const kind = oneOf(link.kind, PARENT_KINDS, t('d.kind'))
     return {
       parentId: link.parentId,
       childId: link.childId,
-      kind: oneOf(link.kind, PARENT_KINDS, t('d.kind')),
+      kind,
+      alsoKinds: parseAlsoKinds(link.alsoKinds, kind),
     }
   })
   const partnerships = parseList(raw.partnerships, t('d.partnerships'), (p): Partnership => {
@@ -230,6 +233,19 @@ function parseEvent(raw: unknown, exists: (id: unknown) => id is PersonId): Life
     place: text(raw.place),
     description: text(raw.description),
   }
+}
+
+/** Other kinds of one link: each further than the main one, and none twice. */
+function parseAlsoKinds(raw: unknown, kind: ParentKind): ParentKind[] | undefined {
+  if (raw === undefined) return undefined
+  if (!Array.isArray(raw)) throw damaged(t('d.kind'))
+  let previous = PARENT_KINDS.indexOf(kind)
+  for (const value of raw) {
+    const rank = PARENT_KINDS.indexOf(oneOf(value, PARENT_KINDS, t('d.kind')))
+    if (rank <= previous) throw damaged(t('d.kind'))
+    previous = rank
+  }
+  return raw.length > 0 ? (raw as ParentKind[]) : undefined
 }
 
 function parsePerson(key: string, value: unknown): Person {

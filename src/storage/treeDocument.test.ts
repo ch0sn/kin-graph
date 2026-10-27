@@ -64,6 +64,11 @@ describe('toDocument / parseTreeDocument', () => {
     expect(parsed.events).toEqual([])
   })
 
+  it('opens version 4 files, from before places of birth and parents related in two ways', () => {
+    const graph = sampleFamily()
+    expect(parseTreeDocument({ ...json(graph), version: 4 })).toEqual(graph)
+  })
+
   it('opens older files that carry plain dates, and keeps them as they were', () => {
     const doc = legacy(sampleFamily(), 2)
     const dates = Object.values<{ birthDate?: string }>(doc.graph.people).map((p) => p.birthDate)
@@ -250,6 +255,23 @@ describe('parseTreeDocument rejects', () => {
     const doc2 = json()
     doc2.graph.partnerships[0].status = 'engaged'
     rejects(doc2, /unknown status/)
+  })
+
+  it('other kinds of a parent link, which come after its main kind', () => {
+    const withAlso = (alsoKinds: unknown, kind = 'biological') => {
+      const doc = json()
+      Object.assign(doc.graph.parentLinks[0], { kind, alsoKinds })
+      return doc
+    }
+    expect(parseTreeDocument(withAlso(['adoptive', 'foster'])).parentLinks[0].alsoKinds).toEqual([
+      'adoptive',
+      'foster',
+    ])
+    expect(parseTreeDocument(withAlso([])).parentLinks[0].alsoKinds).toBeUndefined()
+    rejects(withAlso(['biological'], 'adoptive'), /./)
+    rejects(withAlso(['adoptive'], 'adoptive'), /./)
+    rejects(withAlso(['foster', 'adoptive']), /./)
+    rejects(withAlso('adoptive'), /./)
   })
 
   it('duplicates, too many parents and ancestry loops', () => {

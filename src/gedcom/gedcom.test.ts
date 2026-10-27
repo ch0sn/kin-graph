@@ -37,7 +37,9 @@ function canonical(graph: FamilyGraph) {
   return {
     manager: label(graph.managerId),
     people,
-    links: graph.parentLinks.map((l) => `${label(l.parentId)} > ${label(l.childId)} ${l.kind}`).sort(),
+    links: graph.parentLinks
+      .map((l) => `${label(l.parentId)} > ${label(l.childId)} ${[l.kind, ...(l.alsoKinds ?? [])].join('+')}`)
+      .sort(),
     partnerships: graph.partnerships
       .map(({ partnerIds, status, startDate, endDate }) =>
         [partnerIds.map(label).sort().join(' + '), status, startDate, endDate].join(' | '),
@@ -826,5 +828,60 @@ describe('places and notes', () => {
       { type: 'birth', place: 'Cork' },
       { type: 'death', date: '1950', place: 'Rome' },
     ])
+  })
+})
+
+describe('a parent related to a child in two ways', () => {
+  /** The case in 555SAMPLE.GED: Joe's birth father adopted him too, in a family of his own. */
+  const SAMPLE = FILE(
+    '0 @I1@ INDI', '1 NAME Robert /Williams/', '1 SEX M', '1 FAMS @F1@', '1 FAMS @F2@',
+    '0 @I2@ INDI', '1 NAME Mary /Wilson/', '1 SEX F', '1 FAMS @F1@',
+    '0 @I3@ INDI', '1 NAME Joe /Williams/', '1 FAMC @F1@', '1 FAMC @F2@', '2 PEDI adopted',
+    '0 @F1@ FAM', '1 HUSB @I1@', '1 WIFE @I2@', '1 CHIL @I3@', '1 MARR',
+    '0 @F2@ FAM', '1 HUSB @I1@', '1 CHIL @I3@',
+  )
+  const links = (graph: FamilyGraph) => canonical(graph).links
+
+  it('keeps both the birth and the adoption', () => {
+    const { graph, report } = importGedcom(SAMPLE)
+    expect(report.skippedLinks).toBe(0)
+    expect(links(graph)).toEqual([
+      'Mary Wilson > Joe Williams biological',
+      'Robert Williams > Joe Williams biological+adoptive',
+    ])
+    expect(graph.partnerships).toHaveLength(1)
+    expect(() => parseTreeDocument(toDocument(graph))).not.toThrow()
+  })
+
+  it('round trips, in both versions, with the extra kind in a family of its own', () => {
+    const { graph } = importGedcom(SAMPLE)
+    for (const version of ['5.5.1', '7.0'] as const) {
+      const text = toGedcom(graph, { version })
+      expect(text.match(/^0 @F\d+@ FAM/gm)).toHaveLength(2)
+      expect(canonical(importGedcom(text).graph)).toEqual(canonical(graph))
+    }
+  })
+
+  it('keeps a couple who fostered their own child before adopting them back', () => {
+    let graph = createGraph(person('Kid'))
+    for (const name of ['A', 'B']) graph = addParent(graph, graph.managerId, person(name), { kind: 'adoptive' }).graph
+    graph = { ...graph, parentLinks: graph.parentLinks.map((l) => ({ ...l, alsoKinds: ['foster' as const] })) }
+    expect(canonical(roundTrip(graph))).toEqual(canonical(graph))
+    expect(importGedcom(toGedcom(graph)).graph.partnerships).toEqual([])
+  })
+
+  it('never makes a third birth parent out of a second family', () => {
+    const { graph, report } = importGedcom(
+      FILE(
+        '0 @I1@ INDI', '1 NAME A', '0 @I2@ INDI', '1 NAME B', '0 @I3@ INDI', '1 NAME C',
+        '0 @I4@ INDI', '1 NAME Kid', '1 FAMC @F1@', '1 FAMC @F2@', '2 PEDI adopted', '1 FAMC @F3@',
+        '0 @F1@ FAM', '1 HUSB @I1@', '1 WIFE @I2@', '1 CHIL @I4@',
+        '0 @F2@ FAM', '1 HUSB @I3@', '1 CHIL @I4@',
+        // C is already an adoptive parent, and Kid already has two birth parents.
+        '0 @F3@ FAM', '1 HUSB @I3@', '1 CHIL @I4@',
+      ),
+    )
+    expect(links(graph)).toEqual(['A > Kid biological', 'B > Kid biological', 'C > Kid adoptive'])
+    expect(report.skippedLinks).toBe(1)
   })
 })

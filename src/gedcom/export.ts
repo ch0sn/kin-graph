@@ -1,5 +1,6 @@
 import { t } from '../i18n'
 import {
+  PARENT_KINDS,
   eventsOf,
   sortEvents,
   type EventKind,
@@ -448,8 +449,7 @@ function buildFamilies(graph: FamilyGraph): Family[] {
     linksByChild.set(link.childId, [...(linksByChild.get(link.childId) ?? []), link])
   }
 
-  const place = (parents: PersonId[], id: PersonId, kind: ParentKind) => {
-    const key = keyOf(parents)
+  const place = (parents: PersonId[], id: PersonId, kind: ParentKind, key = keyOf(parents)) => {
     const family = families.get(key) ?? { parents, children: [] }
     families.set(key, family)
     family.children.push({ id, kind })
@@ -461,6 +461,14 @@ function buildFamilies(graph: FamilyGraph): Family[] {
       place(links.map((l) => l.parentId), childId, links[0].kind)
     } else {
       for (const link of links) place([link.parentId], childId, link.kind)
+    }
+    // A parent related in a second way, such as a birth father who also adopted, is
+    // listed again in a family of its own for that kind, since a family has one per child.
+    for (const kind of PARENT_KINDS) {
+      const parents = links.filter((l) => l.alsoKinds?.includes(kind)).map((l) => l.parentId)
+      if (parents.length === 0) continue
+      const groups = parents.length <= 2 ? [parents] : parents.map((p) => [p])
+      for (const group of groups) place(group, childId, kind, `${keyOf(group)}#${kind}`)
     }
   }
   return [...families.values()]
