@@ -325,6 +325,8 @@ describe('round trip', () => {
     add(addChild(graph, graph.managerId, person('Kid'), { coParentId: b }))
 
     expect(canonical(roundTrip(graph))).toEqual(canonical(graph))
+    // Only statuses the standard tags can't express get KinGraph's own line.
+    expect(toGedcom(graph).match(/^1 _STATUS .*$/gm)).toEqual(['1 _STATUS SEPARATED', '1 _STATUS WIDOWED'])
   })
 
   it('keeps adoptive and foster parents, including mixed ones for one child', () => {
@@ -607,6 +609,17 @@ describe('events from other programs', () => {
 })
 
 describe('families without a partnership', () => {
+  it('writes a mother on her own as WIFE, so other programs do not show her as a father', () => {
+    let graph = createGraph(person('Kid'))
+    graph = addParent(graph, graph.managerId, person('Mum', { gender: 'female' })).graph
+    graph = addChild(graph, graph.managerId, person('Grandkid')).graph
+    const text = toGedcom(graph)
+    expect(text).toMatch(/^1 WIFE @I2@$/m)
+    expect(text).toMatch(/^1 HUSB @I1@$/m)
+    expect(text).not.toMatch(/^1 HUSB @I2@$/m)
+    expect(canonical(roundTrip(graph))).toEqual(canonical(graph))
+  })
+
   it('puts a lone parent in a family of their own', () => {
     let graph = createGraph(person('Kid'))
     graph = addParent(graph, graph.managerId, person('Solo')).graph

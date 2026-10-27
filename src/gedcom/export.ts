@@ -205,11 +205,11 @@ export function toGedcom(source: FamilyGraph, options: GedcomOptions = {}): stri
 
   for (const family of families) {
     line(0, 'FAM', undefined, familyRef.get(family))
-    const [first, second] = family.parents
     // HUSB and WIFE follow gender where known; otherwise the order they were stored in.
-    const [husband, wife] = [first, second].sort(
-      (a, b) => rank(graph.people[a]) - rank(graph.people[b]),
-    )
+    // A parent on their own is the wife if she's a woman, so other programs show a mother.
+    const [first, second] = [...family.parents].sort((a, b) => rank(graph.people[a]) - rank(graph.people[b]))
+    const alone = second === undefined && rank(graph.people[first]) === 1
+    const [husband, wife] = alone ? [undefined, first] : [first, second]
     if (husband) line(1, 'HUSB', personRef.get(husband))
     if (wife) line(1, 'WIFE', personRef.get(wife))
     for (const { id } of family.children) line(1, 'CHIL', personRef.get(id))
@@ -426,7 +426,9 @@ function writePartnership(line: Line, p: Partnership) {
   } else if (p.endDate) {
     writeEvent(line, END_TAG, p.endDate)
   }
-  line(1, STATUS_TAG, STATUS_OUT[p.status])
+  // MARR, DIV and their absence already say married, divorced or partnered; other programs
+  // show the custom line as an odd event, so it's only written where it's needed.
+  if (p.status === 'separated' || p.status === 'widowed') line(1, STATUS_TAG, STATUS_OUT[p.status])
 }
 
 /**
