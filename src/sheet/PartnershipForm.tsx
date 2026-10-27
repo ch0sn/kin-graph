@@ -1,9 +1,10 @@
-import { useState, type FormEvent } from 'react'
+import { useId, useState, type FormEvent } from 'react'
 import { useT } from '../i18n'
 import { isCertainlyBefore, type FuzzyDate, type PartnershipStatus } from '../model'
 import { DateField } from '../ui/DateField'
-import { Button, Segmented } from '../ui/fields'
+import { Segmented } from '../ui/fields'
 import { dateError } from './personValues'
+import { FormActions } from './FormActions'
 
 const STATUSES: PartnershipStatus[] = ['married', 'partnered', 'separated', 'divorced', 'widowed']
 
@@ -27,6 +28,7 @@ export function PartnershipForm({ partnership, onSubmit, onCancel }: Partnership
   const [start, setStart] = useState(partnership.startDate ?? '')
   const [end, setEnd] = useState(partnership.endDate ?? '')
   const [errors, setErrors] = useState<{ start?: string; end?: string }>({})
+  const formId = useId()
 
   const submit = (event: FormEvent) => {
     event.preventDefault()
@@ -40,7 +42,7 @@ export function PartnershipForm({ partnership, onSubmit, onCancel }: Partnership
   }
 
   return (
-    <form onSubmit={submit} noValidate className="flex flex-col gap-4">
+    <form id={formId} onSubmit={submit} noValidate className="flex flex-col gap-4">
       <Segmented
         label={t('form.status')}
         options={STATUSES.map((value) => ({ value, label: t(`status.${value}`) }))}
@@ -49,14 +51,7 @@ export function PartnershipForm({ partnership, onSubmit, onCancel }: Partnership
       />
       <DateField label={t('partnership.start')} value={start} onChange={setStart} error={errors.start} />
       <DateField label={t('partnership.end')} value={end} onChange={setEnd} error={errors.end} />
-      <div className="flex justify-end gap-2 pt-1">
-        <Button variant="ghost" onClick={onCancel}>
-          {t('common.cancel')}
-        </Button>
-        <Button variant="primary" type="submit">
-          {t('common.save')}
-        </Button>
-      </div>
+      <FormActions formId={formId} submitLabel={t('common.save')} onCancel={onCancel} />
     </form>
   )
 }

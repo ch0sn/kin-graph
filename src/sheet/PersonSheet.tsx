@@ -43,6 +43,7 @@ import { ConfirmDialog } from '../ui/ConfirmDialog'
 import { LifeLine } from '../ui/LifeLine'
 import { Button, CheckboxGroup, Segmented, type Option } from '../ui/fields'
 import { EventForm } from './EventForm'
+import { FormActionsSlot } from './formActionsSlot'
 import { emptyEventValues, valuesFromEvent } from './eventValues'
 import { LocationRow } from './LocationRow'
 import { PartnershipForm } from './PartnershipForm'
@@ -631,9 +632,11 @@ function SubView({
   children: ReactNode
 }) {
   const { t } = useT()
+  const [actions, setActions] = useState<HTMLElement | null>(null)
   return (
-    <div className="flex flex-col gap-4 pt-1">
-      <header className="flex items-center gap-2">
+    <div className="flex flex-col gap-4">
+      {/* Stays at the top while the form scrolls, with the form's Cancel and Save. */}
+      <header className="sticky top-0 z-10 -mx-5 flex items-center gap-2 border-b border-stone-100 bg-white px-5 py-2">
         <button
           type="button"
           onClick={onBack}
@@ -642,12 +645,13 @@ function SubView({
         >
           <ArrowLeft className="size-5" />
         </button>
-        <div className="min-w-0">
-          <h2 className="font-serif text-xl leading-tight text-stone-900">{title}</h2>
+        <div className="min-w-0 flex-1">
+          <h2 className="line-clamp-2 font-serif text-xl leading-tight break-words text-stone-900">{title}</h2>
           {subtitle && <p className="truncate text-sm text-stone-500">{subtitle}</p>}
         </div>
+        <div ref={setActions} className="flex shrink-0 items-center gap-1" />
       </header>
-      {children}
+      <FormActionsSlot value={actions}>{children}</FormActionsSlot>
     </div>
   )
 }
