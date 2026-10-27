@@ -52,14 +52,9 @@ export interface Person {
   names: [PersonName, ...PersonName[]]
   gender?: Gender
   birthDate?: FuzzyDate
-  /** Where the person was born, as written: "Cork, Ireland". */
-  birthPlace?: string
   deathDate?: FuzzyDate
-  deathPlace?: string
-  /** Known to have died, even if the date isn't known. Implied by `deathDate` and `deathPlace`. */
+  /** Known to have died, even if the date isn't known. Implied by `deathDate`. */
   deceased?: boolean
-  /** Anything else worth knowing about the person, in their own words. */
-  notes?: string
   /** Where the person lives now, as written: "Berlin, Germany". */
   location?: string
   /**
@@ -87,18 +82,8 @@ export type ParentKind = 'biological' | 'adoptive' | 'foster'
 export interface ParentLink {
   parentId: PersonId
   childId: PersonId
-  /** The closest way they're related, which the tree draws: birth before adoption before fostering. */
   kind: ParentKind
-  /**
-   * Other ways the same parent is related to the child, such as a birth
-   * father who later adopted his son too. Each comes after `kind` in
-   * `PARENT_KINDS`, so this never holds `biological`.
-   */
-  alsoKinds?: ParentKind[]
 }
-
-/** Parent kinds from closest to furthest; a link's `kind` is the first that applies. */
-export const PARENT_KINDS: readonly ParentKind[] = ['biological', 'adoptive', 'foster']
 
 export type PartnershipStatus =
   | 'married'

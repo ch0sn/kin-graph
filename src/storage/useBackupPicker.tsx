@@ -1,8 +1,6 @@
 import { useRef, useState, type ReactNode } from 'react'
 import { GedcomImportDialog } from '../app/GedcomImportDialog'
-import { importGedcomArchive, type GedcomArchiveImport } from '../gedcom/archive'
-import { GedcomError } from '../gedcom/import'
-import { preparePhoto } from '../photos/preparePhoto'
+import { GedcomError, importGedcomFile, type GedcomImport } from '../gedcom/import'
 import type { FamilyGraph } from '../model'
 import { readBackupFile } from './backup'
 import { putPhotos } from './photos'
@@ -17,14 +15,10 @@ export interface BackupPicker {
   clearError: () => void
 }
 
-/**
- * Whether the file is GEDCOM, or a .zip with GEDCOM and photos, rather than
- * a KinGraph backup: by its name or how it starts.
- */
+/** Whether the file is GEDCOM rather than a KinGraph backup, by its name or its first line. */
 async function isGedcom(file: File): Promise<boolean> {
-  if (/\.(ged|gedcom|zip)$/i.test(file.name)) return true
-  const start = await file.slice(0, 64).text()
-  return start.startsWith('PK\u0003\u0004') || /^\uFEFF?\s*0\s+HEAD\b/.test(start)
+  if (/\.(ged|gedcom)$/i.test(file.name)) return true
+  return /^\uFEFF?\s*0\s+HEAD\b/.test(await file.slice(0, 64).text())
 }
 
 /**
@@ -35,14 +29,14 @@ async function isGedcom(file: File): Promise<boolean> {
 export function useBackupPicker(onPicked: (graph: FamilyGraph) => void): BackupPicker {
   const inputRef = useRef<HTMLInputElement>(null)
   const [error, setError] = useState<string | null>(null)
-  const [gedcom, setGedcom] = useState<GedcomArchiveImport | null>(null)
+  const [gedcom, setGedcom] = useState<GedcomImport | null>(null)
 
   const input = (
     <>
     <input
       ref={inputRef}
       type="file"
-      accept=".json,application/json,.ged,.gedcom,.zip,application/zip"
+      accept=".json,application/json,.ged,.gedcom"
       className="hidden"
       data-testid="backup-file-input"
       onChange={async (event) => {
@@ -52,7 +46,7 @@ export function useBackupPicker(onPicked: (graph: FamilyGraph) => void): BackupP
         try {
           if (await isGedcom(file)) {
             setError(null)
-            setGedcom(await importGedcomArchive(new Uint8Array(await file.arrayBuffer()), (image) => preparePhoto(image)))
+            setGedcom(importGedcomFile(new Uint8Array(await file.arrayBuffer())))
             return
           }
           const { graph, photos } = await readBackupFile(file)
@@ -68,14 +62,8 @@ export function useBackupPicker(onPicked: (graph: FamilyGraph) => void): BackupP
     {gedcom && (
       <GedcomImportDialog
         imported={gedcom}
-        onConfirm={async (graph) => {
-          const { photos } = gedcom
+        onConfirm={(graph) => {
           setGedcom(null)
-          try {
-            await putPhotos(photos)
-          } catch {
-            // The tree is still worth having without its photos.
-          }
           onPicked(graph)
         }}
         onCancel={() => setGedcom(null)}

@@ -135,9 +135,8 @@ export interface TimelineEntry {
 export function timelineOf(graph: FamilyGraph, personId: PersonId): TimelineEntry[] {
   const person = getPerson(graph, personId)
   const entries: TimelineEntry[] = []
-  const { birthDate, birthPlace, deathDate, deathPlace } = person
-  if (birthDate || birthPlace) entries.push({ key: 'birth', type: 'birth', date: birthDate, place: birthPlace })
-  if (deathDate || deathPlace) entries.push({ key: 'death', type: 'death', date: deathDate, place: deathPlace })
+  if (person.birthDate) entries.push({ key: 'birth', type: 'birth', date: person.birthDate })
+  if (person.deathDate) entries.push({ key: 'death', type: 'death', date: person.deathDate })
   for (const p of partnershipsOf(graph, personId)) {
     const partnerId = partnerOf(p, personId)
     if (p.status !== 'partnered' && p.startDate) {
@@ -152,12 +151,5 @@ export function timelineOf(graph: FamilyGraph, personId: PersonId): TimelineEntr
     entries.push({ key: id, type, kind, label, date, place, description, event })
   }
   // Dated entries by date; undated stored events trail, and birth leads when nothing says otherwise.
-  const sorted = sortEvents(entries)
-  // A birth or death known only by its place still opens or closes the life.
-  const undated = (type: TimelineEntry['type']) => (e: TimelineEntry) => e.type === type && !e.date
-  return [
-    ...sorted.filter(undated('birth')),
-    ...sorted.filter((e) => !undated('birth')(e) && !undated('death')(e)),
-    ...sorted.filter(undated('death')),
-  ]
+  return sortEvents(entries)
 }

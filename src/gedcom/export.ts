@@ -1,6 +1,5 @@
 import { t } from '../i18n'
 import {
-  PARENT_KINDS,
   eventsOf,
   sortEvents,
   type EventKind,
@@ -18,7 +17,6 @@ import {
   type PersonName,
 } from '../model'
 import { toGedcomDate } from './dates'
-import { applyLivingPolicy, type LivingPolicy } from './privacy'
 
 /** Names of the custom tags KinGraph writes, so a round trip loses nothing. */
 export const ROOT_TAG = '_ROOT'
@@ -42,20 +40,6 @@ export const NAME_TYPE_OUT: Partial<Record<NameType, string>> = {
   religious: 'religious',
 }
 
-/** GEDCOM 7 has no name type for these, so they are written as OTHER with a PHRASE. */
-const NAME_TYPES_7: Partial<Record<NameType, string>> = {
-  birth: 'BIRTH',
-  married: 'MARRIED',
-  alias: 'AKA',
-}
-
-/** The language tag GEDCOM 7 names a written form of a name with (`TRAN` + `LANG`). */
-export const SCRIPT_LANG: Record<NameForm['script'], string> = {
-  hanja: 'ko-Hani',
-  romanized: 'und-Latn',
-  other: 'und',
-}
-
 export const PEDI_OUT: Record<ParentKind, string> = {
   biological: 'birth',
   adoptive: 'adopted',
@@ -69,57 +53,19 @@ interface Family {
   children: { id: PersonId; kind: ParentKind }[]
 }
 
-export type GedcomVersion = '5.5.1' | '7.0'
-export const GEDCOM_VERSIONS: readonly GedcomVersion[] = ['5.5.1', '7.0']
-
-export interface GedcomOptions {
-  /** 5.5.1 is the one most programs read; 7.0 is the current standard. */
-  version?: GedcomVersion
-  /** What to do with people who may still be alive; see `applyLivingPolicy`. */
-  living?: LivingPolicy
-  now?: Date
-  /**
-   * Where each photo is, by photo id, as a path next to the file
-   * ("photos/1.jpg"). People whose photo isn't listed are written without one.
-   */
-  photos?: ReadonlyMap<string, string>
-}
-
-/** What the person picks when exporting. */
-export type GedcomChoices = Required<Pick<GedcomOptions, 'version' | 'living'>> & {
-  /** Save a .zip with the photos next to the .ged, rather than the .ged alone. */
-  photos: boolean
-}
-export const DEFAULT_GEDCOM_CHOICES: GedcomChoices = { version: '5.5.1', living: 'include', photos: false }
-
-/**
- * Where the custom tags are described, which GEDCOM 7 asks for in the header
- * (`SCHMA`) so other programs can tell them apart from anyone else's.
- */
-export const SCHEMA_BASE = 'https://github.com/ch0sn/kin-graph/blob/main/docs/gedcom.md#'
-
-/** Writes the tree as a lineage-linked GEDCOM file in UTF-8. */
-export function toGedcom(source: FamilyGraph, options: GedcomOptions = {}): string {
-  const { version = '5.5.1', living = 'include', now = new Date(), photos = new Map<string, string>() } = options
-  const v7 = version === '7.0'
-  const graph = applyLivingPolicy(source, living, now)
+/** Writes the tree as a GEDCOM 5.5.1 file (UTF-8, lineage-linked). */
+export function toGedcom(graph: FamilyGraph, now = new Date()): string {
   const out: string[] = []
   const line = (level: number, tag: string, value?: string, xref?: string) => {
-    const prefix = [level, xref, tag].filter((p) => p !== undefined && p !== '').join(' ')
     if (value === undefined || value === '') {
-      out.push(prefix)
+      out.push([level, xref, tag].filter((p) => p !== undefined && p !== '').join(' '))
       return
     }
-    // 5.5.1 doubles every @ in text; 7.0 only one that starts the value.
-    const text = POINTER.test(value) ? value : v7 ? value.replace(/^@/, '@@') : value.replace(/@/g, '@@')
+    const text = !POINTER.test(value) ? value.replace(/@/g, '@@') : value
     const lines = text.split(/\r\n|\r|\n/)
+    const mainPrefix = [level, xref, tag].filter((p) => p !== undefined && p !== '').join(' ')
 
     const emitPieces = (prefix: string, content: string, nextPrefix: string) => {
-      // GEDCOM 7 has no line length limit, and no CONC to split lines with.
-      if (v7) {
-        out.push(content ? `${prefix} ${content}` : prefix)
-        return
-      }
       const maxLen = 255 - prefix.length - 1
       const { chunk, rest } = splitChunk(content, maxLen)
       out.push(chunk ? `${prefix} ${chunk}` : prefix)
@@ -132,7 +78,7 @@ export function toGedcom(source: FamilyGraph, options: GedcomOptions = {}): stri
       }
     }
 
-    emitPieces(prefix, lines[0], `${level + 1} CONC`)
+    emitPieces(mainPrefix, lines[0], `${level + 1} CONC`)
     for (let i = 1; i < lines.length; i++) {
       emitPieces(`${level + 1} CONT`, lines[i], `${level + 1} CONC`)
     }
@@ -142,8 +88,6 @@ export function toGedcom(source: FamilyGraph, options: GedcomOptions = {}): stri
   const personRef = new Map(ids.map((id, i) => [id, `@I${i + 1}@`]))
   const families = buildFamilies(graph)
   const familyRef = new Map(families.map((f, i) => [f, `@F${i + 1}@`]))
-  const photoIds = [...new Set(ids.flatMap((id) => graph.people[id].photoId ?? []))].filter((p) => photos.has(p))
-  const photoRef = new Map(photoIds.map((photoId, i) => [photoId, `@O${i + 1}@`]))
 
   line(0, 'HEAD')
   line(1, 'SOUR', 'KinGraph')
@@ -151,17 +95,10 @@ export function toGedcom(source: FamilyGraph, options: GedcomOptions = {}): stri
   line(1, 'DATE', toGedcomDate(isoDay(now)).toUpperCase())
   line(1, 'SUBM', '@U1@')
   line(1, 'GEDC')
-  line(2, 'VERS', version)
-  if (v7) {
-    line(1, 'SCHMA')
-    for (const tag of CUSTOM_TAGS) line(2, 'TAG', `${tag} ${SCHEMA_BASE}${tag.toLowerCase()}`)
-  } else {
-    line(2, 'FORM', 'LINEAGE-LINKED')
-    line(1, 'CHAR', 'UTF-8')
-  }
-  // The manager may have been left out as a living person.
-  const root = personRef.get(graph.managerId)
-  if (root) line(1, ROOT_TAG, root)
+  line(2, 'VERS', '5.5.1')
+  line(2, 'FORM', 'LINEAGE-LINKED')
+  line(1, 'CHAR', 'UTF-8')
+  line(1, ROOT_TAG, personRef.get(graph.managerId))
   line(0, 'SUBM', undefined, '@U1@')
   line(1, 'NAME', 'KinGraph')
 
@@ -181,24 +118,21 @@ export function toGedcom(source: FamilyGraph, options: GedcomOptions = {}): stri
       line(1, 'NAME', 'Unknown //')
       line(1, PLACEHOLDER_TAG, 'Y')
     } else {
-      person.names.forEach((name) => writeName(line, name, v7))
+      person.names.forEach((name) => writeName(line, name))
     }
     if (person.gender) line(1, 'SEX', { female: 'F', male: 'M', other: 'X' }[person.gender])
-    writeEvent(line, 'BIRT', person.birthDate, person.birthPlace)
-    if (person.deathDate || person.deathPlace) writeEvent(line, 'DEAT', person.deathDate, person.deathPlace)
+    writeEvent(line, 'BIRT', person.birthDate)
+    if (person.deathDate) writeEvent(line, 'DEAT', person.deathDate)
     else if (person.deceased) line(1, 'DEAT', 'Y')
-    for (const event of sortEvents(eventsOf(graph, id))) writeLifeEvent(line, event, v7)
+    for (const event of sortEvents(eventsOf(graph, id))) writeLifeEvent(line, event)
     if (person.location) {
-      // In GEDCOM 7 a residence says where in its own line, as well as in PLAC.
-      line(1, 'RESI', v7 ? clean(person.location) : undefined)
+      line(1, 'RESI')
       line(2, 'PLAC', clean(person.location))
       line(2, CURRENT_TAG, 'Y')
     }
-    if (person.notes) line(1, 'NOTE', person.notes)
-    if (person.photoId && photoRef.has(person.photoId)) line(1, 'OBJE', photoRef.get(person.photoId))
     for (const { family, kind } of childOf.get(id) ?? []) {
       line(1, 'FAMC', familyRef.get(family))
-      line(2, 'PEDI', v7 ? PEDI_OUT[kind].toUpperCase() : PEDI_OUT[kind])
+      line(2, 'PEDI', PEDI_OUT[kind])
     }
     for (const family of spouseIn.get(id) ?? []) line(1, 'FAMS', familyRef.get(family))
   }
@@ -217,25 +151,11 @@ export function toGedcom(source: FamilyGraph, options: GedcomOptions = {}): stri
     else if (family.parents.length === 2) line(1, COPARENTS_TAG, 'Y')
   }
 
-  for (const [photoId, ref] of photoRef) {
-    const path = photos.get(photoId)!
-    line(0, 'OBJE', undefined, ref)
-    line(1, 'FILE', path)
-    line(2, 'FORM', mediaFormat(path, v7))
-  }
-
   line(0, 'TRLR')
   return out.join('\r\n') + '\r\n'
 }
 
 const POINTER = /^@[^@\s]+@$/
-
-/** GEDCOM 5.5.1 names a file's format by its extension ("jpg"); 7.0 by its media type. */
-function mediaFormat(path: string, v7: boolean): string {
-  const extension = /\.(\w+)$/.exec(path)?.[1].toLowerCase() ?? 'jpg'
-  if (!v7) return extension === 'jpeg' ? 'jpg' : extension
-  return `image/${extension === 'jpg' ? 'jpeg' : extension}`
-}
 
 const rank = (person: Person | undefined) => (person?.gender === 'female' ? 1 : 0)
 
@@ -246,11 +166,10 @@ function isoDay(date: Date): string {
 
 type Line = (level: number, tag: string, value?: string, xref?: string) => void
 
-function writeEvent(line: Line, tag: string, date: string | undefined, place?: string) {
-  if (!date && !place) return
-  line(1, tag)
-  if (date) line(2, 'DATE', toGedcomDate(date))
-  if (place) line(2, 'PLAC', clean(place))
+function writeEvent(line: Line, tag: string, date: string | undefined, level = 1) {
+  if (!date) return
+  line(level, tag)
+  line(level + 1, 'DATE', toGedcomDate(date))
 }
 
 /**
@@ -284,22 +203,6 @@ const KIND_FALLBACK_TAGS: Partial<Record<EventKind, string>> = { adultBaptism: '
 export const KIND_TAG = '_KIND'
 export const CATEGORY_TAG = '_CATEGORY'
 
-/** Every custom tag KinGraph writes, which GEDCOM 7 files list in the header. */
-const CUSTOM_TAGS = [
-  ROOT_TAG,
-  PLACEHOLDER_TAG,
-  STATUS_TAG,
-  PATRONYMIC_TAG,
-  FROM_TAG,
-  TO_TAG,
-  START_TAG,
-  END_TAG,
-  CURRENT_TAG,
-  COPARENTS_TAG,
-  KIND_TAG,
-  CATEGORY_TAG,
-]
-
 /** Events whose line value is what the event was (the occupation) rather than a Y. */
 export const EVENT_VALUE_TAGS = new Set(['OCCU', 'EDUC'])
 
@@ -314,12 +217,11 @@ function tagFor(event: LifeEvent): { tag: string; exact: boolean } {
   return { tag: general?.tag ?? 'EVEN', exact: !kind }
 }
 
-function writeLifeEvent(line: Line, event: LifeEvent, v7: boolean) {
+function writeLifeEvent(line: Line, event: LifeEvent) {
   const { tag, exact } = tagFor(event)
   const description = event.description ? clean(event.description) : ''
   const valueLine = EVENT_VALUE_TAGS.has(tag)
-  const residence = v7 && tag === 'RESI' && event.place ? clean(event.place) : undefined
-  line(1, tag, valueLine ? description || undefined : residence)
+  line(1, tag, valueLine ? description || undefined : undefined)
   // A readable name for other programs: the event's own, its kind's, or for EVEN its type's.
   const name = event.label ?? (event.kind && t(`eventKind.${event.kind}`))
   if (name && !(exact && !event.label)) line(2, 'TYPE', clean(name))
@@ -365,19 +267,14 @@ function clean(text: string): string {
   return text.replace(/\/+/g, ' ').trim()
 }
 
-function writeName(line: Line, name: PersonName, v7: boolean) {
+function writeName(line: Line, name: PersonName) {
   writeNameParts(line, 'NAME', name)
-  // TYPE belongs inside the NAME structure, so it follows the lines written above.
   const type = name.type && NAME_TYPE_OUT[name.type]
-  if (type && !v7) line(2, 'TYPE', type)
-  if (type && v7) {
-    const standard = NAME_TYPES_7[name.type!]
-    line(2, 'TYPE', standard ?? 'OTHER')
-    if (!standard) line(3, 'PHRASE', type)
-  }
+  // TYPE belongs inside the NAME structure, so it follows the lines written above.
+  if (type) line(2, 'TYPE', type)
   if (name.from) line(2, FROM_TAG, toGedcomDate(name.from))
   if (name.to) line(2, TO_TAG, toGedcomDate(name.to))
-  for (const form of name.forms ?? []) writeForm(line, form, v7)
+  for (const form of name.forms ?? []) writeForm(line, form)
 }
 
 function writeNameParts(line: Line, tag: string, parts: NameParts) {
@@ -391,14 +288,8 @@ function writeNameParts(line: Line, tag: string, parts: NameParts) {
   if (patronymic) line(sub, PATRONYMIC_TAG, patronymic)
 }
 
-function writeForm(line: Line, form: NameForm, v7: boolean) {
-  if (v7) {
-    // GEDCOM 7 writes another form of a name as a translation, tagged with its script.
-    writeNameParts(line, 'TRAN', form)
-    line(3, 'LANG', SCRIPT_LANG[form.script])
-    return
-  }
-  // GEDCOM 5.5.1 has "romanized" and "phonetic" variants of a name; other scripts go in the latter.
+function writeForm(line: Line, form: NameForm) {
+  // GEDCOM has "romanized" and "phonetic" variants of a name; other scripts go in the latter.
   const tag = form.script === 'romanized' ? 'ROMN' : 'FONE'
   writeNameParts(line, tag, form)
   if (tag === 'FONE') line(3, 'TYPE', form.script)
@@ -449,7 +340,8 @@ function buildFamilies(graph: FamilyGraph): Family[] {
     linksByChild.set(link.childId, [...(linksByChild.get(link.childId) ?? []), link])
   }
 
-  const place = (parents: PersonId[], id: PersonId, kind: ParentKind, key = keyOf(parents)) => {
+  const place = (parents: PersonId[], id: PersonId, kind: ParentKind) => {
+    const key = keyOf(parents)
     const family = families.get(key) ?? { parents, children: [] }
     families.set(key, family)
     family.children.push({ id, kind })
@@ -461,14 +353,6 @@ function buildFamilies(graph: FamilyGraph): Family[] {
       place(links.map((l) => l.parentId), childId, links[0].kind)
     } else {
       for (const link of links) place([link.parentId], childId, link.kind)
-    }
-    // A parent related in a second way, such as a birth father who also adopted, is
-    // listed again in a family of its own for that kind, since a family has one per child.
-    for (const kind of PARENT_KINDS) {
-      const parents = links.filter((l) => l.alsoKinds?.includes(kind)).map((l) => l.parentId)
-      if (parents.length === 0) continue
-      const groups = parents.length <= 2 ? [parents] : parents.map((p) => [p])
-      for (const group of groups) place(group, childId, kind, `${keyOf(group)}#${kind}`)
     }
   }
   return [...families.values()]

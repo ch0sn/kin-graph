@@ -13,13 +13,11 @@ import {
 import {
   childIdsOf,
   coParentFor,
-  linkKinds,
   parentIdsOf,
   partnershipBetween,
   siblingsOf,
   stepParentIdsOf,
   unlinkedCoParentIdsOf,
-  withKind,
 } from './queries'
 
 const manager = () => createGraph({ names: [{ given: 'Alex' }], gender: 'male' })
@@ -252,21 +250,5 @@ describe('removePerson', () => {
     const child = addChild(graph, graph.managerId, { names: [{ given: 'Lily' }] })
     removePerson(child.graph, child.person.id)
     expect(childIdsOf(child.graph, graph.managerId)).toEqual([child.person.id])
-  })
-})
-
-describe('parents related in more than one way', () => {
-  const link = { parentId: 'p', childId: 'c', kind: 'adoptive' } as const
-
-  it('keep the closest kind as the main one', () => {
-    expect(withKind(link, 'biological')).toEqual({ ...link, kind: 'biological', alsoKinds: ['adoptive'] })
-    expect(withKind(link, 'foster')).toEqual({ ...link, alsoKinds: ['foster'] })
-    expect(withKind(withKind(link, 'foster'), 'biological')).toEqual({
-      ...link,
-      kind: 'biological',
-      alsoKinds: ['adoptive', 'foster'],
-    })
-    expect(withKind(link, 'adoptive')).toEqual(link)
-    expect(linkKinds(withKind(link, 'foster'))).toEqual(['adoptive', 'foster'])
   })
 })

@@ -21,13 +21,11 @@ import { THEMES, type ThemeId } from '../theme/themes'
 import { DEFAULT_SIBLING_ORDER, type SiblingOrder } from '../tree/siblingOrder'
 import { fullName, peopleCount, type FamilyGraph, type NameOrder } from '../model'
 import { LANGUAGES, useT, type Language, type MessageKey } from '../i18n'
-import { DEFAULT_GEDCOM_CHOICES } from '../gedcom/export'
 import { downloadGedcom } from '../storage/backup'
 import { useBackupPicker } from '../storage/useBackupPicker'
 import { ConfirmDialog } from '../ui/ConfirmDialog'
 import { Button } from '../ui/fields'
 import { HelpLabel } from '../ui/HelpLabel'
-import { GedcomExportDialog } from './GedcomExportDialog'
 
 /** A miniature tree drawn in a theme's own colours, shape and typeface. */
 function ThemePreview({ id }: { id: ThemeId }) {
@@ -123,8 +121,6 @@ export function SettingsDialog({
     onClose()
   })
   const [exportError, setExportError] = useState(false)
-  const [choosingGedcom, setChoosingGedcom] = useState(false)
-  const [gedcomChoices, setGedcomChoices] = useState(DEFAULT_GEDCOM_CHOICES)
 
   useEffect(() => {
     const dialog = ref.current
@@ -396,7 +392,13 @@ export function SettingsDialog({
             {t('settings.importButton')}
           </Button>
           {graph && <Button
-            onClick={() => setChoosingGedcom(true)}
+            onClick={() => {
+              try {
+                downloadGedcom(graph)
+              } catch {
+                setExportError(true)
+              }
+            }}
             className="w-full justify-start"
           >
             <FileDown className="size-4 text-stone-500" aria-hidden />
@@ -435,17 +437,7 @@ export function SettingsDialog({
       )}
     </ConfirmDialog>
 
-    <GedcomExportDialog
-        graph={choosingGedcom ? graph : null}
-        choices={gedcomChoices}
-        onChange={setGedcomChoices}
-        onConfirm={() => {
-          setChoosingGedcom(false)
-          if (graph) downloadGedcom(graph, gedcomChoices).catch(() => setExportError(true))
-        }}
-        onCancel={() => setChoosingGedcom(false)}
-      />
-      <ConfirmDialog
+    <ConfirmDialog
       open={exportError}
       title={t('export.errorTitle')}
       confirmLabel={t('common.ok')}
