@@ -1,5 +1,7 @@
 import { Handle, Position, type NodeProps } from '@xyflow/react'
+import { TriangleAlert } from 'lucide-react'
 import { motion } from 'motion/react'
+import { useT } from '../i18n'
 import { fullName, type Gender } from '../model'
 import { Avatar } from '../ui/Avatar'
 import { LifeLine } from '../ui/LifeLine'
@@ -28,7 +30,8 @@ const MANAGER_SELECTED = 'card-shadow-hover ring-4 ring-(--accent-strong)'
 
 export function PersonNode({ data, selected }: NodeProps<PersonNodeType>) {
   const { person, label, isManager, entranceDelay = 0 } = data
-  const { highlightGender } = useTreeDisplay()
+  const { highlightGender, flagged } = useTreeDisplay()
+  const { t } = useT()
   const genderBorder = highlightGender && person.gender ? GENDER_BORDERS[person.gender] : undefined
   const border =
     genderBorder ??
@@ -49,7 +52,7 @@ export function PersonNode({ data, selected }: NodeProps<PersonNodeType>) {
         animate={{ opacity: 1, scale: 1, y: 0 }}
         transition={{ type: 'spring', stiffness: 260, damping: 24, delay: entranceDelay }}
         className={[
-          'flex size-full items-center gap-3 rounded-(--card-radius) border bg-white px-3 card-shadow transition-[box-shadow,border-color]',
+          'relative flex size-full items-center gap-3 rounded-(--card-radius) border bg-white px-3 card-shadow transition-[box-shadow,border-color]',
           border,
           !isManager && 'hover:card-shadow-hover',
           selected
@@ -80,6 +83,16 @@ export function PersonNode({ data, selected }: NodeProps<PersonNodeType>) {
           </p>
           <LifeLine person={person} className="text-xs" />
         </div>
+        {flagged.has(person.id) && (
+          <span
+            role="img"
+            title={t('check.flagged', { name: fullName(person) })}
+            aria-label={t('check.flagged', { name: fullName(person) })}
+            className="absolute -top-2 -right-2 flex size-6 items-center justify-center rounded-full border-2 border-white bg-amber-100 text-amber-700 shadow-sm"
+          >
+            <TriangleAlert className="size-3.5" aria-hidden />
+          </span>
+        )}
       </motion.div>
     </div>
   )

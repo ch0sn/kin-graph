@@ -14,6 +14,8 @@ export interface TreeMeta {
    * "View as …" opens that tree instead of re-rooting this one.
    */
   links?: Record<PersonId, TreeId>
+  /** Problems found by `checkTree` that the person said are fine, by issue id. */
+  ignoredIssues?: string[]
 }
 
 /**
@@ -58,6 +60,10 @@ export function parseTreeMetas(raw: unknown): TreeMeta[] {
         createdAt: typeof item.createdAt === 'number' ? item.createdAt : 0,
         ...(item.own === true && { own: true }),
         ...(isStringRecord(item.links) && { links: item.links }),
+        ...(Array.isArray(item.ignoredIssues) &&
+          item.ignoredIssues.length > 0 && {
+            ignoredIssues: item.ignoredIssues.filter((id): id is string => typeof id === 'string'),
+          }),
       },
     ]
   })
@@ -155,6 +161,17 @@ export function linkTrees(trees: TreeMeta[], from: TreeId, personId: PersonId, t
   return trees.map((tree) =>
     tree.id === from ? { ...tree, links: { ...tree.links, [personId]: to } } : tree,
   )
+}
+
+/** Ignores a tree's issue, or stops ignoring it. */
+export function ignoreIssue(trees: TreeMeta[], treeId: TreeId, issueId: string, ignored: boolean): TreeMeta[] {
+  return trees.map((tree) => {
+    if (tree.id !== treeId) return tree
+    const rest = (tree.ignoredIssues ?? []).filter((id) => id !== issueId)
+    const ignoredIssues = ignored ? [...rest, issueId] : rest
+    const { ignoredIssues: _old, ...meta } = tree
+    return ignoredIssues.length > 0 ? { ...meta, ignoredIssues } : meta
+  })
 }
 
 /** Forgets a tree, and every link to it. */

@@ -1,8 +1,9 @@
-import { createStore, del, get, set } from 'idb-keyval'
+import { createStore, del, get, set, update } from 'idb-keyval'
 import type { FamilyGraph } from '../model'
 import { parseSettings, type Settings } from './settings'
 import { parseTreeMetas, parseWorkspace, type TreeId, type TreeMeta, type Workspace } from './workspace'
-import { parseTreeDocument, toDocument, TreeFileError } from './treeDocument'
+import { retain, SNAPSHOT_REASONS, type Snapshot, type SnapshotReason } from './snapshots'
+import { parseTreeDocument, toDocument, TreeFileError, type TreeDocument } from './treeDocument'
 
 /** Everything KinGraph keeps lives in this one IndexedDB store on the device. */
 const store = createStore('kingraph', 'state')
@@ -13,8 +14,10 @@ const TREES_KEY = 'trees'
 const WORKSPACE_KEY = 'workspace'
 const ONBOARDED_KEY = 'onboarded'
 const SETTINGS_KEY = 'settings'
+const LAST_BACKUP_KEY = 'lastBackupAt'
 
 const treeKey = (id: TreeId) => `tree:${id}`
+const snapshotsKey = (id: TreeId) => `snapshots:${id}`
 
 export type LoadedTree =
   | { status: 'empty' }
@@ -61,8 +64,82 @@ export function saveTree(id: TreeId, graph: FamilyGraph): Promise<void> {
   return set(treeKey(id), toDocument(graph), store)
 }
 
-export function deleteTree(id: TreeId): Promise<void> {
-  return del(treeKey(id), store)
+/** Deletes a tree and its snapshots. */
+export async function deleteTree(id: TreeId): Promise<void> {
+  await del(treeKey(id), store)
+  await del(snapshotsKey(id), store)
+}
+
+/** A snapshot as stored: the tree in the same format as the tree itself. */
+interface StoredSnapshot {
+  id: string
+  takenAt: number
+  reason: SnapshotReason
+  document: TreeDocument
+}
+
+function storedSnapshots(raw: unknown): StoredSnapshot[] {
+  if (!Array.isArray(raw)) return []
+  return raw.filter(
+    (item): item is StoredSnapshot =>
+      typeof item === 'object' &&
+      item !== null &&
+      typeof item.id === 'string' &&
+      typeof item.takenAt === 'number' &&
+      SNAPSHOT_REASONS.includes(item.reason) &&
+      typeof item.document === 'object',
+  )
+}
+
+/** A tree's snapshots, newest first. Any that can't be read are left out. */
+export async function loadSnapshots(id: TreeId): Promise<Snapshot[]> {
+  return storedSnapshots(await get(snapshotsKey(id), store)).flatMap((stored): Snapshot[] => {
+    try {
+      const graph = parseTreeDocument(stored.document)
+      return [{ id: stored.id, takenAt: stored.takenAt, reason: stored.reason, graph }]
+    } catch {
+      return []
+    }
+  })
+}
+
+/**
+ * Keeps a copy of a tree, unless it's just like the latest one, and lets the
+ * oldest go as `retain` says. Resolves to whether a copy was added.
+ */
+export async function saveSnapshot(
+  id: TreeId,
+  graph: FamilyGraph,
+  reason: SnapshotReason,
+  now = Date.now(),
+): Promise<boolean> {
+  let added = false
+  await update(
+    snapshotsKey(id),
+    (raw: unknown) => {
+      const snapshots = storedSnapshots(raw)
+      const latest = snapshots.reduce<StoredSnapshot | undefined>(
+        (newest, s) => (!newest || s.takenAt > newest.takenAt ? s : newest),
+        undefined,
+      )
+      if (latest && JSON.stringify(latest.document.graph) === JSON.stringify(graph)) return snapshots
+      added = true
+      const document = toDocument(graph, new Date(now))
+      return retain([...snapshots, { id: crypto.randomUUID(), takenAt: now, reason, document }])
+    },
+    store,
+  )
+  return added
+}
+
+/** When a backup file was last exported on this device, in ms; null if never. */
+export async function loadLastBackupAt(): Promise<number | null> {
+  const at = await get<unknown>(LAST_BACKUP_KEY, store)
+  return typeof at === 'number' ? at : null
+}
+
+export function saveLastBackupAt(at: number): Promise<void> {
+  return set(LAST_BACKUP_KEY, at, store)
 }
 
 /** The tabs that were open, or null if none were saved yet. */

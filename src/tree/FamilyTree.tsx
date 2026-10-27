@@ -46,6 +46,8 @@ const SELECTED_VIEWPORT_Y = 0.28
 
 interface FamilyTreeProps {
   graph: FamilyGraph
+  /** People to mark as needing a look. */
+  flaggedIds: ReadonlySet<PersonId>
   siblingOrder: SiblingOrder
   /** Only used to redraw names when it changes; see `setPreferredNameOrder`. */
   nameOrder: NameOrder
@@ -70,6 +72,7 @@ export function FamilyTree(props: FamilyTreeProps) {
 
 function FamilyTreeCanvas({
   graph,
+  flaggedIds,
   siblingOrder,
   nameOrder,
   pattern,
@@ -80,7 +83,7 @@ function FamilyTreeCanvas({
   controlsSlot,
 }: FamilyTreeProps) {
   const { language } = useT()
-  const display = useMemo(() => ({ highlightGender }), [highlightGender])
+  const display = useMemo(() => ({ highlightGender, flagged: flaggedIds }), [highlightGender, flaggedIds])
   /** The latest layout, i.e. where everything is heading. */
   const [layout, setLayout] = useState<FamilyLayout | null>(null)
   /** What's on screen, part-way through a transition between layouts. */

@@ -2,6 +2,7 @@ import {
   BookOpen,
   Check,
   Ellipsis,
+  History,
   LoaderCircle,
   SlidersHorizontal,
   TriangleAlert,
@@ -32,7 +33,8 @@ export function SaveIndicator({ state }: { state: SaveState }) {
       ].join(' ')}
     >
       <span aria-hidden>{content.icon}</span>
-      {content.text}
+      {/* On phones the header is full of buttons, so only the icon shows. */}
+      <span className="sr-only sm:not-sr-only">{content.text}</span>
     </p>
   )
 }
@@ -42,12 +44,18 @@ interface AppMenuProps {
   persisted: boolean | null
   onShowIntro: () => void
   onOpenSettings: () => void
+  /** Opens the version history of the tree on show; unset while there's none. */
+  onOpenHistory?: () => void
+  /** A reminder that the last backup is old, if it is. */
+  backupReminder?: string | null
 }
 
 export function AppMenu({
   persisted,
   onShowIntro,
   onOpenSettings,
+  onOpenHistory,
+  backupReminder,
 }: AppMenuProps) {
   const { t } = useT()
   const [open, setOpen] = useState(false)
@@ -100,10 +108,16 @@ export function AppMenu({
             <MenuItem icon={<SlidersHorizontal />} onClick={choose(onOpenSettings)}>
               {t('menu.settings')}
             </MenuItem>
+            {onOpenHistory && (
+              <MenuItem icon={<History />} onClick={choose(onOpenHistory)}>
+                {t('menu.history')}
+              </MenuItem>
+            )}
             <MenuItem icon={<BookOpen />} onClick={choose(onShowIntro)}>
               {t('menu.intro')}
             </MenuItem>
             <p className="mt-1.5 border-t border-stone-100 px-3 pt-2.5 pb-1.5 text-xs leading-relaxed text-stone-500">
+              {backupReminder && <span className="mb-1.5 block font-medium text-amber-800">{backupReminder}</span>}
               {persisted === false
                 ? t('menu.notPersisted')
                 : t('menu.persisted')}

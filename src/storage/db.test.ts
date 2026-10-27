@@ -1,15 +1,19 @@
 import 'fake-indexeddb/auto'
-import { clear, createStore, get, set } from 'idb-keyval'
+import { clear, createStore, del, get, set } from 'idb-keyval'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { sampleFamily } from '../data/sampleFamily'
 import {
   deleteTree,
   isOnboarded,
+  loadLastBackupAt,
   loadSettings,
+  loadSnapshots,
   loadTree,
   loadTrees,
   loadWorkspace,
+  saveLastBackupAt,
   saveSettings,
+  saveSnapshot,
   saveTree,
   saveTrees,
   saveWorkspace,
@@ -113,5 +117,43 @@ describe('onboarding flag', () => {
     expect(await isOnboarded()).toBe(false)
     await setOnboarded(true)
     expect(await isOnboarded()).toBe(true)
+  })
+})
+
+describe('snapshots', () => {
+  it('are kept per tree, newest first, without repeating an unchanged tree', async () => {
+    const graph = sampleFamily()
+    expect(await saveSnapshot('a', graph, 'opened', 1000)).toBe(true)
+    expect(await saveSnapshot('a', graph, 'autosave', 2000)).toBe(false)
+    const edited = { ...graph, managerId: Object.keys(graph.people)[1] }
+    expect(await saveSnapshot('a', edited, 'beforeRemove', 3000)).toBe(true)
+    const snapshots = await loadSnapshots('a')
+    expect(snapshots.map((s) => [s.takenAt, s.reason])).toEqual([
+      [3000, 'beforeRemove'],
+      [1000, 'opened'],
+    ])
+    expect(snapshots[1].graph).toEqual(graph)
+    expect(await loadSnapshots('b')).toEqual([])
+  })
+
+  it('go when their tree is deleted', async () => {
+    await saveTree('a', sampleFamily())
+    await saveSnapshot('a', sampleFamily(), 'opened')
+    await deleteTree('a')
+    expect(await loadSnapshots('a')).toEqual([])
+  })
+
+  it('leave out any that are damaged', async () => {
+    await set('snapshots:a', [{ id: 'x', takenAt: 1, reason: 'opened', document: { graph: {} } }, 'junk'], store)
+    expect(await loadSnapshots('a')).toEqual([])
+  })
+})
+
+describe('last backup', () => {
+  it('is null until one is exported', async () => {
+    await del('lastBackupAt', store)
+    expect(await loadLastBackupAt()).toBeNull()
+    await saveLastBackupAt(42)
+    expect(await loadLastBackupAt()).toBe(42)
   })
 })
