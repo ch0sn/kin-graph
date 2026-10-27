@@ -207,7 +207,7 @@ export function TimelineView({ graph, selectedId, onSelect, controlsSlot }: Time
         {width > 0 && (
           <div className="relative pb-8" style={{ width: names + chartWidth + CONTROLS }}>
             {/* The axis and year scrubber stay at the top while the rows scroll. */}
-            <div className="sticky top-0 z-[2] flex h-10 border-b border-stone-200 bg-stone-50/90 backdrop-blur">
+            <div className="sticky top-0 z-[3] flex h-10 border-b border-stone-200 bg-stone-50/90 backdrop-blur">
               <div style={{ width: names }} className="shrink-0" />
               <div
                 role="slider"
@@ -240,7 +240,8 @@ export function TimelineView({ graph, selectedId, onSelect, controlsSlot }: Time
               </div>
             </div>
 
-            <div className="relative" style={{ height }}>
+            {/* Its own layer, so badges and lines in the rows never cover the sticky axis. */}
+            <div className="relative isolate" style={{ height }}>
               {/* Decades, today and the scrubber run behind the rows. */}
               <div className="pointer-events-none absolute inset-y-0" style={{ left: names, width: chartWidth }}>
                 {ticks.map((tick) => (
