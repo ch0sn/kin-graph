@@ -94,13 +94,18 @@ export function AppMenu({
     <div ref={menuRef} className="relative">
       <button
         type="button"
-        aria-label={t('menu.label')}
+        aria-label={issueCount > 0 ? `${t('menu.label')} (${t('check.issues', { count: issueCount })})` : t('menu.label')}
+        title={issueCount > 0 ? t('check.issues', { count: issueCount }) : undefined}
         aria-haspopup="menu"
         aria-expanded={open}
         onClick={() => setOpen(!open)}
-        className="rounded-full p-2 text-stone-600 transition hover:bg-stone-100 hover:text-stone-900 focus-visible:ring-4 focus-visible:ring-stone-200 focus-visible:outline-none"
+        className="relative rounded-full p-2 text-stone-600 transition hover:bg-stone-100 hover:text-stone-900 focus-visible:ring-4 focus-visible:ring-stone-200 focus-visible:outline-none"
       >
         <Ellipsis className="size-5" />
+        {/* Something in the tree check needs a look. */}
+        {issueCount > 0 && (
+          <span aria-hidden className="absolute top-1 right-1 size-2 rounded-full bg-amber-500 ring-2 ring-white" />
+        )}
       </button>
 
       <AnimatePresence>
