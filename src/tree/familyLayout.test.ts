@@ -10,6 +10,7 @@ import {
   createGraph,
   parentIdsOf,
   partnerIdsOf,
+  updatePerson,
   type FamilyGraph,
 } from '../model'
 import {
@@ -35,14 +36,14 @@ async function personPositions(graph: FamilyGraph, siblingOrder?: SiblingOrder) 
 describe('deriveUnions', () => {
   it('groups full siblings under one union and half-siblings under another', () => {
     const graph = sampleFamily()
-    const alex = graph.managerId
+    const joseph = graph.managerId
     const unions = deriveUnions(graph)
     const unionOf = (id: string) => unions.find((u) => u.childIds.includes(id))!
-    const [sara] = unionOf(alex).childIds.filter((id) => id !== alex)
-    const tom = Object.values(graph.people).find((p) => p.names[0].given === 'Tom')!
+    const [benjamin] = unionOf(joseph).childIds.filter((id) => id !== joseph)
+    const reuben = Object.values(graph.people).find((p) => p.names[0].given === 'Reuben')!
 
-    expect(graph.people[sara].names[0].given).toBe('Sara')
-    expect(unionOf(tom.id)).not.toBe(unionOf(alex))
+    expect(graph.people[benjamin].names[0].given).toBe('Benjamin')
+    expect(unionOf(reuben.id)).not.toBe(unionOf(joseph))
   })
 
   it('includes childless partnerships', () => {
@@ -89,14 +90,14 @@ describe('layoutFamily', () => {
   it("seats each partner on the side of their own parents", async () => {
     const graph = sampleFamily()
     const positions = await personPositions(graph)
-    const alex = graph.managerId
-    const [emma] = partnerIdsOf(graph, alex)
-    const [joan] = parentIdsOf(graph, emma)
-    const [mary] = parentIdsOf(graph, alex)
+    const joseph = graph.managerId
+    const [asenath] = partnerIdsOf(graph, joseph)
+    const [potiphera] = parentIdsOf(graph, asenath)
+    const [jacob] = parentIdsOf(graph, joseph)
 
-    const emmaIsLeft = positions.get(emma)!.x < positions.get(alex)!.x
-    const emmasSideIsLeft = positions.get(joan)!.x < positions.get(mary)!.x
-    expect(emmaIsLeft).toBe(emmasSideIsLeft)
+    const asenathIsLeft = positions.get(asenath)!.x < positions.get(joseph)!.x
+    const asenathsSideIsLeft = positions.get(potiphera)!.x < positions.get(jacob)!.x
+    expect(asenathIsLeft).toBe(asenathsSideIsLeft)
   })
 
   it.each<[SiblingOrder, string[]]>([
@@ -106,26 +107,33 @@ describe('layoutFamily', () => {
     ['girls-first', ['Lily', 'Ella', 'Max']],
   ])('orders siblings %s, left to right', async (siblingOrder, expected) => {
     // In a fuller tree ELK's crossing minimisation is free to reorder siblings.
+    // The sample family is undated, so this gives Joseph some dated children.
     let graph = sampleFamily()
-    graph = addChild(graph, graph.managerId, {
-      names: [{ given: 'Ella' }],
-      gender: 'female',
-      birthDate: '2023',
-    }).graph
+    const undated = new Set(childIdsOf(graph, graph.managerId))
+    for (const [given, gender, birthDate] of [
+      ['Lily', 'female', '2016'],
+      ['Max', 'male', '2020'],
+      ['Ella', 'female', '2023'],
+    ] as const) {
+      graph = addChild(graph, graph.managerId, { names: [{ given }], gender, birthDate }).graph
+    }
     const positions = await personPositions(graph, siblingOrder)
     const leftToRight = childIdsOf(graph, graph.managerId)
+      .filter((id) => !undated.has(id))
       .sort((a, b) => positions.get(a)!.x - positions.get(b)!.x)
       .map((id) => graph.people[id].names[0].given)
     expect(leftToRight).toEqual(expected)
   })
 
   it('orders your own siblings by you, even when your partner has parents in the tree', async () => {
-    // Alex (male, 1988) and Sara (female, 1991). Alex's wife Emma (1989) has
-    // her mother in the tree too, but it's Alex who belongs among his siblings.
-    const graph = sampleFamily()
-    const sara = Object.values(graph.people).find((p) => p.names[0].given === 'Sara')!
-    const positions = await personPositions(graph, 'girls-first')
-    expect(positions.get(sara.id)!.x).toBeLessThan(positions.get(graph.managerId)!.x)
+    // Joseph and his younger brother Benjamin. Joseph's wife Asenath has her
+    // father in the tree too, but it's Joseph who belongs among his siblings.
+    let graph = sampleFamily()
+    const benjamin = Object.values(graph.people).find((p) => p.names[0].given === 'Benjamin')!
+    graph = updatePerson(graph, graph.managerId, { birthDate: '1990' })
+    graph = updatePerson(graph, benjamin.id, { birthDate: '1995' })
+    const positions = await personPositions(graph, 'youngest-first')
+    expect(positions.get(benjamin.id)!.x).toBeLessThan(positions.get(graph.managerId)!.x)
   })
 
   it('places a married sibling by their own age, not their partner’s', async () => {
