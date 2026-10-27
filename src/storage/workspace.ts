@@ -31,8 +31,8 @@ export interface Tab {
 }
 
 /** The ways a tab can show its tree. */
-export type TreeView = 'tree' | 'fan'
-export const TREE_VIEWS: readonly TreeView[] = ['tree', 'fan']
+export type TreeView = 'tree' | 'fan' | 'timeline'
+export const TREE_VIEWS: readonly TreeView[] = ['tree', 'fan', 'timeline']
 
 export interface Workspace {
   tabs: Tab[]

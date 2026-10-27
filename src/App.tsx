@@ -8,6 +8,7 @@ import { TabBar, type SavedTreeItem, type TabItem } from './app/TabBar'
 import { useAppearance } from './app/theme'
 import { ViewSwitcher } from './app/ViewSwitcher'
 import { FanChart } from './fan/FanChart'
+import { TimelineView } from './timeline/TimelineView'
 import { DEFAULT_LANGUAGE, LanguageProvider, useT } from './i18n'
 import {
   fullName,
@@ -563,6 +564,14 @@ function TreeTab({
             setSelectedId(childId)
             setSheetStart('parent')
           }}
+          controlsSlot={controlsSlot}
+        />
+      ) : view === 'timeline' ? (
+        <TimelineView
+          key={graph.managerId}
+          graph={graph}
+          selectedId={selectedId}
+          onSelect={select}
           controlsSlot={controlsSlot}
         />
       ) : (
