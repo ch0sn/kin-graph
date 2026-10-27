@@ -5,7 +5,7 @@ describe('parseSettings', () => {
   it('uses the defaults for nothing or nonsense', () => {
     expect(parseSettings(undefined)).toEqual(DEFAULT_SETTINGS)
     expect(parseSettings('dark')).toEqual(DEFAULT_SETTINGS)
-    expect(parseSettings({ colorMode: 'sepia', theme: 'neon', siblingOrder: 7, nameOrder: 'up', colorVision: 'rainbow', closeTab: 'burn', newTreeIn: 1, onStart: null })).toEqual(
+    expect(parseSettings({ colorMode: 'sepia', theme: 'neon', siblingOrder: 7, nameOrder: 'up', colorVision: 'rainbow', closeTab: 'burn', newTreeIn: 1, onStart: null, fanGenerations: 12 })).toEqual(
       DEFAULT_SETTINGS,
     )
   })
@@ -22,6 +22,7 @@ describe('parseSettings', () => {
       closeTab: 'ask',
       newTreeIn: 'replace',
       onStart: 'own-tree',
+      fanGenerations: 6,
     } as const
     expect(parseSettings(settings)).toEqual(settings)
   })

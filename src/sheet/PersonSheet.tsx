@@ -50,7 +50,7 @@ import { PersonForm } from './PersonForm'
 import { Timeline } from './Timeline'
 import { emptyName, emptyValues, valuesFromPerson } from './personValues'
 
-type Relation = 'parent' | 'partner' | 'sibling' | 'child'
+export type Relation = 'parent' | 'partner' | 'sibling' | 'child'
 
 type Mode =
   | { view: 'details' }
@@ -102,23 +102,26 @@ interface PersonSheetProps {
   onChange: (graph: FamilyGraph) => void
   onClose: () => void
   perspectives?: Perspectives
+  /** Opens the sheet on the form for adding this kind of relative, rather than the details. */
+  startWith?: Relation
 }
 
 /** Details and actions for the selected person, sliding up from the bottom. */
-export function PersonSheet({ graph, personId, onChange, onClose, perspectives }: PersonSheetProps) {
+export function PersonSheet({ graph, personId, onChange, onClose, perspectives, startWith }: PersonSheetProps) {
   const person = personId ? graph.people[personId] : undefined
   return (
     <AnimatePresence>
       {person && (
         <Sheet key="sheet" label={fullName(person)} onClose={onClose}>
-          {/* Keyed by person so switching people resets the view. */}
+          {/* Keyed by person (and where it starts) so switching resets the view. */}
           <SheetBody
-            key={person.id}
+            key={`${person.id}:${startWith ?? ''}`}
             graph={graph}
             person={person}
             onChange={onChange}
             onClose={onClose}
             perspectives={perspectives}
+            startWith={startWith}
           />
         </Sheet>
       )}
@@ -196,15 +199,17 @@ function SheetBody({
   onChange,
   onClose,
   perspectives,
+  startWith,
 }: {
   graph: FamilyGraph
   person: Person
   onChange: (graph: FamilyGraph) => void
   onClose: () => void
   perspectives?: Perspectives
+  startWith?: Relation
 }) {
   const { t } = useT()
-  const [mode, setMode] = useState<Mode>({ view: 'details' })
+  const [mode, setMode] = useState<Mode>(startWith ? { view: 'add', relation: startWith } : { view: 'details' })
   const [error, setError] = useState<string | null>(null)
   const go = (next: Mode) => {
     setMode(next)

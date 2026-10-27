@@ -68,18 +68,24 @@ body {
 :root[data-vision='protanopia'] [data-theme] {
   --accent-l: #0072b2;
   --accent-d: #56b4e9;
+  --fan-mother-l: #e69f00;
+  --fan-mother-d: #f0c35a;
 }
 
 :root[data-vision='deuteranopia'],
 :root[data-vision='deuteranopia'] [data-theme] {
   --accent-l: #c24f00;
   --accent-d: #ffa04d;
+  --fan-mother-l: #0072b2;
+  --fan-mother-d: #56b4e9;
 }
 
 :root[data-vision='tritanopia'],
 :root[data-vision='tritanopia'] [data-theme] {
   --accent-l: #b82d73;
   --accent-d: #f58dbb;
+  --fan-mother-l: #009e73;
+  --fan-mother-d: #4fd1a5;
 }
 
 /* No colour at all: black or white, with heavier lines to stand out by weight. */
@@ -87,6 +93,8 @@ body {
 :root[data-vision='monochrome'] [data-theme] {
   --accent-l: #000;
   --accent-d: #fff;
+  --fan-mother-l: #8a8580;
+  --fan-mother-d: #77726d;
 }
 
 :root[data-vision='monochrome'] .react-flow__edge.edge-lineage .react-flow__edge-path {
@@ -143,6 +151,9 @@ body {
   --accent-ink: color-mix(in oklab, var(--accent) 55%, var(--color-stone-900));
   --accent-glow: color-mix(in oklab, var(--accent) 22%, transparent);
   --accent-strong: color-mix(in oklab, var(--accent) 50%, transparent);
+  /* The fan chart's sides: the father's tinted from the accent, the mother's from a hue that stays apart from it. */
+  --fan-father: var(--accent);
+  --fan-mother: var(--fan-mother-l);
 }
 
 :root.dark,
@@ -161,6 +172,7 @@ body {
   /* Cards and surfaces sit just above the near-black page (stone-50). */
   --color-white: oklch(18.5% calc(var(--n-c) * 0.5) var(--n-h));
   --accent: var(--accent-d);
+  --fan-mother: var(--fan-mother-d);
 }
 
 .dark {
@@ -214,6 +226,8 @@ body {
   --card-shadow-hover: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
   --name-size: 15px;
   --edge-w: 1.5px;
+  --fan-mother-l: oklch(66% 0.09 160);
+  --fan-mother-d: oklch(72% 0.09 160);
 }
 
 @utility card-shadow {

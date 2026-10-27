@@ -19,6 +19,7 @@ import {
   type Tab,
   type TreeId,
   type TreeMeta,
+  type TreeView,
   type Workspace,
 } from './workspace'
 
@@ -65,6 +66,8 @@ export interface StoredTrees extends Data {
   forkView: (tabId: string, graph: FamilyGraph) => Promise<void>
   /** Remembers that edits in a view should change the viewed tree. */
   shareView: (tabId: string) => void
+  /** Switches how a tab shows its tree: the tree itself, or a fan chart. */
+  setTabView: (tabId: string, view: TreeView) => void
   /** Removes a tree from this device, closing its tabs. */
   deleteTree: (treeId: TreeId) => Promise<void>
 }
@@ -364,6 +367,11 @@ export function useStoredTrees(onStart: StartTabs | null): StoredTrees {
     forkView,
     shareView: useCallback(
       (tabId: string) => commit({ workspace: updateTab(latest.current.workspace, tabId, { editChoice: 'shared' }) }),
+      [commit],
+    ),
+    setTabView: useCallback(
+      (tabId: string, view: TreeView) =>
+        commit({ workspace: updateTab(latest.current.workspace, tabId, { view: view === 'tree' ? undefined : view }) }),
       [commit],
     ),
     deleteTree,
