@@ -1,21 +1,28 @@
 import { motion, MotionConfig } from 'motion/react'
-import { useCallback, useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import { AppMenu, SaveIndicator } from './app/AppMenu'
+import { CheckPanel } from './app/CheckPanel'
 import { HeaderActions } from './app/HeaderActions'
+import { HistoryDialog } from './app/HistoryDialog'
 import { ReplaceTreeConfirm } from './app/ReplaceTreeConfirm'
 import { SettingsDialog } from './app/SettingsDialog'
 import { TabBar, type SavedTreeItem, type TabItem } from './app/TabBar'
 import { useAppearance } from './app/theme'
+import { UndoButtons, UndoToast, type Notice } from './app/UndoControls'
+import { useUndoShortcuts } from './app/useUndoShortcuts'
 import { ViewSwitcher } from './app/ViewSwitcher'
 import { FanChart } from './fan/FanChart'
 import { DEFAULT_LANGUAGE, LanguageProvider, useT } from './i18n'
 import {
+  checkTree,
+  flaggedPeople,
   fullName,
   GraphError,
   peopleCount,
   setPreferredNameOrder,
   type FamilyGraph,
   type PersonId,
+  type TreeIssue,
 } from './model'
 import { DamagedTree } from './onboarding/DamagedTree'
 import { Onboarding } from './onboarding/Onboarding'
@@ -25,6 +32,7 @@ import { downloadBackup } from './storage/backup'
 import type { Settings } from './storage/settings'
 import { useBackupPicker } from './storage/useBackupPicker'
 import {
+  useLastBackup,
   useOnboarded,
   useSettings,
   useStoredTrees,
@@ -116,6 +124,11 @@ function WorkspaceScreen({
   const importPicker = useBackupPicker((graph) =>
     inPlaceOrNewTab((replaceTabId) => void stored.createTree(graph, { replaceTabId })),
   )
+  /** The tree check or the version history, for the active tab's tree. */
+  const [panel, setPanel] = useState<'check' | 'history' | null>(null)
+  const [notice, setNotice] = useState<Notice | null>(null)
+  const dismissNotice = useCallback(() => setNotice(null), [])
+  const lastBackup = useLastBackup()
 
   const { graphs, trees, activeTab } = stored
   const graphOf = (treeId: TreeId) => {
@@ -150,6 +163,40 @@ function WorkspaceScreen({
   const activeGraph = activeTab ? graphOf(activeTab.treeId) : null
   const shownGraph = !creating && activeTab && activeGraph ? viewGraph(activeGraph, activeTab) : null
   const replaces = settings.newTreeIn === 'replace' && Boolean(activeTab && !activeTab.viewRootId)
+
+  const activeMeta = activeTab ? trees.find((tree) => tree.id === activeTab.treeId) : undefined
+  const issues = useMemo(() => (activeGraph ? checkTree(activeGraph) : []), [activeGraph])
+  const ignoredIssues = useMemo(() => new Set(activeMeta?.ignoredIssues ?? []), [activeMeta])
+  const openIssues = issues.filter((issue) => !ignoredIssues.has(issue.id))
+
+  const editable = shownGraph ? activeTab!.treeId : null
+  const { undo, redo } = stored
+  // Any notice is about the edit just undone or redone, so it no longer applies.
+  const undoActive = useCallback(() => {
+    if (editable) undo(editable)
+    setNotice(null)
+  }, [editable, undo])
+  const redoActive = useCallback(() => {
+    if (editable) redo(editable)
+    setNotice(null)
+  }, [editable, redo])
+  useUndoShortcuts(undoActive, redoActive)
+
+  /** Applies an edit to a tree, offering to undo it straight away if it removed someone. */
+  const editTree = (treeId: TreeId, graph: FamilyGraph) => {
+    const before = graphOf(treeId)
+    stored.setGraph(treeId, graph)
+    const removed = before && Object.values(before.people).find((p) => !p.isPlaceholder && !graph.people[p.id])
+    if (removed) {
+      setNotice({ id: Date.now(), text: t('edit.removed', { name: fullName(removed) }), onUndo: () => undo(treeId) })
+    }
+  }
+
+  // Never having exported is already what the menu's note is about.
+  const backupReminder =
+    lastBackup?.isOld && lastBackup.at !== null
+      ? t('menu.backupOld', { date: new Intl.DateTimeFormat(language, { dateStyle: 'long' }).format(lastBackup.at) })
+      : null
 
   const personName = (treeId: TreeId, personId: PersonId) => {
     const person = graphOf(treeId)?.people[personId]
@@ -210,11 +257,23 @@ function WorkspaceScreen({
           </h1>
           <div className="flex items-center gap-1">
             <SaveIndicator state={stored.saveState} />
+            {editable && (
+              <UndoButtons
+                canUndo={Boolean(stored.undoable[editable]?.undo)}
+                canRedo={Boolean(stored.undoable[editable]?.redo)}
+                onUndo={undoActive}
+                onRedo={redoActive}
+              />
+            )}
             <HeaderActions graph={shownGraph} />
             <AppMenu
               persisted={stored.persisted}
               onShowIntro={onShowIntro}
               onOpenSettings={() => setSettingsOpen(true)}
+              onOpenCheck={editable ? () => setPanel('check') : undefined}
+              issueCount={openIssues.length}
+              onOpenHistory={editable ? () => setPanel('history') : undefined}
+              backupReminder={backupReminder}
             />
           </div>
         </motion.header>
@@ -270,6 +329,12 @@ function WorkspaceScreen({
                 settings={settings}
                 onSettingsChange={onSettingsChange}
                 controlsSlot={viewControls}
+                onEdit={(graph) => editTree(activeTab.treeId, graph)}
+                issues={issues}
+                ignoredIssues={ignoredIssues}
+                onIgnoreIssue={(issueId, ignored) => stored.ignoreIssue(activeTab.treeId, issueId, ignored)}
+                checking={panel === 'check'}
+                onCloseCheck={() => setPanel(null)}
                 onFork={(graph, then) => setPending({ kind: 'fork', tabId: activeTab.id, graph, then })}
                 onViewAs={(personId) => setPending({ kind: 'viewAs', treeId: activeTab.treeId, personId })}
                 onDeleteTree={() => {
@@ -282,6 +347,23 @@ function WorkspaceScreen({
           )}
         </main>
       </div>
+      <UndoToast notice={notice} onDismiss={dismissNotice} />
+      <HistoryDialog
+        tree={
+          panel === 'history' && editable && activeGraph
+            ? { id: editable, name: treeName(editable), graph: activeGraph }
+            : null
+        }
+        lastBackup={lastBackup}
+        onRestore={(snapshot) => {
+          if (!editable) return
+          stored.restoreSnapshot(editable, snapshot.graph)
+          setPanel(null)
+          const time = new Intl.DateTimeFormat(language, { dateStyle: 'medium', timeStyle: 'short' }).format(snapshot.takenAt)
+          setNotice({ id: Date.now(), text: t('edit.restored', { time }), onUndo: () => undo(editable) })
+        }}
+        onClose={() => setPanel(null)}
+      />
       <ReplaceTreeConfirm
         graph={replacing ? graphOf(stored.workspace.tabs.find((tab) => tab.id === replacing.tabId)?.treeId ?? '') : null}
         onConfirm={() => {
@@ -363,7 +445,7 @@ function WorkspaceScreen({
           const tree = tab && graphOf(tab.treeId)
           if (tab && tree) {
             stored.shareView(tab.id)
-            stored.setGraph(tab.treeId, unviewGraph(pending.graph, tree))
+            editTree(tab.treeId, unviewGraph(pending.graph, tree))
             pending.then?.()
           }
           setPending(null)
@@ -467,6 +549,12 @@ function TreeTab({
   settings,
   onSettingsChange,
   controlsSlot,
+  onEdit,
+  issues,
+  ignoredIssues,
+  onIgnoreIssue,
+  checking,
+  onCloseCheck,
   onFork,
   onViewAs,
   onDeleteTree,
@@ -481,6 +569,15 @@ function TreeTab({
   settings: Settings
   onSettingsChange: (patch: Partial<Settings>) => void
   controlsSlot: HTMLElement | null
+  /** Applies an edit to the tree itself. */
+  onEdit: (graph: FamilyGraph) => void
+  /** What the tree check found, ignored issues included. */
+  issues: TreeIssue[]
+  ignoredIssues: ReadonlySet<string>
+  onIgnoreIssue: (issueId: string, ignored: boolean) => void
+  /** Whether the tree check's findings are open. */
+  checking: boolean
+  onCloseCheck: () => void
   /** Asks whether an edit in a view should start the root's own tree; `then` runs once it's applied. */
   onFork: (graph: FamilyGraph, then?: () => void) => void
   /** Asks whether to just view the tree from `personId`'s side or make it their tree. */
@@ -499,11 +596,15 @@ function TreeTab({
   }, [])
   const closeSheet = useCallback(() => select(null), [select])
   const view = tab.view ?? 'tree'
+  const flaggedIds = useMemo(
+    () => flaggedPeople(issues.filter((issue) => !ignoredIssues.has(issue.id))),
+    [issues, ignoredIssues],
+  )
 
   /** Applies an edit; `then` runs once it is applied, which in a view may wait for a question. */
   const onChange = (edited: FamilyGraph, then?: () => void) => {
     if (!tab.viewRootId) {
-      stored.setGraph(tab.treeId, edited)
+      onEdit(edited)
       return then?.()
     }
     // The tree's own root can't go; the sheet shows this like any other refused edit.
@@ -513,7 +614,7 @@ function TreeTab({
       )
     }
     if (tab.editChoice === 'shared') {
-      stored.setGraph(tab.treeId, unviewGraph(edited, tree))
+      onEdit(unviewGraph(edited, tree))
       then?.()
     } else onFork(edited, then)
   }
@@ -569,6 +670,7 @@ function TreeTab({
         <FamilyTree
           key={graph.managerId}
           graph={graph}
+          flaggedIds={flaggedIds}
           siblingOrder={settings.siblingOrder}
           nameOrder={settings.nameOrder}
           pattern={themeInfo(settings.theme).pattern}
@@ -587,6 +689,18 @@ function TreeTab({
         onClose={closeSheet}
         perspectives={perspectives}
         startWith={sheetStart}
+      />
+      <CheckPanel
+        open={checking}
+        graph={graph}
+        issues={issues}
+        ignored={ignoredIssues}
+        onIgnore={onIgnoreIssue}
+        onShow={(personId) => {
+          onCloseCheck()
+          select(personId)
+        }}
+        onClose={onCloseCheck}
       />
     </>
   )

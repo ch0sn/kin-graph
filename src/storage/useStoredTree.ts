@@ -1,15 +1,18 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { FamilyGraph, PersonId } from '../model'
 import { createAutosaver, type Autosaver, type SaveState } from './autosave'
-import { photoIdsOf } from './backup'
+import { onBackupExported, photoIdsOf } from './backup'
 import * as db from './db'
+import { emptyHistory, record, redo as redoIn, undo as undoIn, type History } from './history'
 import { prunePhotos } from './photos'
 import { DEFAULT_SETTINGS, type Settings, type StartTabs } from './settings'
+import { SNAPSHOT_INTERVAL_MS } from './snapshots'
 import { notifyTabs, onTabMessage } from './tabs'
 import {
   addTab,
   dropTree,
   EMPTY_WORKSPACE,
+  ignoreIssue,
   linkTrees,
   openView as openViewIn,
   removeTab,
@@ -43,6 +46,8 @@ export interface StoredTrees extends Data {
   savedAt: Record<TreeId, number>
   /** Whether the browser agreed not to clear our data; null until asked. */
   persisted: boolean | null
+  /** Which trees have edits to undo or redo. */
+  undoable: Record<TreeId, { undo: boolean; redo: boolean }>
   selectTab: (tabId: string) => void
   /** Closes a tab; the tree stays saved. */
   closeTab: (tabId: string) => void
@@ -58,8 +63,16 @@ export interface StoredTrees extends Data {
     graph: FamilyGraph,
     options?: { replaceTabId?: string; linkFrom?: { treeId: TreeId; personId: PersonId } },
   ) => Promise<void>
-  /** Records an edit; it's saved once edits pause. */
+  /** Records an edit, which can be undone; it's saved once edits pause. */
   setGraph: (treeId: TreeId, graph: FamilyGraph) => void
+  /** Takes back a tree's latest edit. */
+  undo: (treeId: TreeId) => void
+  /** Makes an edit that was undone again. */
+  redo: (treeId: TreeId) => void
+  /** Puts an older version of a tree back, as an edit that can be undone. */
+  restoreSnapshot: (treeId: TreeId, graph: FamilyGraph) => void
+  /** Ignores one of the problems `checkTree` found in a tree, or stops ignoring it. */
+  ignoreIssue: (treeId: TreeId, issueId: string, ignored: boolean) => void
   /** Replaces a tree's contents, saving straight away. */
   replaceGraph: (treeId: TreeId, graph: FamilyGraph) => Promise<void>
   /** Turns a view into a tree of its own, holding `graph`, and links it to the person. */
@@ -77,11 +90,22 @@ const EMPTY: Data = { trees: [], graphs: {}, workspace: EMPTY_WORKSPACE }
 const readyGraphs = (graphs: Record<TreeId, TreeState>) =>
   Object.values(graphs).flatMap((state) => (state.status === 'ready' ? [state.graph] : []))
 
-/** Deletes photos no tree uses. A damaged tree may still refer to its photos, so then nothing goes. */
+/**
+ * Deletes photos no tree or snapshot uses. A damaged tree may still refer to
+ * its photos, so then nothing goes.
+ */
 function tidyPhotos(graphs: Record<TreeId, TreeState>) {
   if (Object.values(graphs).some((state) => state.status === 'damaged')) return
-  prunePhotos(new Set(readyGraphs(graphs).flatMap(photoIdsOf))).catch(() => {})
+  void (async () => {
+    const snapshots = (await Promise.all(Object.keys(graphs).map(db.loadSnapshots))).flat()
+    const used = [...readyGraphs(graphs), ...snapshots.map((s) => s.graph)].flatMap(photoIdsOf)
+    await prunePhotos(new Set(used))
+  })().catch(() => {})
 }
+
+/** Whether `next` leaves out someone `previous` had, placeholder parents aside. */
+const removesSomeone = (previous: FamilyGraph, next: FamilyGraph) =>
+  Object.values(previous.people).some((person) => !person.isPlaceholder && !next.people[person.id])
 
 async function loadGraphs(trees: TreeMeta[]): Promise<Record<TreeId, TreeState>> {
   const loaded = await Promise.all(trees.map((tree) => db.loadTree(tree.id)))
@@ -114,6 +138,23 @@ export function useStoredTrees(onStart: StartTabs | null): StoredTrees {
   )
   const [persisted, setPersisted] = useState<boolean | null>(null)
   const autosavers = useRef(new Map<TreeId, Autosaver<FamilyGraph>>())
+  /** Undo and redo, per tree. Only for this tab and this visit. */
+  const histories = useRef(new Map<TreeId, History<FamilyGraph>>())
+  const [undoable, setUndoable] = useState<StoredTrees['undoable']>({})
+  const setHistory = useCallback((treeId: TreeId, history: History<FamilyGraph> | null) => {
+    if (history) histories.current.set(treeId, history)
+    else histories.current.delete(treeId)
+    setUndoable((current) => {
+      const { [treeId]: _old, ...rest } = current
+      return history ? { ...rest, [treeId]: { undo: history.past.length > 0, redo: history.future.length > 0 } } : rest
+    })
+  }, [])
+  /** When each tree was last copied as a snapshot, in ms. */
+  const snapshotAt = useRef(new Map<TreeId, number>())
+  const snapshot = useCallback((treeId: TreeId, graph: FamilyGraph, reason: Parameters<typeof db.saveSnapshot>[2]) => {
+    snapshotAt.current.set(treeId, Date.now())
+    void db.saveSnapshot(treeId, graph, reason).catch(() => {})
+  }, [])
 
   const commit = useCallback((patch: Partial<Data>, { broadcast = true } = {}) => {
     const next = { ...latest.current, ...patch }
@@ -133,13 +174,16 @@ export function useStoredTrees(onStart: StartTabs | null): StoredTrees {
           await db.saveTree(treeId, graph)
           markSaved(treeId)
           notifyTabs({ type: 'saved', treeId })
+          if (Date.now() - (snapshotAt.current.get(treeId) ?? 0) > SNAPSHOT_INTERVAL_MS) {
+            snapshot(treeId, graph, 'autosave')
+          }
         },
         { onStateChange: (state) => setSaveStates((states) => ({ ...states, [treeId]: state })) },
       )
       autosavers.current.set(treeId, autosaver)
     }
     return autosaver
-  }, [markSaved])
+  }, [markSaved, snapshot])
 
   // Load once, with whichever start setting is in effect then.
   const startWith = useRef(onStart)
@@ -169,6 +213,10 @@ export function useStoredTrees(onStart: StartTabs | null): StoredTrees {
       setLoading(false)
       if (kept.length !== trees.length) void db.saveTrees(kept)
       void db.saveWorkspace(workspace).catch(() => {})
+      // A copy of each tree as it was when this visit began.
+      for (const [id, state] of Object.entries(graphs)) {
+        if (state.status === 'ready') snapshot(id, state.graph, 'opened')
+      }
       tidyPhotos(graphs)
     })()
 
@@ -181,6 +229,8 @@ export function useStoredTrees(onStart: StartTabs | null): StoredTrees {
         const state = await db.loadTree(message.treeId)
         if (cancelled || state.status === 'empty') return
         if (state.status === 'ready' && state.savedAt) markSaved(message.treeId, state.savedAt)
+        // Undoing here now would quietly take back the other tab's edits too.
+        setHistory(message.treeId, null)
         commit({ graphs: { ...latest.current.graphs, [message.treeId]: state } })
       } else if (message.type === 'deleted') {
         const { [message.treeId]: _gone, ...graphs } = current.graphs
@@ -220,7 +270,7 @@ export function useStoredTrees(onStart: StartTabs | null): StoredTrees {
       window.removeEventListener('pagehide', flush)
       flush()
     }
-  }, [started, commit, markSaved])
+  }, [started, commit, markSaved, setHistory, snapshot])
 
   // A view whose root person was removed has nothing left to show.
   useEffect(() => {
@@ -242,12 +292,49 @@ export function useStoredTrees(onStart: StartTabs | null): StoredTrees {
     }
   }, [hasTree, persisted])
 
-  const setGraph = useCallback(
+  /** Shows and saves a tree's new contents, without touching its history. */
+  const apply = useCallback(
     (treeId: TreeId, graph: FamilyGraph) => {
       commit({ graphs: { ...latest.current.graphs, [treeId]: { status: 'ready', graph } } })
+      // Replaces any edit still waiting, so an undone edit is never written.
       autosaverFor(treeId).schedule(graph)
     },
     [autosaverFor, commit],
+  )
+
+  const setGraph = useCallback(
+    (treeId: TreeId, graph: FamilyGraph) => {
+      const state = latest.current.graphs[treeId]
+      if (state?.status === 'ready') {
+        if (state.graph === graph) return
+        setHistory(treeId, record(histories.current.get(treeId) ?? emptyHistory(), state.graph))
+        if (removesSomeone(state.graph, graph)) snapshot(treeId, state.graph, 'beforeRemove')
+      }
+      apply(treeId, graph)
+    },
+    [apply, setHistory, snapshot],
+  )
+
+  const step = useCallback(
+    (treeId: TreeId, direction: typeof undoIn) => {
+      const state = latest.current.graphs[treeId]
+      const history = histories.current.get(treeId)
+      if (state?.status !== 'ready' || !history) return
+      const stepped = direction(history, state.graph)
+      if (!stepped) return
+      setHistory(treeId, stepped.history)
+      apply(treeId, stepped.value)
+    },
+    [apply, setHistory],
+  )
+
+  const restoreSnapshot = useCallback(
+    (treeId: TreeId, graph: FamilyGraph) => {
+      const state = latest.current.graphs[treeId]
+      if (state?.status === 'ready') snapshot(treeId, state.graph, 'beforeRestore')
+      setGraph(treeId, graph)
+    },
+    [setGraph, snapshot],
   )
 
   const replaceGraph = useCallback(
@@ -262,6 +349,7 @@ export function useStoredTrees(onStart: StartTabs | null): StoredTrees {
     async (treeId: TreeId) => {
       autosavers.current.get(treeId)?.cancel()
       autosavers.current.delete(treeId)
+      setHistory(treeId, null)
       await db.deleteTree(treeId)
       const current = latest.current
       const { [treeId]: _gone, ...graphs } = current.graphs
@@ -274,7 +362,7 @@ export function useStoredTrees(onStart: StartTabs | null): StoredTrees {
       setSaveStates(({ [treeId]: _done, ...states }) => states)
       tidyPhotos(graphs)
     },
-    [commit],
+    [commit, setHistory],
   )
 
   /** Saves `graph` as a new tree and returns its id. */
@@ -344,6 +432,7 @@ export function useStoredTrees(onStart: StartTabs | null): StoredTrees {
     saveState,
     savedAt,
     persisted,
+    undoable,
     selectTab: useCallback(
       (tabId: string) => commit({ workspace: { ...latest.current.workspace, activeTabId: tabId } }),
       [commit],
@@ -363,6 +452,14 @@ export function useStoredTrees(onStart: StartTabs | null): StoredTrees {
     ),
     createTree,
     setGraph,
+    undo: useCallback((treeId: TreeId) => step(treeId, undoIn), [step]),
+    redo: useCallback((treeId: TreeId) => step(treeId, redoIn), [step]),
+    restoreSnapshot,
+    ignoreIssue: useCallback(
+      (treeId: TreeId, issueId: string, ignored: boolean) =>
+        commit({ trees: ignoreIssue(latest.current.trees, treeId, issueId, ignored) }),
+      [commit],
+    ),
     replaceGraph,
     forkView,
     shareView: useCallback(
@@ -440,4 +537,33 @@ export function useSettings(): [Settings | null, (patch: Partial<Settings>) => v
   )
 
   return [settings, update]
+}
+
+/** A backup older than this is worth a reminder. */
+export const BACKUP_REMINDER_MS = 30 * 24 * 60 * 60 * 1000
+
+export interface LastBackup {
+  /** When a backup file was last exported on this device; null if never. */
+  at: number | null
+  /** Whether that's long enough ago, or never, to remind the person to export one. */
+  isOld: boolean
+}
+
+/** The last backup exported on this device; undefined while loading. */
+export function useLastBackup(): LastBackup | undefined {
+  const [backup, setBackup] = useState<LastBackup | undefined>(undefined)
+  useEffect(() => {
+    let cancelled = false
+    const set = (at: number | null) => setBackup({ at, isOld: at === null || Date.now() - at > BACKUP_REMINDER_MS })
+    db.loadLastBackupAt().then(
+      (loaded) => !cancelled && set(loaded),
+      () => !cancelled && set(null),
+    )
+    const stop = onBackupExported(set)
+    return () => {
+      cancelled = true
+      stop()
+    }
+  }, [])
+  return backup
 }

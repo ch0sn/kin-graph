@@ -3,6 +3,7 @@ import { sampleFamily } from '../data/sampleFamily'
 import {
   addTab,
   dropTree,
+  ignoreIssue,
   linkedTree,
   linkTrees,
   openView,
@@ -123,5 +124,16 @@ describe('parsing', () => {
       { id: 'b', treeId: 'x' },
       { id: 'c', treeId: 'x' },
     ])
+  })
+})
+
+describe('ignored issues', () => {
+  it('are remembered per tree, and can be brought back', () => {
+    const ignored = ignoreIssue(ignoreIssue(trees, 'mine', 'x', true), 'mine', 'y', true)
+    expect(ignored.find((tree) => tree.id === 'mine')?.ignoredIssues).toEqual(['x', 'y'])
+    expect(ignored.find((tree) => tree.id !== 'mine')?.ignoredIssues).toBeUndefined()
+    const restored = ignoreIssue(ignoreIssue(ignored, 'mine', 'x', false), 'mine', 'y', false)
+    expect(restored).toEqual(trees)
+    expect(parseTreeMetas(ignored)).toEqual(ignored)
   })
 })

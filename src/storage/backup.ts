@@ -2,6 +2,7 @@ import { t } from '../i18n'
 import { fullName, type FamilyGraph } from '../model'
 import { createGedcomArchive } from '../gedcom/archive'
 import { toGedcom, type GedcomChoices } from '../gedcom/export'
+import { saveLastBackupAt } from './db'
 import { loadPhotos } from './photos'
 import { parseBackup, toDocument, TreeFileError, type Backup } from './treeDocument'
 
@@ -38,10 +39,26 @@ export async function createBackup(
   return new Blob([JSON.stringify(doc, null, 2)], { type: 'application/json' })
 }
 
-/** Saves a backup file, photos included, through the browser's normal download. */
-export async function downloadBackup(graph: FamilyGraph): Promise<void> {
+/**
+ * Saves a backup file, photos included, through the browser's normal
+ * download. It's remembered as the latest backup unless `remember` is false,
+ * as for an older version of the tree.
+ */
+export async function downloadBackup(graph: FamilyGraph, { remember = true } = {}): Promise<void> {
   const file = await createBackup(graph, await loadPhotos(photoIdsOf(graph)))
   saveFile(file, backupFileName(graph))
+  if (!remember) return
+  const now = Date.now()
+  for (const listener of backupListeners) listener(now)
+  await saveLastBackupAt(now).catch(() => {})
+}
+
+const backupListeners = new Set<(at: number) => void>()
+
+/** Hears when a backup file is exported from this tab; returns a function that stops listening. */
+export function onBackupExported(listener: (at: number) => void): () => void {
+  backupListeners.add(listener)
+  return () => backupListeners.delete(listener)
 }
 
 /**
