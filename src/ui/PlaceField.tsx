@@ -24,22 +24,33 @@ export function PlaceField({
   label,
   value,
   onChange,
+  help,
 }: {
   label: string
   value: string
   onChange: (value: string) => void
+  /** A short note under the label, smaller than the fields. */
+  help?: string
 }) {
   const { t, language } = useT()
   const { country, city } = parsePlace(value)
   const listId = useId()
+  const helpId = useId()
   const [suggestionsOpen, setSuggestionsOpen] = useState(false)
   const suggestions = suggestionsOpen ? suggestCities(country, city) : []
 
   const change = (nextCountry: string, nextCity: string) => onChange(formatPlace(nextCountry, nextCity, language))
 
   return (
-    <fieldset className="flex flex-col gap-1.5">
-      <legend className="mb-1.5 text-xs font-semibold tracking-wide text-stone-500 uppercase">{label}</legend>
+    <fieldset className="flex flex-col gap-1.5" aria-describedby={help ? helpId : undefined}>
+      <legend className="mb-1.5 w-full">
+        <span className="text-xs font-semibold tracking-wide text-stone-500 uppercase">{label}</span>
+        {help && (
+          <p id={helpId} className="mt-1 text-[11px] leading-snug font-normal tracking-normal text-stone-400 normal-case">
+            {help}
+          </p>
+        )}
+      </legend>
       <CountrySelect
         country={country}
         onChange={(next) => {
@@ -56,6 +67,7 @@ export function PlaceField({
           value={city}
           placeholder={t('form.cityPlaceholder')}
           disabled={!country}
+          aria-describedby={help ? helpId : undefined}
           autoComplete="off"
           autoCorrect="off"
           spellCheck={false}

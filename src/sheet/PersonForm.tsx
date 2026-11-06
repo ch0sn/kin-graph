@@ -89,6 +89,7 @@ export function PersonForm({
       />
       <PlaceField
         label={t('form.birthPlace')}
+        help={t('welcome.birthPlaceBody')}
         value={values.birthPlace}
         onChange={(place) => update('birthPlace', place)}
       />

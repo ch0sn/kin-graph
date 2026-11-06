@@ -65,6 +65,7 @@ export const en = {
   'welcome.genderBody': 'This is how relationships such as mother or father are labelled. You can skip it.',
   'welcome.birthTitle': 'When and where were you born?',
   'welcome.birthBody': 'A year is enough if the day isn’t known. You can leave this blank.',
+  'welcome.birthPlaceBody': 'The city stays locked until you choose a country. You can leave it blank.',
   'welcome.photoTitle': 'Add a photo',
   'welcome.photoBody': 'A picture makes you easy to spot in the tree. You can add one later.',
   'welcome.moreTitle': 'Anything else?',

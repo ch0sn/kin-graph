@@ -64,6 +64,7 @@ export const es: Record<MessageId, string> = {
   'welcome.genderBody': 'Así se nombran parentescos como madre o padre. Puedes omitirlo.',
   'welcome.birthTitle': '¿Cuándo y dónde naciste?',
   'welcome.birthBody': 'Un año basta si no conoces el día. Puedes dejarlo en blanco.',
+  'welcome.birthPlaceBody': 'La ciudad permanece bloqueada hasta que elijas un país. Puedes dejarla en blanco.',
   'welcome.photoTitle': 'Añade una foto',
   'welcome.photoBody': 'Una imagen hace que sea fácil reconocerte en el árbol. Puedes añadirla más tarde.',
   'welcome.moreTitle': '¿Algo más?',

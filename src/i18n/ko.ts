@@ -67,6 +67,7 @@ export const ko: Record<MessageId, string> = {
   'welcome.genderBody': '어머니, 아버지처럼 관계를 표시하는 데 쓰입니다. 건너뛰어도 됩니다.',
   'welcome.birthTitle': '언제, 어디에서 태어났나요?',
   'welcome.birthBody': '날짜를 모르면 연도만 적어도 됩니다. 비워 두어도 됩니다.',
+  'welcome.birthPlaceBody': '나라를 고르기 전에는 도시가 잠겨 있습니다. 비워 두어도 됩니다.',
   'welcome.photoTitle': '사진을 추가하세요',
   'welcome.photoBody': '사진이 있으면 가계도에서 쉽게 찾을 수 있습니다. 나중에 추가해도 됩니다.',
   'welcome.moreTitle': '더 적을 내용이 있나요?',

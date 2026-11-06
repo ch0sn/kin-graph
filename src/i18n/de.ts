@@ -64,6 +64,7 @@ export const de: Record<MessageId, string> = {
   'welcome.genderBody': 'Damit werden Verwandtschaften wie Mutter oder Vater benannt. Du kannst das überspringen.',
   'welcome.birthTitle': 'Wann und wo bist du geboren?',
   'welcome.birthBody': 'Ein Jahr reicht, wenn du den Tag nicht kennst. Du kannst das auch leer lassen.',
+  'welcome.birthPlaceBody': 'Die Stadt bleibt gesperrt, bis du ein Land wählst. Du kannst sie leer lassen.',
   'welcome.photoTitle': 'Ein Foto hinzufügen',
   'welcome.photoBody': 'Ein Bild macht dich im Stammbaum leicht erkennbar. Du kannst es auch später ergänzen.',
   'welcome.moreTitle': 'Noch etwas?',
