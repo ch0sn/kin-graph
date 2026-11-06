@@ -5,6 +5,7 @@ const SIZES = {
   sm: 'size-11 text-lg',
   md: 'size-14 text-xl',
   lg: 'size-20 text-2xl',
+  xl: 'size-32 text-3xl',
 }
 
 interface AvatarProps {
