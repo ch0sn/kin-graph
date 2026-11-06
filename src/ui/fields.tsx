@@ -41,6 +41,7 @@ export function TextInput({
       className={[
         'w-full rounded-xl border bg-white px-3 py-2.5 text-base text-stone-900 outline-none transition placeholder:text-stone-400',
         'focus:border-stone-500 focus:ring-4 focus:ring-stone-200',
+        'disabled:cursor-not-allowed disabled:bg-stone-50 disabled:text-stone-400',
         invalid ? 'border-red-400' : 'border-stone-200',
         className,
       ].join(' ')}
@@ -66,7 +67,7 @@ export function SelectInput<T extends string>({
       <select
         value={value}
         onChange={(e) => onChange(e.target.value as T)}
-        className="w-full appearance-none rounded-xl border border-stone-200 bg-white py-2.5 pr-10 pl-3 text-base text-stone-900 outline-none transition focus:border-stone-500 focus:ring-4 focus:ring-stone-200"
+        className="w-full appearance-none rounded-xl border border-stone-200 bg-white py-2.5 pr-10 pl-3 text-base text-stone-900 outline-none transition focus:border-stone-500 focus:ring-4 focus:ring-stone-200 disabled:cursor-not-allowed disabled:bg-stone-50 disabled:text-stone-400"
         {...props}
       >
         {options.map((option) => (

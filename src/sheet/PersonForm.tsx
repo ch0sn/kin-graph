@@ -1,32 +1,15 @@
-import { Camera, Mars, Plus, TriangleAlert, Venus } from 'lucide-react'
-import { AnimatePresence, motion } from 'motion/react'
-import { useEffect, useId, useRef, useState, type FormEvent, type ReactNode } from 'react'
-import type { Gender, NewPerson } from '../model'
-import { squareCrop, type Crop } from '../photos/crop'
-import { PhotoCropDialog } from '../photos/PhotoCropDialog'
+import { TriangleAlert } from 'lucide-react'
+import { useId, useState, type FormEvent, type ReactNode } from 'react'
+import type { NewPerson } from '../model'
 import { useT } from '../i18n'
-import { storePhoto } from '../photos/photoCache'
-import {
-  loadPhotoSource,
-  PhotoError,
-  preparePhoto,
-  type PhotoSource,
-} from '../photos/preparePhoto'
-import { Avatar } from '../ui/Avatar'
 import { DateField } from '../ui/DateField'
-import { Button, Field, TextInput } from '../ui/fields'
-import { HelpLabel } from '../ui/HelpLabel'
 import { NameEditor } from './NameEditor'
-import {
-  emptyName,
-  toPersonFields,
-  toPersonName,
-  validate,
-  type NameValues,
-  type PersonErrors,
-  type PersonValues,
-} from './personValues'
+import { toPersonFields, validate, type NameValues, type PersonErrors, type PersonValues } from './personValues'
 import { FormActions } from './FormActions'
+import { GenderPicker } from './GenderPicker'
+import { DeceasedFields, NotesField, OtherNamesEditor, PlaceField } from './personFields'
+import { PersonPhotoField } from './PersonPhotoField'
+import { usePersonPhoto } from './usePersonPhoto'
 
 interface PersonFormProps {
   initial: PersonValues
@@ -40,14 +23,6 @@ interface PersonFormProps {
   children?: ReactNode
 }
 
-interface ChosenPhoto {
-  blob: Blob
-  url: string
-  /** The original image and the crop taken from it, for adjusting later. */
-  source: PhotoSource
-  crop: Crop
-}
-
 export function PersonForm({
   initial,
   submitLabel,
@@ -59,231 +34,54 @@ export function PersonForm({
   const { t } = useT()
   const [values, setValues] = useState(initial)
   const [errors, setErrors] = useState<PersonErrors>({})
-  /** A photo chosen in this form that isn't stored yet; its crop can still change. */
-  const [newPhoto, setNewPhoto] = useState<ChosenPhoto | null>(null)
-  /** The image being positioned in the crop dialog, if it's open. */
-  const [cropping, setCropping] = useState<{ source: PhotoSource; crop: Crop } | null>(null)
-  const [photoError, setPhotoError] = useState<string | null>(null)
-  const [busy, setBusy] = useState(false)
   const formId = useId()
-  const fileInput = useRef<HTMLInputElement>(null)
-
-  // Release image memory once a photo or its original are no longer needed.
-  useEffect(() => () => void (newPhoto && URL.revokeObjectURL(newPhoto.url)), [newPhoto])
-  const source = newPhoto?.source
-  useEffect(() => () => void (source && URL.revokeObjectURL(source.url)), [source])
+  const photo = usePersonPhoto(values.photoId, (photoId) => setValues((current) => ({ ...current, photoId })))
 
   const update = <K extends keyof PersonValues>(field: K, value: PersonValues[K]) => {
-    setValues((v) => ({ ...v, [field]: value }))
-    setErrors((e) => ({ ...e, [field]: undefined }))
+    setValues((current) => ({ ...current, [field]: value }))
+    setErrors((current) => ({ ...current, [field]: undefined }))
   }
 
-  // Names: the first is shown. A name that's added gets focus.
-  const [addedKey, setAddedKey] = useState<string | null>(null)
-  const otherNamesHelpId = useId()
-  const setNames = (change: (names: NameValues[]) => NameValues[]) => {
-    setValues((v) => ({ ...v, names: change(v.names) as PersonValues['names'] }))
-    setErrors((e) => ({ ...e, givenName: undefined }))
+  const setNames = (names: PersonValues['names']) => {
+    setValues((current) => ({ ...current, names }))
+    setErrors((current) => ({ ...current, givenName: undefined }))
   }
-  const setName = (key: string, name: NameValues) =>
-    setNames((names) => names.map((n) => (n.key === key ? name : n)))
-  const addName = () => {
-    const name = emptyName({ type: 'birth' })
-    setAddedKey(name.key)
-    setNames((names) => [...names, name])
-  }
-  const removeName = (key: string) => setNames((names) => names.filter((n) => n.key !== key))
-  const showName = (key: string) =>
-    setNames((names) => [...names.filter((n) => n.key === key), ...names.filter((n) => n.key !== key)])
-
-  const showPhotoError = (e: unknown) =>
-    setPhotoError(e instanceof PhotoError ? e.message : t('photo.unusable'))
-
-  const choosePhoto = async (file: File) => {
-    try {
-      const picked = await loadPhotoSource(file)
-      setCropping({ source: picked, crop: squareCrop(picked.width, picked.height) })
-      setPhotoError(null)
-    } catch (e) {
-      showPhotoError(e)
-    }
-  }
-
-  const confirmCrop = async (crop: Crop) => {
-    if (!cropping) return
-    const picked = cropping.source
-    setCropping(null)
-    try {
-      const blob = await preparePhoto(picked.file, crop)
-      setNewPhoto({ blob, url: URL.createObjectURL(blob), source: picked, crop })
-    } catch (e) {
-      showPhotoError(e)
-      if (picked !== source) URL.revokeObjectURL(picked.url)
-    }
-  }
-
-  const cancelCrop = () => {
-    // A newly picked image that was never used can go; one being re-adjusted stays.
-    if (cropping && cropping.source !== source) URL.revokeObjectURL(cropping.source.url)
-    setCropping(null)
-  }
-
-  const removePhoto = () => {
-    setNewPhoto(null)
-    update('photoId', '')
+  const setShownName = (name: NameValues) => {
+    setValues((current) => ({ ...current, names: [name, ...current.names.slice(1)] }))
+    setErrors((current) => ({ ...current, givenName: undefined }))
   }
 
   const submit = async (event: FormEvent) => {
     event.preventDefault()
     const found = validate(values)
     setErrors(found)
-    if (Object.keys(found).length > 0 || busy) return
+    if (Object.keys(found).length > 0 || photo.busy) return
 
-    let { photoId } = values
-    if (newPhoto) {
-      setBusy(true)
-      try {
-        photoId = await storePhoto(newPhoto.blob)
-      } catch {
-        setPhotoError(t('photo.storeFailed'))
-        return
-      } finally {
-        setBusy(false)
-      }
-      // Stored now, so a retry after a rejected edit doesn't store it twice.
-      update('photoId', photoId)
-      setNewPhoto(null)
-    }
+    const photoId = await photo.store()
+    if (photoId === null) return
     onSubmit(toPersonFields({ ...values, photoId }))
   }
 
-  const hasPhoto = newPhoto !== null || values.photoId !== ''
-
-  const addNameButton = (
-    <Button variant="ghost" className="-ml-3 w-fit px-3 py-1.5" onClick={addName}>
-      <Plus className="size-4" aria-hidden />
-      {t('form.addName')}
-    </Button>
-  )
-
   return (
     <form id={formId} onSubmit={submit} noValidate className="flex flex-col gap-4">
-      <div className="flex items-center gap-4">
-        <button
-          type="button"
-          onClick={() => fileInput.current?.click()}
-          aria-label={hasPhoto ? t('form.changePhoto') : t('form.addPhoto')}
-          className="group relative shrink-0 rounded-full focus-visible:ring-4 focus-visible:ring-stone-200 focus-visible:outline-none"
-        >
-          {hasPhoto ? (
-            <Avatar
-              person={{
-                names: [toPersonName(values.names[0]) ?? { given: '' }],
-                photoId: values.photoId || undefined,
-              }}
-              size="lg"
-              src={newPhoto ? newPhoto.url : undefined}
-            />
-          ) : (
-            <span className="flex size-20 items-center justify-center rounded-full border-2 border-dashed border-stone-300 bg-stone-50 text-stone-400 transition group-hover:border-stone-400 group-hover:text-stone-600">
-              <Camera className="size-7" strokeWidth={1.5} aria-hidden />
-            </span>
-          )}
-          {hasPhoto && (
-            <span className="absolute -right-0.5 -bottom-0.5 flex size-7 items-center justify-center rounded-full border-2 border-white bg-stone-900 text-white">
-              <Camera className="size-3.5" aria-hidden />
-            </span>
-          )}
-        </button>
-        {(hasPhoto || photoError) && (
-          <div className="flex min-w-0 flex-col items-start gap-1">
-            {hasPhoto && (
-              <div className="-ml-3 flex flex-wrap gap-1">
-                {newPhoto && (
-                  <Button
-                    variant="ghost"
-                    className="px-3 py-1.5"
-                    onClick={() => setCropping({ source: newPhoto.source, crop: newPhoto.crop })}
-                  >
-                    {t('form.adjust')}
-                  </Button>
-                )}
-                <Button
-                  variant="ghost"
-                  className="px-3 py-1.5 text-red-700 hover:bg-red-50 hover:text-red-800"
-                  onClick={removePhoto}
-                >
-                  {t('common.remove')}
-                </Button>
-              </div>
-            )}
-            {photoError && <p className="text-xs text-red-700">{photoError}</p>}
-          </div>
-        )}
-        <input
-          ref={fileInput}
-          type="file"
-          accept="image/*"
-          className="hidden"
-          data-testid="photo-file-input"
-          onChange={(e) => {
-            const file = e.target.files?.[0]
-            e.target.value = ''
-            if (file) void choosePhoto(file)
-          }}
-        />
-        <PhotoCropDialog
-          source={cropping?.source ?? null}
-          initialCrop={cropping?.crop ?? null}
-          onConfirm={(crop) => void confirmCrop(crop)}
-          onCancel={cancelCrop}
-        />
-      </div>
+      <PersonPhotoField photo={photo} given={values.names[0].given} />
 
       <NameEditor
         key={values.names[0].key}
         value={values.names[0]}
-        onChange={(name) => setName(name.key, name)}
+        onChange={setShownName}
         shown
         error={errors.givenName}
         autoFocus
       />
 
-      {values.names.length === 1 ? (
-        <div className="-mt-2">{addNameButton}</div>
-      ) : (
-        <fieldset className="flex flex-col gap-3">
-          <legend className="mb-1.5 w-full">
-            <HelpLabel
-              id={otherNamesHelpId}
-              about={t('form.otherNames')}
-              help={t('form.otherNamesHint')}
-              label={
-                <span className="text-xs font-semibold tracking-wide text-stone-500 uppercase">
-                  {t('form.otherNames')}
-                </span>
-              }
-            />
-          </legend>
-          {values.names.slice(1).map((name) => (
-            <div key={name.key} className="rounded-2xl border border-stone-200 p-3">
-              <NameEditor
-                value={name}
-                onChange={(next) => setName(name.key, next)}
-                autoFocus={name.key === addedKey}
-                onRemove={() => removeName(name.key)}
-                onShow={() => showName(name.key)}
-              />
-            </div>
-          ))}
-          {addNameButton}
-        </fieldset>
-      )}
+      <OtherNamesEditor names={values.names} onChange={setNames} />
 
       <GenderPicker value={values.gender} onChange={(gender) => update('gender', gender)} />
 
       <DateField
         label={t('form.born')}
+        help={t('welcome.birthBody')}
         value={values.birthDate}
         onChange={(date) => update('birthDate', date)}
         error={errors.birthDate}
@@ -291,59 +89,22 @@ export function PersonForm({
       />
       <PlaceField
         label={t('form.birthPlace')}
+        help={t('welcome.birthPlaceBody')}
         value={values.birthPlace}
         onChange={(place) => update('birthPlace', place)}
       />
 
-      <div className="flex flex-col gap-3">
-        <label className="flex w-fit items-center gap-2.5 text-sm text-stone-800">
-          <input
-            type="checkbox"
-            className="size-4 accent-stone-900"
-            checked={values.deceased}
-            onChange={(e) => update('deceased', e.target.checked)}
-          />
-          {t('form.deceased')}
-        </label>
-        <AnimatePresence initial={false}>
-          {values.deceased && (
-            <motion.div
-              initial={{ height: 0, opacity: 0 }}
-              animate={{ height: 'auto', opacity: 1 }}
-              exit={{ height: 0, opacity: 0 }}
-              transition={{ duration: 0.2, ease: 'easeOut' }}
-              className="overflow-hidden"
-            >
-              <DateField
-                label={t('form.died')}
-                value={values.deathDate}
-                onChange={(date) => update('deathDate', date)}
-                error={errors.deathDate}
-                qualifiers={false}
-              />
-              <div className="mt-3">
-                <PlaceField
-                  label={t('form.deathPlace')}
-                  value={values.deathPlace}
-                  onChange={(place) => update('deathPlace', place)}
-                />
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-      </div>
+      <DeceasedFields
+        deceased={values.deceased}
+        deathDate={values.deathDate}
+        deathPlace={values.deathPlace}
+        deathDateError={errors.deathDate}
+        onDeceased={(deceased) => update('deceased', deceased)}
+        onDeathDate={(date) => update('deathDate', date)}
+        onDeathPlace={(place) => update('deathPlace', place)}
+      />
 
-      <Field label={t('form.notes')}>
-        {(id) => (
-          <textarea
-            id={id}
-            value={values.notes}
-            onChange={(e) => update('notes', e.target.value)}
-            rows={3}
-            className="w-full resize-y rounded-xl border border-stone-200 bg-white px-3 py-2.5 text-base text-stone-900 outline-none transition placeholder:text-stone-400 focus:border-stone-500 focus:ring-4 focus:ring-stone-200"
-          />
-        )}
-      </Field>
+      <NotesField value={values.notes} onChange={(notes) => update('notes', notes)} />
 
       {children}
       {error && (
@@ -355,63 +116,7 @@ export function PersonForm({
           {error}
         </p>
       )}
-      <FormActions formId={formId} submitLabel={submitLabel} onCancel={onCancel} busy={busy} />
+      <FormActions formId={formId} submitLabel={submitLabel} onCancel={onCancel} busy={photo.busy} />
     </form>
-  )
-}
-
-function PlaceField({ label, value, onChange }: { label: string; value: string; onChange: (value: string) => void }) {
-  return (
-    <Field label={label}>
-      {(id) => <TextInput id={id} value={value} onChange={(e) => onChange(e.target.value)} autoComplete="off" />}
-    </Field>
-  )
-}
-
-const GENDER_OPTIONS = [
-  { value: 'female', label: 'gender.female', Icon: Venus },
-  { value: 'male', label: 'gender.male', Icon: Mars },
-] as const
-
-/** Icon toggles; tapping the selected one again clears it. */
-function GenderPicker({
-  value,
-  onChange,
-}: {
-  value: Gender | ''
-  onChange: (value: Gender | '') => void
-}) {
-  const { t } = useT()
-  const labelId = useId()
-  return (
-    <div role="group" aria-labelledby={labelId} className="flex flex-col gap-1.5">
-      <span id={labelId} className="text-xs font-semibold tracking-wide text-stone-500 uppercase">
-        {t('form.gender')}
-      </span>
-      <div className="flex gap-2">
-        {GENDER_OPTIONS.map(({ value: option, label, Icon }) => {
-          const selected = value === option
-          return (
-            <button
-              key={option}
-              type="button"
-              aria-label={t(label)}
-              aria-pressed={selected}
-              title={t(label)}
-              onClick={() => onChange(selected ? '' : option)}
-              className={[
-                'flex size-11 items-center justify-center rounded-full border transition active:scale-95',
-                'focus-visible:ring-4 focus-visible:ring-stone-200 focus-visible:outline-none',
-                selected
-                  ? 'border-stone-900 bg-stone-900 text-white'
-                  : 'border-stone-200 bg-white text-stone-500 hover:border-stone-300 hover:text-stone-800',
-              ].join(' ')}
-            >
-              <Icon className="size-5" aria-hidden />
-            </button>
-          )
-        })}
-      </div>
-    </div>
   )
 }

@@ -4,6 +4,8 @@ import { useState } from 'react'
 import { useT } from '../i18n'
 import { Button } from '../ui/fields'
 import { Logo } from '../ui/Logo'
+import { StepDots } from './StepDots'
+import { slideVariants } from './stepMotion'
 
 const STEPS = [
   { icon: Sprout, title: 'onboarding.step1.title', body: 'onboarding.step1.body' },
@@ -15,12 +17,18 @@ const STEPS = [
 export function Onboarding({ onDone }: { onDone: () => void }) {
   const { t } = useT()
   const [index, setIndex] = useState(0)
+  const [direction, setDirection] = useState<1 | -1>(1)
   const step = STEPS[index]
   const isLast = index === STEPS.length - 1
   const Icon = step.icon
 
+  const go = (next: number) => {
+    setDirection(next > index ? 1 : -1)
+    setIndex(next)
+  }
+
   return (
-    <div className="flex h-full flex-col overflow-y-auto bg-stone-50 px-4">
+    <div className="flex h-full flex-col overflow-hidden bg-stone-50 px-4">
       <header className="mx-auto flex w-full max-w-md items-center justify-between py-4">
         <span className="flex items-center gap-2 font-serif text-xl tracking-tight">
           <Logo />
@@ -32,16 +40,17 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
         </Button>
       </header>
 
-      <main className="mx-auto flex w-full max-w-md flex-1 flex-col justify-center pb-6">
-        <AnimatePresence mode="wait" initial={false}>
+      <main className="relative mx-auto min-h-0 w-full max-w-md flex-1">
+        <AnimatePresence initial={false} custom={direction}>
           <motion.section
             key={index}
-            initial={{ opacity: 0, x: 24 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: -24 }}
-            transition={{ duration: 0.22, ease: 'easeOut' }}
+            custom={direction}
+            variants={slideVariants}
+            initial="enter"
+            animate="center"
+            exit="exit"
             aria-live="polite"
-            className="flex flex-col items-center text-center"
+            className="absolute inset-0 flex flex-col items-center justify-center overflow-y-auto py-6 text-center"
           >
             <div className="mb-8 flex size-28 items-center justify-center rounded-full bg-(--accent-soft) text-(--accent-ink) ring-8 ring-(--accent-glow)">
               <Icon className="size-12" strokeWidth={1.5} aria-hidden />
@@ -55,28 +64,18 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
       </main>
 
       <footer className="mx-auto flex w-full max-w-md flex-col items-center gap-6 pb-[max(2rem,env(safe-area-inset-bottom))]">
-        <div className="flex gap-2" aria-label={t('onboarding.stepOf', { step: index + 1, total: STEPS.length })} role="img">
-          {STEPS.map((_, i) => (
-            <span
-              key={i}
-              className={[
-                'h-1.5 rounded-full transition-all duration-300',
-                i === index ? 'w-6 bg-stone-900' : 'w-1.5 bg-stone-300',
-              ].join(' ')}
-            />
-          ))}
-        </div>
+        <StepDots
+          index={index}
+          count={STEPS.length}
+          label={t('onboarding.stepOf', { step: index + 1, total: STEPS.length })}
+        />
         <div className="flex w-full gap-2">
           {index > 0 && (
-            <Button className="flex-1" onClick={() => setIndex(index - 1)}>
+            <Button className="flex-1" onClick={() => go(index - 1)}>
               {t('common.back')}
             </Button>
           )}
-          <Button
-            variant="primary"
-            className="flex-1"
-            onClick={() => (isLast ? onDone() : setIndex(index + 1))}
-          >
+          <Button variant="primary" className="flex-1" onClick={() => (isLast ? onDone() : go(index + 1))}>
             {isLast ? t('onboarding.start') : t('common.next')}
           </Button>
         </div>

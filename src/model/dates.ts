@@ -243,6 +243,38 @@ export function splitDate(text: string): DateParts {
   return { qualifier: 'exact', start: text, end: '' }
 }
 
+/** Year, month and day as shown in the date fields. A missing part is `''`. */
+export interface CalendarFields {
+  year: string
+  month: string
+  day: string
+}
+
+const DRAFT_DATE = /^(\d{0,4})(?:-(\d{2})(?:-(\d{2}))?)?$/
+
+/** Splits a plain date, including one still being typed ("18", "1815-03"). */
+export function calendarFields(text: string): CalendarFields {
+  const match = DRAFT_DATE.exec(text)
+  if (!match) return { year: '', month: '', day: '' }
+  return { year: match[1] ?? '', month: match[2] ?? '', day: match[3] ?? '' }
+}
+
+const pad2 = (value: string) => (value.length === 1 ? `0${value}` : value)
+
+/**
+ * A plain date from the parts someone filled in. A day without a month is
+ * dropped. Empty parts are left off, so a year alone stays a year.
+ */
+export function fromCalendarFields({ year, month, day }: CalendarFields): string {
+  const y = year.replace(/\D/g, '').slice(0, 4)
+  const m = month.replace(/\D/g, '').slice(0, 2)
+  const d = day.replace(/\D/g, '').slice(0, 2)
+  if (!y && !m && !d) return ''
+  if (!m) return y
+  if (!d) return `${y}-${pad2(m)}`
+  return `${y}-${pad2(m)}-${pad2(d)}`
+}
+
 /**
  * Puts typed parts back into date text. Empty when nothing was typed; a
  * half-filled range is kept as typed so validation can point it out.
