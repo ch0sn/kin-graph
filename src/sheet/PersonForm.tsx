@@ -81,6 +81,7 @@ export function PersonForm({
 
       <DateField
         label={t('form.born')}
+        help={t('welcome.birthBody')}
         value={values.birthDate}
         onChange={(date) => update('birthDate', date)}
         error={errors.birthDate}

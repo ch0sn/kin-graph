@@ -9,6 +9,7 @@ import {
   type DateQualifier,
 } from '../model'
 import { Field, SelectInput, TextInput, type Option } from './fields'
+import { HelpLabel } from './HelpLabel'
 
 interface DateFieldProps {
   label: string
@@ -16,6 +17,8 @@ interface DateFieldProps {
   value: string
   onChange: (value: string) => void
   error?: string
+  /** Shown from a "?" beside the label, such as "A year is enough". */
+  help?: string
   /**
    * Offers "about", "before", "after" and "between" too. When off, the choice
    * only shows for a date that already has one, so it can still be changed.
@@ -34,7 +37,7 @@ const DATE_PARTS: readonly DatePart[] = ['year', 'month', 'day']
  * ("1950", "1950-03", "1950-03-14"). A date can also be "about", "before" or
  * "after" something, or fall between two dates.
  */
-export function DateField({ label, value, onChange, error, qualifiers = true }: DateFieldProps) {
+export function DateField({ label, value, onChange, error, help, qualifiers = true }: DateFieldProps) {
   const { t } = useT()
   // Kept apart from the value: choosing "about" before typing anything has no text to show it.
   const [qualifier, setQualifier] = useState(() => splitDate(value).qualifier)
@@ -60,6 +63,7 @@ export function DateField({ label, value, onChange, error, qualifiers = true }: 
       )}
       <PlainDateInput
         label={qualifier === 'range' ? `${label} · ${t('date.from')}` : label}
+        help={help}
         value={parts.start}
         onChange={(start) => onChange(joinDate({ ...parts, start }))}
         error={error}
@@ -78,17 +82,20 @@ export function DateField({ label, value, onChange, error, qualifiers = true }: 
 /** One date with no qualifier. Empty day or month means that part is unknown. */
 function PlainDateInput({
   label,
+  help,
   value,
   onChange,
   error,
 }: {
   label: string
+  help?: string
   value: string
   onChange: (value: string) => void
   error?: string
 }) {
   const { language } = useT()
   const labelId = useId()
+  const helpId = useId()
   const errorId = useId()
   const fields = calendarFields(value)
   const describedBy = error ? errorId : undefined
@@ -99,8 +106,20 @@ function PlainDateInput({
 
   return (
     <fieldset className="flex flex-col gap-1.5" aria-describedby={describedBy}>
-      <legend id={labelId} className="mb-1.5 text-xs font-semibold tracking-wide text-stone-500 uppercase">
-        {label}
+      <legend id={labelId} className="mb-1.5 w-full">
+        {help ? (
+          <HelpLabel
+            id={helpId}
+            about={label}
+            help={help}
+            place="end"
+            label={
+              <span className="text-xs font-semibold tracking-wide text-stone-500 uppercase">{label}</span>
+            }
+          />
+        ) : (
+          <span className="text-xs font-semibold tracking-wide text-stone-500 uppercase">{label}</span>
+        )}
       </legend>
       <div className="flex gap-2">
         {DATE_PARTS.map((part) => (

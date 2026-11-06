@@ -201,7 +201,13 @@ export function RootSetup({
                 <StepItem>
                   <StepHeading
                     title={t(copy.title)}
-                    help={step === 'more' ? `${t(copy.body)} ${t('welcome.later')}` : t(copy.body)}
+                    help={
+                      step === 'birth'
+                        ? undefined
+                        : step === 'more'
+                          ? `${t(copy.body)} ${t('welcome.later')}`
+                          : t(copy.body)
+                    }
                   />
                 </StepItem>
                 {stepFields({
@@ -252,30 +258,32 @@ function StepItem({ children }: { children: ReactNode }) {
  * The step title, with its explanation kept in a "?" beside it. The note
  * shows on hover or focus, centred under the title.
  */
-function StepHeading({ title, help }: { title: string; help: string }) {
+function StepHeading({ title, help }: { title: string; help?: string }) {
   const { t } = useT()
   const id = useId()
   return (
     <div className="text-center">
       <h1 className="relative font-serif text-3xl leading-tight text-balance text-stone-900">
         {title}
-        <span className="group ml-2 inline-flex align-middle">
-          <button
-            type="button"
-            aria-label={t('settings.about', { topic: title })}
-            aria-describedby={id}
-            className="inline-flex -translate-y-0.5 rounded-full p-1 text-stone-400 transition hover:text-stone-600 focus-visible:text-stone-600 focus-visible:ring-4 focus-visible:ring-stone-200 focus-visible:outline-none"
-          >
-            <CircleQuestionMark className="size-4" aria-hidden />
-          </button>
-          <span
-            id={id}
-            role="tooltip"
-            className="pointer-events-none absolute top-full left-1/2 z-20 mt-2 w-[min(18rem,100%)] -translate-x-1/2 rounded-lg bg-stone-900 px-3 py-2 text-left font-sans text-xs leading-relaxed font-normal tracking-normal text-pretty text-white opacity-0 shadow-lg transition group-focus-within:opacity-100 group-hover:opacity-100"
-          >
-            {help}
+        {help && (
+          <span className="group ml-2 inline-flex align-middle">
+            <button
+              type="button"
+              aria-label={t('settings.about', { topic: title })}
+              aria-describedby={id}
+              className="inline-flex -translate-y-0.5 rounded-full p-1 text-stone-400 transition hover:text-stone-600 focus-visible:text-stone-600 focus-visible:ring-4 focus-visible:ring-stone-200 focus-visible:outline-none"
+            >
+              <CircleQuestionMark className="size-4" aria-hidden />
+            </button>
+            <span
+              id={id}
+              role="tooltip"
+              className="pointer-events-none absolute top-full left-1/2 z-20 mt-2 w-[min(18rem,100%)] -translate-x-1/2 rounded-lg bg-stone-900 px-3 py-2 text-left font-sans text-xs leading-relaxed font-normal tracking-normal text-pretty text-white opacity-0 shadow-lg transition group-focus-within:opacity-100 group-hover:opacity-100"
+            >
+              {help}
+            </span>
           </span>
-        </span>
+        )}
       </h1>
     </div>
   )
@@ -337,6 +345,7 @@ function stepFields({
           <div className="flex flex-col gap-4">
             <DateField
               label={t('form.born')}
+              help={t('welcome.birthBody')}
               value={values.birthDate}
               onChange={(date) => update('birthDate', date)}
               error={errors.birthDate}
