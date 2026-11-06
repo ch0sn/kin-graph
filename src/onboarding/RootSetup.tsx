@@ -1,4 +1,4 @@
-import { Lock, TriangleAlert } from 'lucide-react'
+import { CircleQuestionMark, Lock, TriangleAlert } from 'lucide-react'
 import { AnimatePresence, motion } from 'motion/react'
 import { useId, useRef, useState, type FormEvent, type ReactNode } from 'react'
 import { useT, type MessageKey } from '../i18n'
@@ -199,12 +199,10 @@ export function RootSetup({
                 className="flex flex-col gap-5"
               >
                 <StepItem>
-                  <div className="text-center">
-                    <h1 className="font-serif text-3xl leading-tight text-balance text-stone-900">
-                      {t(copy.title)}
-                    </h1>
-                    <p className="mt-3 text-base leading-relaxed text-pretty text-stone-600">{t(copy.body)}</p>
-                  </div>
+                  <StepHeading
+                    title={t(copy.title)}
+                    help={step === 'more' ? `${t(copy.body)} ${t('welcome.later')}` : t(copy.body)}
+                  />
                 </StepItem>
                 {stepFields({
                   step,
@@ -248,6 +246,39 @@ export function RootSetup({
 
 function StepItem({ children }: { children: ReactNode }) {
   return <motion.div variants={fieldVariants}>{children}</motion.div>
+}
+
+/**
+ * The step title, with its explanation kept in a "?" beside it. The note
+ * shows on hover or focus, centred under the title.
+ */
+function StepHeading({ title, help }: { title: string; help: string }) {
+  const { t } = useT()
+  const id = useId()
+  return (
+    <div className="text-center">
+      <h1 className="relative font-serif text-3xl leading-tight text-balance text-stone-900">
+        {title}
+        <span className="group ml-2 inline-flex align-middle">
+          <button
+            type="button"
+            aria-label={t('settings.about', { topic: title })}
+            aria-describedby={id}
+            className="inline-flex -translate-y-0.5 rounded-full p-1 text-stone-400 transition hover:text-stone-600 focus-visible:text-stone-600 focus-visible:ring-4 focus-visible:ring-stone-200 focus-visible:outline-none"
+          >
+            <CircleQuestionMark className="size-4" aria-hidden />
+          </button>
+          <span
+            id={id}
+            role="tooltip"
+            className="pointer-events-none absolute top-full left-1/2 z-20 mt-2 w-[min(18rem,100%)] -translate-x-1/2 rounded-lg bg-stone-900 px-3 py-2 text-left font-sans text-xs leading-relaxed font-normal tracking-normal text-pretty text-white opacity-0 shadow-lg transition group-focus-within:opacity-100 group-hover:opacity-100"
+          >
+            {help}
+          </span>
+        </span>
+      </h1>
+    </div>
+  )
 }
 
 function stepFields({
@@ -343,9 +374,6 @@ function stepFields({
         </StepItem>,
         <StepItem key="notes">
           <NotesField value={values.notes} onChange={(notes) => update('notes', notes)} />
-        </StepItem>,
-        <StepItem key="later">
-          <p className="text-center text-sm text-stone-500">{t('welcome.later')}</p>
         </StepItem>,
       ]
     default: {
