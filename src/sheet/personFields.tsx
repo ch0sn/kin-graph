@@ -3,26 +3,13 @@ import { AnimatePresence, motion } from 'motion/react'
 import { useId, useState } from 'react'
 import { useT } from '../i18n'
 import { DateField } from '../ui/DateField'
-import { Button, Field, TextInput } from '../ui/fields'
+import { PlaceField } from '../ui/PlaceField'
+import { Button, Field } from '../ui/fields'
 import { HelpLabel } from '../ui/HelpLabel'
 import { NameEditor } from './NameEditor'
 import { emptyName, type NameValues, type PersonValues } from './personValues'
 
-export function PlaceField({
-  label,
-  value,
-  onChange,
-}: {
-  label: string
-  value: string
-  onChange: (value: string) => void
-}) {
-  return (
-    <Field label={label}>
-      {(id) => <TextInput id={id} value={value} onChange={(e) => onChange(e.target.value)} autoComplete="off" />}
-    </Field>
-  )
-}
+export { PlaceField }
 
 /** Names other than the one shown, with a way to add, remove, or show one. */
 export function OtherNamesEditor({
