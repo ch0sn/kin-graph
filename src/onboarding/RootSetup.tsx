@@ -189,7 +189,7 @@ export function RootSetup({
             animate="center"
             exit="exit"
             aria-live="polite"
-            className="absolute inset-0 overflow-y-auto"
+            className="absolute inset-0 overflow-x-hidden overflow-y-auto"
           >
             <form id={formId} onSubmit={submit} noValidate className="flex min-h-full flex-col justify-center py-6">
               <motion.div

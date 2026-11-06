@@ -36,18 +36,23 @@ export function GenderPicker({
               type="button"
               aria-pressed={selected}
               onClick={() => onChange(selected ? '' : option)}
-              animate={{ scale: selected ? 1.02 : 1 }}
               whileTap={{ scale: 0.98 }}
               transition={{ duration: 0.2, ease: 'easeOut' }}
               className={[
-                'flex flex-col items-center gap-3 rounded-3xl border px-4 py-8 text-base font-medium',
-                'focus-visible:ring-4 focus-visible:ring-stone-200 focus-visible:outline-none',
+                'flex min-w-0 flex-col items-center gap-3 rounded-3xl border px-4 py-8 text-base font-medium',
+                'focus-visible:ring-4 focus-visible:ring-stone-200 focus-visible:ring-inset focus-visible:outline-none',
                 selected
                   ? 'border-stone-900 bg-stone-900 text-white'
                   : 'border-stone-200 bg-white text-stone-700 hover:border-stone-300',
               ].join(' ')}
             >
-              <Icon className="size-8" strokeWidth={1.5} aria-hidden />
+              <motion.span
+                animate={{ scale: selected ? 1.08 : 1 }}
+                transition={{ duration: 0.2, ease: 'easeOut' }}
+                className="flex"
+              >
+                <Icon className="size-8" strokeWidth={1.5} aria-hidden />
+              </motion.span>
               {t(label)}
             </motion.button>
           )
