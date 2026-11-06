@@ -9,7 +9,6 @@ import {
   type DateQualifier,
 } from '../model'
 import { Field, SelectInput, TextInput, type Option } from './fields'
-import { HelpLabel } from './HelpLabel'
 
 interface DateFieldProps {
   label: string
@@ -17,7 +16,7 @@ interface DateFieldProps {
   value: string
   onChange: (value: string) => void
   error?: string
-  /** Shown from a "?" beside the label, such as "A year is enough". */
+  /** A short note under the label, smaller than the fields. */
   help?: string
   /**
    * Offers "about", "before", "after" and "between" too. When off, the choice
@@ -98,7 +97,7 @@ function PlainDateInput({
   const helpId = useId()
   const errorId = useId()
   const fields = calendarFields(value)
-  const describedBy = error ? errorId : undefined
+  const describedBy = [help ? helpId : undefined, error ? errorId : undefined].filter(Boolean).join(' ') || undefined
 
   const change = (next: CalendarFields) => onChange(fromCalendarFields(next))
   const months = monthOptions(language)
@@ -107,18 +106,11 @@ function PlainDateInput({
   return (
     <fieldset className="flex flex-col gap-1.5" aria-describedby={describedBy}>
       <legend id={labelId} className="mb-1.5 w-full">
-        {help ? (
-          <HelpLabel
-            id={helpId}
-            about={label}
-            help={help}
-            place="end"
-            label={
-              <span className="text-xs font-semibold tracking-wide text-stone-500 uppercase">{label}</span>
-            }
-          />
-        ) : (
-          <span className="text-xs font-semibold tracking-wide text-stone-500 uppercase">{label}</span>
+        <span className="text-xs font-semibold tracking-wide text-stone-500 uppercase">{label}</span>
+        {help && (
+          <p id={helpId} className="mt-1 text-[11px] leading-snug font-normal tracking-normal text-stone-400 normal-case">
+            {help}
+          </p>
         )}
       </legend>
       <div className="flex gap-2">

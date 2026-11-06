@@ -8,22 +8,18 @@ export function HelpLabel({
   about,
   help,
   id,
-  place = 'above',
 }: {
   label: ReactNode
   /** What the icon explains, for screen readers: "About <about>". Already translated. */
   about: string
   help: string
   id: string
-  /** `end` sits the note beside the icon, on the same line as the label. */
-  place?: 'above' | 'end'
 }) {
   const { t } = useT()
-  const beside = place === 'end'
   return (
     <div className="relative flex items-center gap-1.5">
       {label}
-      <span className={beside ? 'group relative flex' : 'group flex'}>
+      <span className="group flex">
         <button
           type="button"
           aria-label={t('settings.about', { topic: about })}
@@ -35,12 +31,7 @@ export function HelpLabel({
         <span
           id={id}
           role="tooltip"
-          className={[
-            'pointer-events-none absolute z-10 w-max rounded-lg bg-stone-900 text-left font-normal tracking-normal text-white normal-case opacity-0 shadow-lg transition group-focus-within:opacity-100 group-hover:opacity-100',
-            beside
-              ? 'bottom-0 left-full ml-2 max-w-[14rem] px-2.5 py-1 text-[11px] leading-[13px]'
-              : 'bottom-full left-0 mb-2 max-w-full px-3 py-2 text-xs leading-snug',
-          ].join(' ')}
+          className="pointer-events-none absolute bottom-full left-0 z-10 mb-2 w-max max-w-full rounded-lg bg-stone-900 px-3 py-2 text-xs leading-snug text-white opacity-0 shadow-lg transition group-focus-within:opacity-100 group-hover:opacity-100"
         >
           {help}
         </span>
