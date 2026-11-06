@@ -24,13 +24,15 @@ interface DateFieldProps {
 }
 
 const QUALIFIERS: DateQualifier[] = ['exact', 'about', 'before', 'after', 'range']
-type DatePart = 'day' | 'month' | 'year'
+type DatePart = 'year' | 'month' | 'day'
+const DATE_PARTS: readonly DatePart[] = ['year', 'month', 'day']
 
 /**
- * A date at whatever precision is known. The year, month and day are separate;
- * a blank month or day is left out of what is saved ("1950", "1950-03",
- * "1950-03-14"). A date can also be "about", "before" or "after" something,
- * or fall between two dates.
+ * A date at whatever precision is known. Year, then month, then day. Month and
+ * day stay locked until the year has four digits; the day also stays locked
+ * until a month is chosen. A blank month or day is left out of what is saved
+ * ("1950", "1950-03", "1950-03-14"). A date can also be "about", "before" or
+ * "after" something, or fall between two dates.
  */
 export function DateField({ label, value, onChange, error, qualifiers = true }: DateFieldProps) {
   const { t } = useT()
@@ -101,7 +103,7 @@ function PlainDateInput({
         {label}
       </legend>
       <div className="flex gap-2">
-        {partOrder(language).map((part) => (
+        {DATE_PARTS.map((part) => (
           <DatePartField
             key={part}
             part={part}
@@ -141,6 +143,7 @@ function DatePartField({
   onChange: (next: CalendarFields) => void
 }) {
   const { t } = useT()
+  const yearKnown = fields.year.length === 4
   const width = part === 'month' ? 'min-w-0 flex-1' : part === 'year' ? 'w-[5.5rem] shrink-0' : 'w-[4.5rem] shrink-0'
 
   return (
@@ -156,7 +159,7 @@ function DatePartField({
                   aria-invalid={invalid || undefined}
                   options={days}
                   value={fields.day}
-                  disabled={fields.month === ''}
+                  disabled={!yearKnown || fields.month === ''}
                   onChange={(day) => onChange({ ...fields, day })}
                 />
               )
@@ -168,6 +171,7 @@ function DatePartField({
                   aria-invalid={invalid || undefined}
                   options={months}
                   value={fields.month}
+                  disabled={!yearKnown}
                   onChange={(month) =>
                     onChange({
                       ...fields,
@@ -186,10 +190,12 @@ function DatePartField({
                   value={fields.year}
                   onChange={(event) => {
                     const year = event.target.value.replace(/\D/g, '').slice(0, 4)
+                    const known = year.length === 4
                     onChange({
                       ...fields,
                       year,
-                      day: dayStillFits(year, fields.month, fields.day) ? fields.day : '',
+                      month: known ? fields.month : '',
+                      day: known && dayStillFits(year, fields.month, fields.day) ? fields.day : '',
                     })
                   }}
                   placeholder={t('form.yearPlaceholder')}
@@ -206,17 +212,6 @@ function DatePartField({
       </Field>
     </div>
   )
-}
-
-/** Day, month, year in the order the reader's language writes a date. */
-function partOrder(language: string): DatePart[] {
-  const order = new Intl.DateTimeFormat(language, { day: 'numeric', month: 'numeric', year: 'numeric' })
-    .formatToParts(new Date(2000, 0, 2))
-    .flatMap((part) => (part.type === 'day' || part.type === 'month' || part.type === 'year' ? [part.type] : []))
-  for (const part of ['year', 'month', 'day'] as const) {
-    if (!order.includes(part)) order.push(part)
-  }
-  return order
 }
 
 function monthOptions(language: string): Option<string>[] {

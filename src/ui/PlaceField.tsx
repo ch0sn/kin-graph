@@ -15,10 +15,10 @@ import { TextInput } from './fields'
 
 /**
  * A place as a country and, when wanted, a city. The country takes about
- * 30% of the row so its flag and code fit; the city takes the rest.
- * After a couple of characters, cities from that country are suggested,
- * including look-alike and similar-sounding spellings. Stored as written:
- * "Berlin, Germany".
+ * 30% of the row so its flag and code fit; the city takes the rest and stays
+ * locked until a country is chosen. After a couple of characters, cities
+ * from that country are suggested, including look-alike and similar-sounding
+ * spellings. Stored as written: "Berlin, Germany".
  */
 export function PlaceField({
   label,
@@ -44,7 +44,7 @@ export function PlaceField({
         country={country}
         onChange={(next) => {
           setSuggestionsOpen(false)
-          change(next, city)
+          change(next, next ? city : '')
         }}
         onOpen={() => setSuggestionsOpen(false)}
       >
@@ -55,6 +55,7 @@ export function PlaceField({
           aria-expanded={suggestions.length > 0}
           value={city}
           placeholder={t('form.cityPlaceholder')}
+          disabled={!country}
           autoComplete="off"
           autoCorrect="off"
           spellCheck={false}
