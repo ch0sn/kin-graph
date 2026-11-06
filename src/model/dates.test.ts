@@ -10,6 +10,8 @@ import {
   formatYear,
   isCertainlyBefore,
   isFuzzyDate,
+  calendarFields,
+  fromCalendarFields,
   joinDate,
   parseDate,
   splitDate,
@@ -53,6 +55,26 @@ describe('dateProblem', () => {
     expect(dateProblem('1915/1910')).toBe('rangeOrder')
     expect(dateProblem('1910/')).toBe('invalid')
     expect(dateProblem('soon')).toBe('invalid')
+  })
+})
+
+describe('calendar fields', () => {
+  it('keeps only the parts that were filled in', () => {
+    expect(fromCalendarFields({ year: '1815', month: '', day: '' })).toBe('1815')
+    expect(fromCalendarFields({ year: '1815', month: '12', day: '' })).toBe('1815-12')
+    expect(fromCalendarFields({ year: '1815', month: '12', day: '10' })).toBe('1815-12-10')
+    expect(fromCalendarFields({ year: '', month: '3', day: '' })).toBe('-03')
+    expect(fromCalendarFields({ year: '1815', month: '', day: '10' })).toBe('1815')
+    expect(fromCalendarFields({ year: '', month: '', day: '' })).toBe('')
+  })
+
+  it('reads a stored or half-typed date back into the fields', () => {
+    expect(calendarFields('1815')).toEqual({ year: '1815', month: '', day: '' })
+    expect(calendarFields('1815-03')).toEqual({ year: '1815', month: '03', day: '' })
+    expect(calendarFields('1815-03-14')).toEqual({ year: '1815', month: '03', day: '14' })
+    expect(calendarFields('18')).toEqual({ year: '18', month: '', day: '' })
+    expect(calendarFields('-03')).toEqual({ year: '', month: '03', day: '' })
+    expect(calendarFields('')).toEqual({ year: '', month: '', day: '' })
   })
 })
 
