@@ -1,6 +1,6 @@
 import { ArrowLeft, ArrowUp, Baby, Eye, FileText, FileUp, Heart, Mars, Pencil, Plus, Trash, Users, Venus, X } from 'lucide-react'
 import { AnimatePresence, motion, useDragControls } from 'motion/react'
-import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
+import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import {
   addChild,
@@ -38,6 +38,7 @@ import {
 } from '../model'
 import { useT } from '../i18n'
 import { useBackupPicker } from '../storage/useBackupPicker'
+import { useNodeMenuApi, type NodeMenuAction } from '../tree/useNodeMenu'
 import { Avatar } from '../ui/Avatar'
 import { ConfirmDialog } from '../ui/ConfirmDialog'
 import { LifeLine } from '../ui/LifeLine'
@@ -105,10 +106,23 @@ interface PersonSheetProps {
   perspectives?: Perspectives
   /** Opens the sheet on the form for adding this kind of relative, rather than the details. */
   startWith?: Relation
+  /**
+   * Draw the toolbox on the selected person's card instead of beside the sheet.
+   * The fan chart has no card, so it leaves this off and keeps the side box.
+   */
+  menuOnNode?: boolean
 }
 
 /** Details and actions for the selected person, sliding up from the bottom. */
-export function PersonSheet({ graph, personId, onChange, onClose, perspectives, startWith }: PersonSheetProps) {
+export function PersonSheet({
+  graph,
+  personId,
+  onChange,
+  onClose,
+  perspectives,
+  startWith,
+  menuOnNode,
+}: PersonSheetProps) {
   const person = personId ? graph.people[personId] : undefined
   return (
     <AnimatePresence>
@@ -123,6 +137,7 @@ export function PersonSheet({ graph, personId, onChange, onClose, perspectives, 
             onClose={onClose}
             perspectives={perspectives}
             startWith={startWith}
+            menuOnNode={menuOnNode}
           />
         </Sheet>
       )}
@@ -201,6 +216,7 @@ function SheetBody({
   onClose,
   perspectives,
   startWith,
+  menuOnNode,
 }: {
   graph: FamilyGraph
   person: Person
@@ -208,14 +224,15 @@ function SheetBody({
   onClose: () => void
   perspectives?: Perspectives
   startWith?: Relation
+  menuOnNode?: boolean
 }) {
   const { t } = useT()
   const [mode, setMode] = useState<Mode>(startWith ? { view: 'add', relation: startWith } : { view: 'details' })
   const [error, setError] = useState<string | null>(null)
-  const go = (next: Mode) => {
+  const go = useCallback((next: Mode) => {
     setMode(next)
     setError(null)
-  }
+  }, [])
 
   /** Applies an edit, showing the reason inline if the model rejects it. */
   const apply = (edit: () => FamilyGraph, after: () => void = () => go({ view: 'details' })) => {
@@ -262,6 +279,72 @@ function SheetBody({
         ? { available: false, title: t('view.onlyView'), onClick: () => {} }
         : undefined
 
+  const nodeMenu = useNodeMenuApi()
+  const menuActions = (() => {
+    const list: NodeMenuAction[] = [
+      {
+        id: 'add',
+        label: t('sheet.addRelative'),
+        title: t('sheet.addRelative'),
+        Icon: Plus,
+        available: true,
+        onClick: () => go({ view: 'relative' }),
+      },
+      {
+        id: 'edit',
+        label: t('sheet.edit'),
+        title: t('sheet.edit'),
+        Icon: Pencil,
+        available: true,
+        onClick: () => go({ view: 'edit' }),
+      },
+    ]
+    if (treeTools) {
+      list.push(
+        {
+          id: 'view',
+          label: t('sheet.viewAs'),
+          title: treeTools.viewAs.title,
+          Icon: Eye,
+          available: treeTools.viewAs.available,
+          onClick: treeTools.viewAs.onClick,
+        },
+        {
+          id: 'own',
+          label: t('sheet.ownTree'),
+          title: treeTools.ownTree.title,
+          Icon: FileText,
+          available: treeTools.ownTree.available,
+          onClick: treeTools.ownTree.onClick,
+        },
+      )
+    }
+    if (removeTool) {
+      list.push({
+        id: 'remove',
+        label: isManager ? t('sheet.deleteTree') : t('sheet.removePerson'),
+        title: removeTool.title,
+        Icon: Trash,
+        available: removeTool.available,
+        tone: 'danger',
+        onClick: removeTool.onClick,
+      })
+    }
+    return list
+  })()
+
+  // Publish while this person is selected. A second effect clears only when
+  // they go away, so a fresh click handler does not fold the fan shut.
+  useEffect(() => {
+    if (!menuOnNode || !nodeMenu) return
+    nodeMenu.publish(person.id, menuActions)
+  }, [menuOnNode, nodeMenu, person.id, menuActions])
+
+  useEffect(() => {
+    if (!menuOnNode || !nodeMenu) return
+    return () => nodeMenu.clear(person.id)
+  }, [menuOnNode, nodeMenu, person.id])
+
   return (
     <AnimatePresence mode="wait" initial={false}>
       <motion.div
@@ -306,12 +389,14 @@ function SheetBody({
 
             {showsTree && !isManager && !ownTree && <PerspectiveRow person={person} perspectives={perspectives} />}
 
-            <Toolbox
-              onAddRelative={() => go({ view: 'relative' })}
-              onEdit={() => go({ view: 'edit' })}
-              treeTools={treeTools}
-              remove={removeTool}
-            />
+            {!menuOnNode && (
+              <Toolbox
+                onAddRelative={() => go({ view: 'relative' })}
+                onEdit={() => go({ view: 'edit' })}
+                treeTools={treeTools}
+                remove={removeTool}
+              />
+            )}
 
             <Timeline
               graph={graph}
@@ -338,32 +423,34 @@ function SheetBody({
               </section>
             )}
 
-            <div className="flex gap-2 border-t border-stone-100 pt-4 sm:hidden">
-              <Button variant="primary" onClick={() => go({ view: 'relative' })}>
-                <Plus className="size-4" aria-hidden />
-                {t('sheet.addRelative')}
-              </Button>
-              <Button variant="ghost" onClick={() => go({ view: 'edit' })}>
-                <Pencil className="size-4" aria-hidden />
-                {t('sheet.edit')}
-              </Button>
-              {treeTools && (
-                <>
-                  <RowTool tool={treeTools.viewAs}>
-                    <Eye className="size-4" aria-hidden />
+            {!menuOnNode && (
+              <div className="flex gap-2 border-t border-stone-100 pt-4 sm:hidden">
+                <Button variant="primary" onClick={() => go({ view: 'relative' })}>
+                  <Plus className="size-4" aria-hidden />
+                  {t('sheet.addRelative')}
+                </Button>
+                <Button variant="ghost" onClick={() => go({ view: 'edit' })}>
+                  <Pencil className="size-4" aria-hidden />
+                  {t('sheet.edit')}
+                </Button>
+                {treeTools && (
+                  <>
+                    <RowTool tool={treeTools.viewAs}>
+                      <Eye className="size-4" aria-hidden />
+                    </RowTool>
+                    <RowTool tool={treeTools.ownTree}>
+                      <FileText className="size-4" aria-hidden />
+                    </RowTool>
+                  </>
+                )}
+                {removeTool && (
+                  <RowTool tool={removeTool} className="ml-auto text-red-700 hover:bg-red-50 hover:text-red-800">
+                    <Trash className="size-4" aria-hidden />
+                    {isManager ? t('sheet.deleteTree') : t('common.remove')}
                   </RowTool>
-                  <RowTool tool={treeTools.ownTree}>
-                    <FileText className="size-4" aria-hidden />
-                  </RowTool>
-                </>
-              )}
-              {removeTool && (
-                <RowTool tool={removeTool} className="ml-auto text-red-700 hover:bg-red-50 hover:text-red-800">
-                  <Trash className="size-4" aria-hidden />
-                  {isManager ? t('sheet.deleteTree') : t('common.remove')}
-                </RowTool>
-              )}
-            </div>
+                )}
+              </div>
+            )}
           </div>
         )}
 
@@ -657,8 +744,9 @@ function SubView({
 }
 
 /**
- * The person's actions in a box beside the sheet. It renders into the
- * sheet's side slot, so on narrow screens it is simply absent.
+ * The person's actions in a box beside the sheet. Used when the tree has no
+ * person card to hang them on (the fan chart). On a narrow screen the slot
+ * is hidden and the row under the details is used instead.
  */
 function Toolbox({
   onAddRelative,

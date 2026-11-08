@@ -114,6 +114,120 @@ body {
 
 .react-flow__node-person {
   cursor: pointer;
+  overflow: visible;
+}
+
+/* The open toolbox hangs off the card, so that card paints above its neighbours. */
+.react-flow__node-person:has(.node-fan) {
+  z-index: 12 !important;
+}
+
+/* Registered so the hover grow eases. The spring writes --pop every frame and must not be eased. */
+@property --zoom {
+  syntax: '<number>';
+  inherits: false;
+  initial-value: 1;
+}
+
+/* Sits back down when the fan folds. translate, not transform, so the entrance animation keeps the transform. */
+.person-card {
+  translate: 0 0;
+}
+
+.person-card.node-card-on {
+  translate: 0 -1px;
+}
+
+/* A point on the card's top-right corner. The discs are placed from it. */
+.node-fan {
+  position: absolute;
+  top: 0;
+  right: 0;
+  z-index: 0;
+  width: 0;
+  height: 0;
+  pointer-events: none;
+}
+
+.node-act {
+  position: absolute;
+  top: 0;
+  left: 0;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  /* Light fill and a hairline, including in dark mode: the discs read as the menu, not as more card. */
+  background: #fff;
+  color: #17181a;
+  box-shadow: 0 0 0 1px rgba(23, 24, 26, 0.16);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  scale: calc(var(--pop, 1) * var(--zoom, 1));
+  transition: --zoom 160ms cubic-bezier(0.24, 1.34, 0.38, 1);
+}
+
+.node-act:hover {
+  --zoom: 1.12;
+}
+
+.node-act:active {
+  --zoom: 0.96;
+}
+
+.node-act:focus-visible {
+  outline: none;
+  --zoom: 1.12;
+  box-shadow:
+    0 0 0 1px rgba(23, 24, 26, 0.16),
+    0 0 0 4px rgba(120, 113, 108, 0.45);
+}
+
+.node-act[data-tone='danger'] {
+  color: #b8431c;
+}
+
+.node-act[aria-disabled='true'] {
+  color: #a8a29e;
+  cursor: not-allowed;
+}
+
+.node-act[aria-disabled='true']:hover,
+.node-act[aria-disabled='true']:active {
+  --zoom: 1;
+}
+
+.node-act-label {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  translate: calc(-50% + var(--lx, 0px)) calc(-50% + var(--ly, 0px));
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: #fff;
+  color: inherit;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.2;
+  white-space: nowrap;
+  box-shadow: 0 0 0 1px rgba(23, 24, 26, 0.14);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 120ms ease;
+}
+
+.node-act:hover .node-act-label,
+.node-act:focus-visible .node-act-label {
+  opacity: 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .node-act,
+  .node-act-label,
+  .person-card {
+    transition: none;
+  }
 }
 
 /*
