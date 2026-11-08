@@ -136,7 +136,11 @@ function FamilyTreeCanvas({
   }, [layout, clickedEdgeId])
 
   const nodes = useMemo(
-    () => shownNodes.map((n) => ({ ...n, selected: n.id === selectedId })),
+    () =>
+      shownNodes.map((n) => ({
+        ...n,
+        selected: n.id === selectedId,
+      })),
     [shownNodes, selectedId],
   )
 

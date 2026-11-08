@@ -32,6 +32,7 @@ export function PersonNode({ data, selected }: NodeProps<PersonNodeType>) {
   const { person, label, isManager, entranceDelay = 0 } = data
   const { highlightGender, flagged } = useTreeDisplay()
   const { t } = useT()
+
   const genderBorder = highlightGender && person.gender ? GENDER_BORDERS[person.gender] : undefined
   const border =
     genderBorder ??
