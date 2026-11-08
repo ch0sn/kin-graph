@@ -114,12 +114,6 @@ body {
 
 .react-flow__node-person {
   cursor: pointer;
-  overflow: visible;
-}
-
-/* The open toolbox hangs off the card, so that card paints above its neighbours. */
-.react-flow__node-person:has(.node-fan) {
-  z-index: 12 !important;
 }
 
 /* Registered so the hover grow eases. The spring writes --pop every frame and must not be eased. */
@@ -127,15 +121,6 @@ body {
   syntax: '<number>';
   inherits: false;
   initial-value: 1;
-}
-
-/* Sits back down when the fan folds. translate, not transform, so the entrance animation keeps the transform. */
-.person-card {
-  translate: 0 0;
-}
-
-.person-card.node-card-on {
-  translate: 0 -1px;
 }
 
 /* A point on the card's top-right corner. The discs are placed from it. */
@@ -158,10 +143,10 @@ body {
   padding: 0;
   border: 0;
   border-radius: 999px;
-  /* Light fill and a hairline, including in dark mode: the discs read as the menu, not as more card. */
-  background: #fff;
-  color: #17181a;
-  box-shadow: 0 0 0 1px rgba(23, 24, 26, 0.16);
+  /* Same surface, ink and edge as settings and the person card, so a theme and dark mode recolor them together. */
+  background: var(--color-white);
+  color: var(--color-stone-900);
+  box-shadow: 0 0 0 1px var(--color-stone-200);
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
   scale: calc(var(--pop, 1) * var(--zoom, 1));
@@ -180,16 +165,16 @@ body {
   outline: none;
   --zoom: 1.12;
   box-shadow:
-    0 0 0 1px rgba(23, 24, 26, 0.16),
-    0 0 0 4px rgba(120, 113, 108, 0.45);
+    0 0 0 1px var(--color-stone-200),
+    0 0 0 4px var(--color-stone-200);
 }
 
 .node-act[data-tone='danger'] {
-  color: #b8431c;
+  color: var(--color-red-700);
 }
 
 .node-act[aria-disabled='true'] {
-  color: #a8a29e;
+  color: var(--color-stone-400);
   cursor: not-allowed;
 }
 
@@ -205,13 +190,13 @@ body {
   translate: calc(-50% + var(--lx, 0px)) calc(-50% + var(--ly, 0px));
   padding: 3px 8px;
   border-radius: 999px;
-  background: #fff;
+  background: var(--color-white);
   color: inherit;
   font-size: 11px;
   font-weight: 600;
   line-height: 1.2;
   white-space: nowrap;
-  box-shadow: 0 0 0 1px rgba(23, 24, 26, 0.14);
+  box-shadow: 0 0 0 1px var(--color-stone-200);
   opacity: 0;
   pointer-events: none;
   transition: opacity 120ms ease;
@@ -224,8 +209,7 @@ body {
 
 @media (prefers-reduced-motion: reduce) {
   .node-act,
-  .node-act-label,
-  .person-card {
+  .node-act-label {
     transition: none;
   }
 }

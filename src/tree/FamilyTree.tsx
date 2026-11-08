@@ -140,8 +140,6 @@ function FamilyTreeCanvas({
       shownNodes.map((n) => ({
         ...n,
         selected: n.id === selectedId,
-        // The open toolbox sticks out past the card, so the card has to paint over whatever it overlaps.
-        zIndex: n.id === selectedId ? 10 : 0,
       })),
     [shownNodes, selectedId],
   )

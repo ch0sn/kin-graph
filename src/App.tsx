@@ -28,7 +28,6 @@ import { DamagedTree } from './onboarding/DamagedTree'
 import { Onboarding } from './onboarding/Onboarding'
 import { Welcome } from './onboarding/Welcome'
 import { PersonSheet, type Perspectives, type Relation } from './sheet/PersonSheet'
-import { NodeMenuProvider } from './tree/nodeMenuContext'
 import { downloadBackup } from './storage/backup'
 import type { Settings } from './storage/settings'
 import { useBackupPicker } from './storage/useBackupPicker'
@@ -651,7 +650,7 @@ function TreeTab({
   }
 
   return (
-    <NodeMenuProvider>
+    <>
       {/* A different root (import, new start) gets a fresh view and entrance. */}
       {view === 'fan' ? (
         <FanChart
@@ -690,7 +689,6 @@ function TreeTab({
         onClose={closeSheet}
         perspectives={perspectives}
         startWith={sheetStart}
-        menuOnNode={view === 'tree'}
       />
       <CheckPanel
         open={checking}
@@ -704,7 +702,7 @@ function TreeTab({
         }}
         onClose={onCloseCheck}
       />
-    </NodeMenuProvider>
+    </>
   )
 }
 

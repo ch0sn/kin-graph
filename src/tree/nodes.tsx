@@ -1,16 +1,12 @@
 import { Handle, Position, type NodeProps } from '@xyflow/react'
 import { TriangleAlert } from 'lucide-react'
 import { motion } from 'motion/react'
-import { useCallback, useLayoutEffect, useRef, useState } from 'react'
 import { useT } from '../i18n'
 import { fullName, type Gender } from '../model'
 import { Avatar } from '../ui/Avatar'
 import { LifeLine } from '../ui/LifeLine'
-import { cornerRadius } from './cornerFan'
 import { useTreeDisplay } from './display'
 import type { PersonNode as PersonNodeType, UnionNode as UnionNodeType } from './familyLayout'
-import { NodeFan } from './NodeMenu'
-import { useNodeMenuApi, useNodeMenuState, type NodeMenuAction } from './useNodeMenu'
 
 /*
  * React Flow measures where lines attach when a node first renders. The
@@ -36,28 +32,6 @@ export function PersonNode({ data, selected }: NodeProps<PersonNodeType>) {
   const { person, label, isManager, entranceDelay = 0 } = data
   const { highlightGender, flagged } = useTreeDisplay()
   const { t } = useT()
-  const menu = useNodeMenuState()
-  const menuApi = useNodeMenuApi()
-  const menuForMe = menu.personId === person.id && menu.actions.length > 0
-  // Held after the menu closes so the discs can fold back into the corner.
-  const [held, setHeld] = useState<NodeMenuAction[] | null>(null)
-  if (menuForMe && held !== menu.actions) setHeld(menu.actions)
-  const closeFan = useCallback(() => setHeld(null), [])
-
-  const cardRef = useRef<HTMLDivElement>(null)
-  const [corner, setCorner] = useState(16)
-  useLayoutEffect(() => {
-    const card = cardRef.current
-    if (!card || !held) return
-    const read = () => setCorner(cornerRadius(getComputedStyle(card).borderTopRightRadius))
-    read()
-    const observer = new MutationObserver(read)
-    observer.observe(document.documentElement, {
-      attributes: true,
-      attributeFilter: ['class', 'data-theme', 'data-vision'],
-    })
-    return () => observer.disconnect()
-  }, [held])
 
   const genderBorder = highlightGender && person.gender ? GENDER_BORDERS[person.gender] : undefined
   const border =
@@ -74,23 +48,12 @@ export function PersonNode({ data, selected }: NodeProps<PersonNodeType>) {
       <Handle id="left" type="source" position={Position.Left} className="handle" />
       <Handle id="right" type="source" position={Position.Right} className="handle" />
       <Handle id="bottom" type="source" position={Position.Bottom} className="handle" />
-      {held && menuApi && (
-        <NodeFan
-          open={menuForMe}
-          actions={held}
-          corner={corner}
-          onInvoke={menuApi.invoke}
-          onFolded={closeFan}
-        />
-      )}
       <motion.div
-        ref={cardRef}
         initial={{ opacity: 0, scale: 0.92, y: 8 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
         transition={{ type: 'spring', stiffness: 260, damping: 24, delay: entranceDelay }}
         className={[
-          'person-card relative z-1 flex size-full items-center gap-3 rounded-(--card-radius) border bg-white px-3 card-shadow transition-[box-shadow,border-color,translate]',
-          menuForMe && 'node-card-on',
+          'relative flex size-full items-center gap-3 rounded-(--card-radius) border bg-white px-3 card-shadow transition-[box-shadow,border-color]',
           border,
           !isManager && 'hover:card-shadow-hover',
           selected

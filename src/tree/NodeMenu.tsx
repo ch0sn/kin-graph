@@ -1,8 +1,20 @@
+import type { LucideIcon } from 'lucide-react'
 import { useReducedMotion } from 'motion/react'
 import { useEffect, useRef, useState } from 'react'
 import { useT } from '../i18n'
 import { FAN_BOUNCE, FAN_DOT, clamp, fanDelay, fanSpots, hidePoint, springOf } from './cornerFan'
-import type { NodeMenuAction } from './useNodeMenu'
+
+/** One toolbox action drawn as a disc on the fan. */
+export interface NodeMenuAction {
+  id: string
+  label: string
+  Icon: LucideIcon
+  available: boolean
+  tone?: 'default' | 'danger'
+  /** Hover and screen-reader text. Longer than `label` when the action can't be used. */
+  title: string
+  onClick: () => void
+}
 
 /** How many springs exist. Hooks cannot be created per action, so this is the ceiling. */
 const FAN_SLOTS = 6
@@ -53,6 +65,11 @@ function useFanTravel(open: boolean, count: number, still: boolean): number[] {
         let v = vel.current[i] + (goal[i] - value) * k * dt
         v *= Math.pow(d, dt)
         let p = value + v * dt
+        // Closing discs stop in the corner. A rebound would bring them back out, and the card waits for them.
+        if (goal[i] === 0 && p <= 0) {
+          vel.current[i] = 0
+          return 0
+        }
         if (Math.abs(goal[i] - p) < 0.02 && Math.abs(v) < 0.02) {
           vel.current[i] = 0
           return goal[i]
@@ -74,22 +91,20 @@ function useFanTravel(open: boolean, count: number, still: boolean): number[] {
 }
 
 /**
- * The person's toolbox, folded into the card's top-right corner until the
- * card is the one that was clicked. Light discs, hairline stroke: the
- * action-node demo at theme=dark, fill=light, stroke=on.
+ * The person's toolbox, folded into a card's top-right corner until it opens.
+ * Disc colour comes from the theme, the same surface and ink as settings.
  */
 export function NodeFan({
   open,
   actions,
   corner,
-  onInvoke,
   onFolded,
 }: {
   open: boolean
   actions: NodeMenuAction[]
   corner: number
-  onInvoke: (id: string) => void
-  onFolded: () => void
+  /** Called once the discs have folded away, so the fan can unmount. */
+  onFolded?: () => void
 }) {
   const { t } = useT()
   const reduce = useReducedMotion()
@@ -102,7 +117,7 @@ export function NodeFan({
   const folded = !open && travel.every((v) => v === 0)
 
   useEffect(() => {
-    if (folded) onFolded()
+    if (folded) onFolded?.()
   }, [folded, onFolded])
 
   if (count === 0) return null
@@ -134,13 +149,13 @@ export function NodeFan({
                 '--pop': 0.82 + 0.18 * Math.min(u, 1),
                 '--lx': `${spot.nx * 30}px`,
                 '--ly': `${spot.ny * 30}px`,
-                pointerEvents: u > 0.45 ? 'auto' : 'none',
+                pointerEvents: open && u > 0.45 ? 'auto' : 'none',
               } as React.CSSProperties
             }
             onPointerDown={(e) => e.stopPropagation()}
             onClick={(e) => {
               e.stopPropagation()
-              onInvoke(action.id)
+              if (action.available) action.onClick()
             }}
           >
             <action.Icon size={16} strokeWidth={2} aria-hidden />

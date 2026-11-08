@@ -1,6 +1,6 @@
 import { ArrowLeft, ArrowUp, Baby, Eye, FileText, FileUp, Heart, Mars, Pencil, Plus, Trash, Users, Venus, X } from 'lucide-react'
 import { AnimatePresence, motion, useDragControls } from 'motion/react'
-import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from 'react'
+import { createContext, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import {
   addChild,
@@ -38,7 +38,8 @@ import {
 } from '../model'
 import { useT } from '../i18n'
 import { useBackupPicker } from '../storage/useBackupPicker'
-import { useNodeMenuApi, type NodeMenuAction } from '../tree/useNodeMenu'
+import { cornerRadius } from '../tree/cornerFan'
+import { NodeFan, type NodeMenuAction } from '../tree/NodeMenu'
 import { Avatar } from '../ui/Avatar'
 import { ConfirmDialog } from '../ui/ConfirmDialog'
 import { LifeLine } from '../ui/LifeLine'
@@ -106,12 +107,10 @@ interface PersonSheetProps {
   perspectives?: Perspectives
   /** Opens the sheet on the form for adding this kind of relative, rather than the details. */
   startWith?: Relation
-  /**
-   * Draw the toolbox on the selected person's card instead of beside the sheet.
-   * The fan chart has no card, so it leaves this off and keeps the side box.
-   */
-  menuOnNode?: boolean
 }
+
+/** Wide enough for the corner fan. Matches the `sm` anchor on the sheet. */
+const fanFits = () => window.matchMedia('(min-width: 640px)').matches
 
 /** Details and actions for the selected person, sliding up from the bottom. */
 export function PersonSheet({
@@ -121,9 +120,26 @@ export function PersonSheet({
   onClose,
   perspectives,
   startWith,
-  menuOnNode,
 }: PersonSheetProps) {
-  const person = personId ? graph.people[personId] : undefined
+  const live = personId ? graph.people[personId] : undefined
+  // Kept while the fan folds, so clearing the selection does not take the card with it.
+  const [held, setHeld] = useState(live)
+  if (live && held !== live) setHeld(live)
+
+  const [cardOn, setCardOn] = useState(false)
+  const [fanOpen, setFanOpen] = useState(false)
+  const finishFold = useCallback(() => setCardOn(false), [])
+
+  if (live) {
+    if (!cardOn) setCardOn(true)
+    if (!fanOpen) setFanOpen(true)
+  } else if (cardOn && fanOpen) {
+    // Discs tuck into the corner first. Then the card slides away.
+    if (fanFits()) setFanOpen(false)
+    else setCardOn(false)
+  }
+
+  const person = live ?? (cardOn ? held : undefined)
   return (
     <AnimatePresence>
       {person && (
@@ -137,7 +153,8 @@ export function PersonSheet({
             onClose={onClose}
             perspectives={perspectives}
             startWith={startWith}
-            menuOnNode={menuOnNode}
+            fanOpen={fanOpen}
+            onFanFolded={finishFold}
           />
         </Sheet>
       )}
@@ -146,10 +163,10 @@ export function PersonSheet({
 }
 
 /**
- * Where the toolbox goes: a slot beside the sheet, outside its scrolling
- * area, which the sheet body fills through a portal.
+ * The sheet's top-right corner, where the action discs are drawn. The anchor
+ * sits behind the card so the discs emerge from under the corner.
  */
-const ToolboxSlot = createContext<HTMLElement | null>(null)
+const SheetCornerContext = createContext<{ anchor: HTMLElement; corner: number } | null>(null)
 
 function Sheet({
   label,
@@ -161,7 +178,18 @@ function Sheet({
   children: ReactNode
 }) {
   const dragControls = useDragControls()
-  const [toolboxSlot, setToolboxSlot] = useState<HTMLElement | null>(null)
+  const cardRef = useRef<HTMLDivElement>(null)
+  const [anchor, setAnchor] = useState<HTMLElement | null>(null)
+  const [corner, setCorner] = useState(24)
+
+  useLayoutEffect(() => {
+    const card = cardRef.current
+    if (!card) return
+    const next = cornerRadius(getComputedStyle(card).borderTopRightRadius)
+    setCorner((current) => (current === next ? current : next))
+  }, [])
+
+  const cornerSlot = useMemo(() => (anchor ? { anchor, corner } : null), [anchor, corner])
 
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
@@ -173,39 +201,43 @@ function Sheet({
   }, [onClose])
 
   return (
-    <motion.section
-      role="dialog"
-      aria-label={label}
-      initial={{ y: '100%' }}
-      animate={{ y: 0 }}
-      exit={{ y: '100%' }}
-      transition={{ type: 'spring', stiffness: 380, damping: 38 }}
-      drag="y"
-      dragListener={false}
-      dragControls={dragControls}
-      dragConstraints={{ top: 0, bottom: 0 }}
-      dragElastic={{ top: 0, bottom: 0.7 }}
-      onDragEnd={(_, info) => {
-        if (info.offset.y > 120 || info.velocity.y > 600) onClose()
-      }}
-      className="fixed inset-x-0 bottom-0 z-20 mx-auto flex max-h-[85dvh] w-full max-w-md flex-col sm:max-w-sm rounded-t-3xl border border-b-0 border-stone-200 bg-white shadow-[0_-8px_40px_-12px_rgb(0_0_0/0.25)] sm:inset-x-auto sm:bottom-4 sm:left-4 sm:rounded-3xl sm:border-b sm:has-[[role=toolbar]]:rounded-tr-none"
-    >
-      <div
-        className="flex shrink-0 cursor-grab touch-none justify-center pt-3 pb-1 active:cursor-grabbing"
-        onPointerDown={(e) => dragControls.start(e)}
-        aria-hidden
+    <SheetCornerContext.Provider value={cornerSlot}>
+      <motion.section
+        role="dialog"
+        aria-label={label}
+        initial={{ y: '100%' }}
+        animate={{ y: 0 }}
+        exit={{ y: '100%' }}
+        transition={{ type: 'spring', stiffness: 380, damping: 38 }}
+        drag="y"
+        dragListener={false}
+        dragControls={dragControls}
+        dragConstraints={{ top: 0, bottom: 0 }}
+        dragElastic={{ top: 0, bottom: 0.7 }}
+        onDragEnd={(_, info) => {
+          if (info.offset.y > 120 || info.velocity.y > 600) onClose()
+        }}
+        className="fixed inset-x-0 bottom-0 z-20 mx-auto w-full max-w-md sm:inset-x-auto sm:bottom-4 sm:left-4 sm:max-w-sm"
       >
-        <div className="h-1.5 w-10 rounded-full bg-stone-300" />
-      </div>
-      <div className="overflow-y-auto overscroll-contain px-5 pb-[max(1.25rem,env(safe-area-inset-bottom))]">
-        <ToolboxSlot value={toolboxSlot}>{children}</ToolboxSlot>
-      </div>
-      {/*
-        Beside the sheet on wide screens; on narrow ones the actions sit inside it.
-        It is placed over the sheet's top and right border so the two read as one box.
-      */}
-      <div ref={setToolboxSlot} className="absolute -top-px left-full hidden sm:block" />
-    </motion.section>
+        {/* Wide screens only: a full-width sheet's right edge is the screen edge. */}
+        <div ref={setAnchor} className="absolute top-0 right-0 z-0 hidden sm:block" />
+        <div
+          ref={cardRef}
+          className="sheet-card relative z-1 flex max-h-[85dvh] w-full flex-col rounded-t-3xl border border-b-0 border-stone-200 bg-white shadow-[0_-8px_40px_-12px_rgb(0_0_0/0.25)] sm:max-h-[calc(100dvh-12rem)] sm:rounded-3xl sm:border-b"
+        >
+          <div
+            className="flex shrink-0 cursor-grab touch-none justify-center pt-3 pb-1 active:cursor-grabbing"
+            onPointerDown={(e) => dragControls.start(e)}
+            aria-hidden
+          >
+            <div className="h-1.5 w-10 rounded-full bg-stone-300" />
+          </div>
+          <div className="overflow-y-auto overscroll-contain px-5 pb-[max(1.25rem,env(safe-area-inset-bottom))]">
+            {children}
+          </div>
+        </div>
+      </motion.section>
+    </SheetCornerContext.Provider>
   )
 }
 
@@ -216,7 +248,8 @@ function SheetBody({
   onClose,
   perspectives,
   startWith,
-  menuOnNode,
+  fanOpen,
+  onFanFolded,
 }: {
   graph: FamilyGraph
   person: Person
@@ -224,7 +257,9 @@ function SheetBody({
   onClose: () => void
   perspectives?: Perspectives
   startWith?: Relation
-  menuOnNode?: boolean
+  /** False while the discs fold back in, ahead of the card leaving. */
+  fanOpen: boolean
+  onFanFolded: () => void
 }) {
   const { t } = useT()
   const [mode, setMode] = useState<Mode>(startWith ? { view: 'add', relation: startWith } : { view: 'details' })
@@ -279,7 +314,7 @@ function SheetBody({
         ? { available: false, title: t('view.onlyView'), onClick: () => {} }
         : undefined
 
-  const nodeMenu = useNodeMenuApi()
+  const cornerSlot = useContext(SheetCornerContext)
   const menuActions = (() => {
     const list: NodeMenuAction[] = [
       {
@@ -333,20 +368,14 @@ function SheetBody({
     return list
   })()
 
-  // Publish while this person is selected. A second effect clears only when
-  // they go away, so a fresh click handler does not fold the fan shut.
-  useEffect(() => {
-    if (!menuOnNode || !nodeMenu) return
-    nodeMenu.publish(person.id, menuActions)
-  }, [menuOnNode, nodeMenu, person.id, menuActions])
-
-  useEffect(() => {
-    if (!menuOnNode || !nodeMenu) return
-    return () => nodeMenu.clear(person.id)
-  }, [menuOnNode, nodeMenu, person.id])
-
   return (
-    <AnimatePresence mode="wait" initial={false}>
+    <>
+      {cornerSlot &&
+        createPortal(
+          <NodeFan open={fanOpen} actions={menuActions} corner={cornerSlot.corner} onFolded={onFanFolded} />,
+          cornerSlot.anchor,
+        )}
+      <AnimatePresence mode="wait" initial={false}>
       <motion.div
         key={mode.view === 'add' ? `add-${mode.relation}` : mode.view}
         initial={{ opacity: 0, x: mode.view === 'details' ? -12 : 12 }}
@@ -389,15 +418,6 @@ function SheetBody({
 
             {showsTree && !isManager && !ownTree && <PerspectiveRow person={person} perspectives={perspectives} />}
 
-            {!menuOnNode && (
-              <Toolbox
-                onAddRelative={() => go({ view: 'relative' })}
-                onEdit={() => go({ view: 'edit' })}
-                treeTools={treeTools}
-                remove={removeTool}
-              />
-            )}
-
             <Timeline
               graph={graph}
               personId={person.id}
@@ -423,8 +443,7 @@ function SheetBody({
               </section>
             )}
 
-            {!menuOnNode && (
-              <div className="flex gap-2 border-t border-stone-100 pt-4 sm:hidden">
+            <div className="flex gap-2 border-t border-stone-100 pt-4 sm:hidden">
                 <Button variant="primary" onClick={() => go({ view: 'relative' })}>
                   <Plus className="size-4" aria-hidden />
                   {t('sheet.addRelative')}
@@ -450,7 +469,6 @@ function SheetBody({
                   </RowTool>
                 )}
               </div>
-            )}
           </div>
         )}
 
@@ -634,6 +652,7 @@ function SheetBody({
         )}
       </motion.div>
     </AnimatePresence>
+    </>
   )
 }
 
@@ -740,122 +759,6 @@ function SubView({
       </header>
       <FormActionsSlot value={actions}>{children}</FormActionsSlot>
     </div>
-  )
-}
-
-/**
- * The person's actions in a box beside the sheet. Used when the tree has no
- * person card to hang them on (the fan chart). On a narrow screen the slot
- * is hidden and the row under the details is used instead.
- */
-function Toolbox({
-  onAddRelative,
-  onEdit,
-  treeTools,
-  remove,
-}: {
-  onAddRelative: () => void
-  onEdit: () => void
-  /** "View as …", and opening the person's own tree. */
-  treeTools?: { viewAs: Tool; ownTree: Tool }
-  /** Removing the person, or for the tree's root, deleting the tree. */
-  remove?: Tool
-}) {
-  const { t } = useT()
-  const slot = useContext(ToolboxSlot)
-  if (!slot) return null
-  // Icons only until the box is hovered or focused, then it widens to show the labels.
-  // Collapsed, 57px less the padding and right border leaves 40px: a 20px icon with 10px either side.
-  const tool =
-    'flex w-full items-center gap-3 rounded-xl px-2.5 py-2.5 text-left text-[11px] font-medium whitespace-nowrap transition active:scale-[0.98] focus-visible:ring-4 focus-visible:ring-stone-200 focus-visible:outline-none [&_svg]:size-5 [&_svg]:shrink-0'
-  const label =
-    'opacity-0 transition-opacity duration-150 group-hover/tools:opacity-100 group-focus-within/tools:opacity-100 motion-reduce:transition-none'
-  return createPortal(
-    <div
-      role="toolbar"
-      aria-label={t('sheet.tools')}
-      className="group/tools flex w-[57px] flex-col gap-1 overflow-hidden rounded-tr-3xl rounded-br-2xl border border-l-0 border-stone-200 bg-white p-2 pt-4 shadow-[0_-8px_40px_-12px_rgb(0_0_0/0.25)] [clip-path:inset(-60px_-60px_-60px_0)] transition-[width] duration-200 ease-out hover:w-48 focus-within:w-48 motion-reduce:transition-none"
-    >
-      <button
-        type="button"
-        onClick={onAddRelative}
-        title={t('sheet.addRelative')}
-        className={`${tool} bg-stone-900 text-white hover:bg-stone-800`}
-      >
-        <Plus aria-hidden />
-        <span className={label}>{t('sheet.addRelative')}</span>
-      </button>
-      <button
-        type="button"
-        onClick={onEdit}
-        title={t('sheet.edit')}
-        className={`${tool} text-stone-700 hover:bg-stone-100 hover:text-stone-900`}
-      >
-        <Pencil aria-hidden />
-        <span className={label}>{t('sheet.edit')}</span>
-      </button>
-      {treeTools && (
-        <>
-          <ToolboxButton tool={treeTools.viewAs} className={tool} label={t('sheet.viewAs')} labelClassName={label}>
-            <Eye aria-hidden />
-          </ToolboxButton>
-          <ToolboxButton tool={treeTools.ownTree} className={tool} label={t('sheet.ownTree')} labelClassName={label}>
-            <FileText aria-hidden />
-          </ToolboxButton>
-        </>
-      )}
-      {remove && (
-        <ToolboxButton
-          tool={remove}
-          className={tool}
-          label={remove.title}
-          labelClassName={label}
-          tone="danger"
-        >
-          <Trash aria-hidden />
-        </ToolboxButton>
-      )}
-    </div>,
-    slot,
-  )
-}
-
-/**
- * A toolbox button. One that isn't available stays focusable and is greyed
- * out rather than `disabled`, so its hover text can still say why.
- */
-function ToolboxButton({
-  tool,
-  className,
-  label,
-  labelClassName,
-  tone = 'default',
-  children,
-}: {
-  tool: Tool
-  className: string
-  label: string
-  labelClassName: string
-  tone?: 'default' | 'danger'
-  children: ReactNode
-}) {
-  const colours = !tool.available
-    ? 'cursor-not-allowed text-stone-300 active:scale-100'
-    : tone === 'danger'
-      ? 'text-red-700 hover:bg-red-50 hover:text-red-800'
-      : 'text-stone-700 hover:bg-stone-100 hover:text-stone-900'
-  return (
-    <button
-      type="button"
-      onClick={tool.available ? tool.onClick : undefined}
-      title={tool.title}
-      aria-label={tool.title}
-      aria-disabled={!tool.available}
-      className={`${className} ${colours}`}
-    >
-      {children}
-      <span className={labelClassName}>{label}</span>
-    </button>
   )
 }
 
