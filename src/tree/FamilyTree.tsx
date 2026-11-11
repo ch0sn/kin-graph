@@ -5,6 +5,8 @@ import {
   ReactFlowProvider,
   useReactFlow,
   useStore,
+  useStoreApi,
+  type Rect,
   type XYPosition,
 } from '@xyflow/react'
 import { Expand, LocateFixed, Mars, Venus } from 'lucide-react'
@@ -29,6 +31,13 @@ import type { ThemePattern } from '../theme/themes'
 import type { SiblingOrder } from './siblingOrder'
 import type { NameOrder } from '../model'
 import { ViewButton, ViewDivider, ViewToolbar } from '../ui/ViewToolbar'
+import {
+  MAX_OVERVIEW_ZOOM,
+  WHOLE_TREE_GAP,
+  treeBounds,
+  wholeTreeViewport,
+  type Insets,
+} from './overview'
 
 const PATTERNS = {
   dots: BackgroundVariant.Dots,
@@ -43,6 +52,16 @@ const edgeTypes = { family: FamilyEdge }
 const ENTRANCE_STAGGER = 0.06
 /** Where a selected person is placed, as a fraction of the height from the top, clear of the sheet. */
 const SELECTED_VIEWPORT_Y = 0.28
+/** How far a pinch can zoom out until someone asks for the whole tree. */
+const PINCH_MIN_ZOOM = 0.2
+/** The view rail hangs over the canvas from the top-right, at its collapsed width. */
+const VIEW_RAIL = 57
+const CANVAS_INSETS: Insets = {
+  top: WHOLE_TREE_GAP,
+  right: VIEW_RAIL + 12,
+  bottom: WHOLE_TREE_GAP,
+  left: WHOLE_TREE_GAP,
+}
 
 interface FamilyTreeProps {
   graph: FamilyGraph
@@ -90,8 +109,18 @@ function FamilyTreeCanvas({
   const [shownNodes, setShownNodes] = useState<TreeNode[]>([])
   const shownRef = useRef<TreeNode[]>([])
   const reduceMotion = useReducedMotion()
-  const { fitView, getZoom, setCenter } = useReactFlow()
+  const { getZoom, setCenter, setViewport } = useReactFlow()
+  const store = useStoreApi()
+  const domNode = useStore((s) => s.domNode)
+  const viewportWidth = useStore((s) => s.width)
   const viewportHeight = useStore((s) => s.height)
+  /** How far a pinch can zoom out. Whole tree lowers it so that framing stays reachable. */
+  const [minZoom, setMinZoom] = useState(PINCH_MIN_ZOOM)
+  /** Whole tree keeps the camera until the open person changes. */
+  const overviewRef = useRef(false)
+  /** Who was selected when whole tree was asked for. */
+  const overviewSelection = useRef<PersonId | null>(null)
+  const fitWholeTreeRef = useRef<(duration: number) => void>(() => {})
 
   useEffect(() => {
     let cancelled = false
@@ -157,16 +186,64 @@ function FamilyTreeCanvas({
     [layout, setCenter],
   )
 
+  // Frames every person in the part of the canvas the sheet leaves open.
+  // React Flow's fitView only counts nodes the browser has measured and will
+  // not zoom out past the pinch floor, so a large family stays cropped around
+  // the middle, which is where you are.
+  const fitWholeTree = useCallback(
+    (duration: number) => {
+      overviewRef.current = true
+      overviewSelection.current = selectedId
+      if (!layout || !domNode) return
+      const width = domNode.clientWidth
+      const height = domNode.clientHeight
+      if (width < 1 || height < 1) return
+      const viewport = wholeTreeViewport(
+        treeBounds(layout.nodes),
+        { width, height },
+        selectedId ? sheetInFlow(domNode) : null,
+        CANVAS_INSETS,
+      )
+      // Pinch can reach this framing, and no further once the family is larger than the old floor.
+      const nextFloor = Math.min(PINCH_MIN_ZOOM, viewport.zoom)
+      if (store.getState().minZoom !== nextFloor) {
+        store.getState().setMinZoom(nextFloor)
+        setMinZoom(nextFloor)
+      }
+      void setViewport(viewport, { duration })
+    },
+    [layout, domNode, selectedId, setViewport, store],
+  )
+
   // Keep the selected person in view above the sheet, including after edits
-  // move them.
+  // move them. Whole tree is left alone until a different person is opened.
   useEffect(() => {
     if (!selectedId) return
+    if (overviewRef.current && selectedId === overviewSelection.current) return
+    overviewRef.current = false
     centerOn(selectedId, {
       zoom: Math.max(getZoom(), 0.8),
       offsetY: viewportHeight * (0.5 - SELECTED_VIEWPORT_Y),
       duration: 500,
     })
   }, [selectedId, centerOn, getZoom, viewportHeight])
+
+  // The sheet closing, or the family moving, changes what "everyone" means.
+  useEffect(() => {
+    if (!overviewRef.current) return
+    fitWholeTree(reduceMotion ? 0 : 600)
+  }, [fitWholeTree, reduceMotion])
+
+  // Keep the latest fit for the resize effect. A layout change takes the
+  // animated path above and must not also snap.
+  useEffect(() => {
+    fitWholeTreeRef.current = fitWholeTree
+  }, [fitWholeTree])
+
+  useEffect(() => {
+    if (!overviewRef.current) return
+    fitWholeTreeRef.current(0)
+  }, [viewportWidth, viewportHeight])
 
   const counts = useMemo(() => genderCounts(graph), [graph])
 
@@ -192,8 +269,8 @@ function FamilyTreeCanvas({
         edgesFocusable={false}
         nodesDraggable={false}
         nodesConnectable={false}
-        minZoom={0.2}
-        maxZoom={1.5}
+        minZoom={minZoom}
+        maxZoom={MAX_OVERVIEW_ZOOM}
         proOptions={{ hideAttribution: true }}
       >
         {pattern !== 'none' && (
@@ -207,8 +284,11 @@ function FamilyTreeCanvas({
         {controlsSlot &&
           createPortal(
             <ViewControls
-              onFocus={() => centerOn(graph.managerId)}
-              onWhole={() => fitView({ padding: 0.15, duration: 600 })}
+              onFocus={() => {
+                overviewRef.current = false
+                centerOn(graph.managerId)
+              }}
+              onWhole={() => fitWholeTree(reduceMotion ? 0 : 600)}
               highlightGender={highlightGender}
               onToggleHighlightGender={onToggleHighlightGender}
               counts={counts}
@@ -240,6 +320,28 @@ function withEntranceDelays(layout: FamilyLayout, isFirst: boolean): FamilyLayou
 
 function lerp(from: XYPosition, to: XYPosition, t: number): XYPosition {
   return { x: from.x + (to.x - from.x) * t, y: from.y + (to.y - from.y) * t }
+}
+
+/** The open person sheet, in canvas coordinates, when it covers the tree. */
+function sheetInFlow(flow: HTMLElement): Rect | null {
+  const sheet = flow.ownerDocument.querySelector('.sheet-card')
+  if (!(sheet instanceof HTMLElement)) return null
+  const view = flow.getBoundingClientRect()
+  const card = sheet.getBoundingClientRect()
+  const rect = {
+    x: card.left - view.left,
+    y: card.top - view.top,
+    width: card.width,
+    height: card.height,
+  }
+  const overlaps =
+    rect.width > 1 &&
+    rect.height > 1 &&
+    rect.x < view.width &&
+    rect.y < view.height &&
+    rect.x + rect.width > 0 &&
+    rect.y + rect.height > 0
+  return overlaps ? rect : null
 }
 
 /** The tree's view controls, hanging from the header. */
@@ -278,7 +380,7 @@ function ViewControls({
         onClick={onToggleHighlightGender}
       >
         {/* Stacked, each with its count while the highlight is on. */}
-        <span className="flex flex-col items-center gap-0.5 text-[11px] leading-none font-semibold tabular-nums">
+        <span className="flex flex-col items-center gap-0.5 text-xs leading-none font-semibold tabular-nums">
           <Mars className={`size-4 ${highlightGender ? 'text-blue-500' : 'text-stone-500'}`} aria-hidden />
           {highlightGender && <span>{counts.male}</span>}
           <Venus className={`size-4 ${highlightGender ? 'text-red-500' : 'text-stone-500'}`} aria-hidden />
