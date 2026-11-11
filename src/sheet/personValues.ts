@@ -50,8 +50,9 @@ export type PersonErrors = Partial<Record<'givenName' | 'birthDate' | 'deathDate
 let lastKey = 0
 const newKey = () => `name-${++lastKey}`
 
+/** A blank name. A new person's own name is a birth name; another name sets its own kind. */
 export function emptyName(overrides: Partial<NameValues> = {}): NameValues {
-  return { key: newKey(), type: '', given: '', surname: '', ...overrides }
+  return { key: newKey(), type: 'birth', given: '', surname: '', ...overrides }
 }
 
 export function emptyValues(overrides: Partial<PersonValues> = {}): PersonValues {

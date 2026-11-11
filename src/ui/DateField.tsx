@@ -108,7 +108,7 @@ function PlainDateInput({
       <legend id={labelId} className="mb-1.5 w-full">
         <span className="text-xs font-semibold tracking-wide text-stone-500 uppercase">{label}</span>
         {help && (
-          <p id={helpId} className="mt-1 text-[11px] leading-snug font-normal tracking-normal text-stone-400 normal-case">
+          <p id={helpId} className="mt-1 text-xs leading-snug font-normal tracking-normal text-stone-400 normal-case">
             {help}
           </p>
         )}

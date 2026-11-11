@@ -5,21 +5,34 @@ export function Field({
   label,
   hint,
   error,
+  end,
   children,
 }: {
   label: string
   hint?: string
   error?: string
+  /** Sits at the end of the label's row, on that same height. */
+  end?: ReactNode
   children: (id: string, describedBy?: string) => ReactNode
 }) {
   const id = useId()
   const messageId = `${id}-message`
   const message = error ?? hint
+  const labelClass = 'text-xs font-semibold tracking-wide text-stone-500 uppercase'
   return (
     <div className="flex flex-col gap-1.5">
-      <label htmlFor={id} className="text-xs font-semibold tracking-wide text-stone-500 uppercase">
-        {label}
-      </label>
+      {end ? (
+        <div className="flex items-center gap-1">
+          <label htmlFor={id} className={`min-w-0 flex-1 ${labelClass}`}>
+            {label}
+          </label>
+          {end}
+        </div>
+      ) : (
+        <label htmlFor={id} className={labelClass}>
+          {label}
+        </label>
+      )}
       {children(id, message ? messageId : undefined)}
       {message && (
         <p id={messageId} className={`text-xs ${error ? 'text-red-700' : 'text-stone-500'}`}>

@@ -64,24 +64,32 @@ export function PersonForm({
 
   return (
     <form id={formId} onSubmit={submit} noValidate className="flex flex-col gap-4">
-      <PersonPhotoField photo={photo} given={values.names[0].given} />
+      {/*
+        The portrait steps out of the sheet's left padding so its side gaps match.
+        Gender shares that grid and centers in the portrait's column.
+      */}
+      <div className="-ml-5 grid grid-cols-[0.5rem_auto_0.5rem_minmax(0,1fr)] gap-y-2">
+        <PersonPhotoField photo={photo} given={values.names[0].given}>
+          <NameEditor
+            key={values.names[0].key}
+            value={values.names[0]}
+            onChange={setShownName}
+            shown
+            layout="stack"
+            error={errors.givenName}
+            autoFocus
+          />
+        </PersonPhotoField>
 
-      <NameEditor
-        key={values.names[0].key}
-        value={values.names[0]}
-        onChange={setShownName}
-        shown
-        error={errors.givenName}
-        autoFocus
-      />
-
-      <OtherNamesEditor names={values.names} onChange={setNames} />
-
-      <GenderPicker value={values.gender} onChange={(gender) => update('gender', gender)} />
+        <OtherNamesEditor
+          names={values.names}
+          onChange={setNames}
+          leading={<GenderPicker value={values.gender} onChange={(gender) => update('gender', gender)} />}
+        />
+      </div>
 
       <DateField
         label={t('form.born')}
-        help={t('welcome.birthBody')}
         value={values.birthDate}
         onChange={(date) => update('birthDate', date)}
         error={errors.birthDate}
@@ -89,7 +97,6 @@ export function PersonForm({
       />
       <PlaceField
         label={t('form.birthPlace')}
-        help={t('welcome.birthPlaceBody')}
         value={values.birthPlace}
         onChange={(place) => update('birthPlace', place)}
       />

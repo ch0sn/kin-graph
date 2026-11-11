@@ -1,6 +1,6 @@
-import { ArrowLeft, ArrowUp, Baby, Eye, FileText, FileUp, Heart, Mars, Pencil, Plus, Trash, Users, Venus, X } from 'lucide-react'
+import { ArrowLeft, ArrowUp, Baby, Eye, FileText, FileUp, Heart, Mars, Pencil, Plus, Trash, Users, Venus, X, type LucideIcon } from 'lucide-react'
 import { AnimatePresence, motion, useDragControls } from 'motion/react'
-import { createContext, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { createContext, useCallback, useContext, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import {
   addChild,
@@ -38,7 +38,6 @@ import {
 } from '../model'
 import { useT } from '../i18n'
 import { useBackupPicker } from '../storage/useBackupPicker'
-import { cornerRadius } from '../tree/cornerFan'
 import { NodeFan, type NodeMenuAction } from '../tree/NodeMenu'
 import { Avatar } from '../ui/Avatar'
 import { ConfirmDialog } from '../ui/ConfirmDialog'
@@ -92,6 +91,12 @@ interface Tool {
   onClick: () => void
 }
 
+/** The file action: open a person's own tree, or import one when they have none. */
+interface FileTool extends Tool {
+  label: string
+  Icon: LucideIcon
+}
+
 export interface OwnTree {
   /** e.g. "Mary Morgan's tree". */
   name: string
@@ -134,7 +139,7 @@ export function PersonSheet({
     if (!cardOn) setCardOn(true)
     if (!fanOpen) setFanOpen(true)
   } else if (cardOn && fanOpen) {
-    // Discs tuck into the corner first. Then the card slides away.
+    // Discs slide back into the card first. Then the card slides away.
     if (fanFits()) setFanOpen(false)
     else setCardOn(false)
   }
@@ -163,10 +168,10 @@ export function PersonSheet({
 }
 
 /**
- * The sheet's top-right corner, where the action discs are drawn. The anchor
- * sits behind the card so the discs emerge from under the corner.
+ * A point on the sheet's top-right corner. The discs are drawn from it,
+ * behind the card, so they slide out from under the right edge.
  */
-const SheetCornerContext = createContext<{ anchor: HTMLElement; corner: number } | null>(null)
+const SheetAnchorContext = createContext<HTMLElement | null>(null)
 
 function Sheet({
   label,
@@ -178,18 +183,7 @@ function Sheet({
   children: ReactNode
 }) {
   const dragControls = useDragControls()
-  const cardRef = useRef<HTMLDivElement>(null)
   const [anchor, setAnchor] = useState<HTMLElement | null>(null)
-  const [corner, setCorner] = useState(24)
-
-  useLayoutEffect(() => {
-    const card = cardRef.current
-    if (!card) return
-    const next = cornerRadius(getComputedStyle(card).borderTopRightRadius)
-    setCorner((current) => (current === next ? current : next))
-  }, [])
-
-  const cornerSlot = useMemo(() => (anchor ? { anchor, corner } : null), [anchor, corner])
 
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
@@ -201,7 +195,7 @@ function Sheet({
   }, [onClose])
 
   return (
-    <SheetCornerContext.Provider value={cornerSlot}>
+    <SheetAnchorContext.Provider value={anchor}>
       <motion.section
         role="dialog"
         aria-label={label}
@@ -221,10 +215,7 @@ function Sheet({
       >
         {/* Wide screens only: a full-width sheet's right edge is the screen edge. */}
         <div ref={setAnchor} className="absolute top-0 right-0 z-0 hidden sm:block" />
-        <div
-          ref={cardRef}
-          className="sheet-card relative z-1 flex max-h-[85dvh] w-full flex-col rounded-t-3xl border border-b-0 border-stone-200 bg-white shadow-[0_-8px_40px_-12px_rgb(0_0_0/0.25)] sm:max-h-[calc(100dvh-12rem)] sm:rounded-3xl sm:border-b"
-        >
+        <div className="sheet-card relative z-1 flex max-h-[85dvh] w-full flex-col rounded-t-3xl border border-b-0 border-stone-200 bg-white shadow-[0_-8px_40px_-12px_rgb(0_0_0/0.25)] sm:max-h-[calc(100dvh-12rem)] sm:rounded-3xl sm:border-b">
           <div
             className="flex shrink-0 cursor-grab touch-none justify-center pt-3 pb-1 active:cursor-grabbing"
             onPointerDown={(e) => dragControls.start(e)}
@@ -237,7 +228,7 @@ function Sheet({
           </div>
         </div>
       </motion.section>
-    </SheetCornerContext.Provider>
+    </SheetAnchorContext.Provider>
   )
 }
 
@@ -262,6 +253,7 @@ function SheetBody({
   onFanFolded: () => void
 }) {
   const { t } = useT()
+  const filePicker = useBackupPicker((picked) => perspectives?.onOpenFile(person.id, picked))
   const [mode, setMode] = useState<Mode>(startWith ? { view: 'add', relation: startWith } : { view: 'details' })
   const [error, setError] = useState<string | null>(null)
   const go = useCallback((next: Mode) => {
@@ -288,21 +280,30 @@ function SheetBody({
   const isTreeRoot = isManager && perspectives !== undefined && !perspectives.isView
   const showsTree = perspectives && !person.isPlaceholder
   const ownTree = showsTree && !isTreeRoot ? perspectives.ownTree(person.id) : null
-  const treeTools: { viewAs: Tool; ownTree: Tool } | undefined = showsTree
+  /** Import is for someone else who has no file yet. The tree's own root already is the open file. */
+  const canImportFile = Boolean(showsTree && !isManager && !ownTree)
+  const treeTools: { viewAs: Tool; file: FileTool } | undefined = showsTree
     ? {
         viewAs: {
           available: !isManager,
           title: isManager ? t('view.isRoot', { name }) : t('view.as', { name }),
           onClick: () => perspectives.onViewAs(person.id),
         },
-        ownTree: {
-          available: ownTree !== null,
+        file: {
+          available: ownTree !== null || canImportFile,
+          label: canImportFile ? t('sheet.importFile') : t('sheet.ownTree'),
+          Icon: canImportFile ? FileUp : FileText,
           title: isTreeRoot
             ? t('view.isOwnTree', { name })
             : ownTree
               ? t('view.open', { name })
-              : t('view.noTree', { name }),
-          onClick: () => perspectives.onOpenOwnTree(person.id),
+              : canImportFile
+                ? t('view.linkFile', { name })
+                : t('view.noTree', { name }),
+          onClick: () => {
+            if (ownTree) perspectives.onOpenOwnTree(person.id)
+            else if (canImportFile) filePicker.open()
+          },
         },
       }
     : undefined
@@ -314,7 +315,34 @@ function SheetBody({
         ? { available: false, title: t('view.onlyView'), onClick: () => {} }
         : undefined
 
-  const cornerSlot = useContext(SheetCornerContext)
+  const anchor = useContext(SheetAnchorContext)
+  const lineRef = useRef<HTMLElement | null>(null)
+  const setLine = useCallback((node: HTMLElement | null) => {
+    lineRef.current = node
+  }, [])
+  // The details header's relationship line, until it can be measured.
+  const [lineY, setLineY] = useState(42)
+
+  useLayoutEffect(() => {
+    const el = lineRef.current
+    if (!el || !anchor) return
+    const measure = () => {
+      // The anchor is display:none on a narrow screen, where the fan is hidden.
+      if (anchor.getClientRects().length === 0) return
+      const labelBox = el.getBoundingClientRect()
+      const origin = anchor.getBoundingClientRect()
+      const y = labelBox.top + labelBox.height / 2 - origin.top
+      setLineY((current) => (Math.abs(current - y) < 0.5 ? current : y))
+    }
+    measure()
+    const observer = new ResizeObserver(measure)
+    observer.observe(el)
+    window.addEventListener('resize', measure)
+    return () => {
+      observer.disconnect()
+      window.removeEventListener('resize', measure)
+    }
+  }, [anchor, mode.view, label])
   const menuActions = (() => {
     const list: NodeMenuAction[] = [
       {
@@ -346,11 +374,11 @@ function SheetBody({
         },
         {
           id: 'own',
-          label: t('sheet.ownTree'),
-          title: treeTools.ownTree.title,
-          Icon: FileText,
-          available: treeTools.ownTree.available,
-          onClick: treeTools.ownTree.onClick,
+          label: treeTools.file.label,
+          title: treeTools.file.title,
+          Icon: treeTools.file.Icon,
+          available: treeTools.file.available,
+          onClick: treeTools.file.onClick,
         },
       )
     }
@@ -370,10 +398,11 @@ function SheetBody({
 
   return (
     <>
-      {cornerSlot &&
+      {filePicker.input}
+      {anchor &&
         createPortal(
-          <NodeFan open={fanOpen} actions={menuActions} corner={cornerSlot.corner} onFolded={onFanFolded} />,
-          cornerSlot.anchor,
+          <NodeFan open={fanOpen} actions={menuActions} lineY={lineY} onFolded={onFanFolded} />,
+          anchor,
         )}
       <AnimatePresence mode="wait" initial={false}>
       <motion.div
@@ -386,14 +415,19 @@ function SheetBody({
         {mode.view === 'details' && (
           <div className="flex flex-col gap-5">
             <header className="flex items-center gap-4 pt-1">
-              <Avatar person={person} size="md" highlight={isManager} />
+              <div className="flex self-stretch">
+                <Avatar person={person} fill highlight={isManager} />
+              </div>
               <div className="min-w-0 flex-1">
                 {label && (
-                  <p className="text-[11px] font-semibold tracking-[0.12em] text-stone-400 uppercase">
+                  <p ref={setLine} className="text-xs font-semibold tracking-[0.12em] text-stone-400 uppercase">
                     {label}
                   </p>
                 )}
-                <h2 className="flex items-center gap-2 font-serif text-2xl leading-tight text-stone-900">
+                <h2
+                  ref={label ? undefined : setLine}
+                  className="flex items-center gap-2 font-serif text-2xl leading-tight text-stone-900"
+                >
                   <span className="truncate">{fullName(person)}</span>
                   <GenderIcon gender={person.gender} />
                 </h2>
@@ -416,7 +450,11 @@ function SheetBody({
               onEdit={(partnerId, partnership) => go({ view: 'partnership', partnerId, partnership })}
             />
 
-            {showsTree && !isManager && !ownTree && <PerspectiveRow person={person} perspectives={perspectives} />}
+            {filePicker.error && (
+              <p role="alert" className="text-sm text-red-800">
+                {filePicker.error}
+              </p>
+            )}
 
             <Timeline
               graph={graph}
@@ -443,7 +481,7 @@ function SheetBody({
               </section>
             )}
 
-            <div className="flex gap-2 border-t border-stone-100 pt-4 sm:hidden">
+            <div className="flex flex-wrap gap-2 border-t border-stone-100 pt-4 sm:hidden">
                 <Button variant="primary" onClick={() => go({ view: 'relative' })}>
                   <Plus className="size-4" aria-hidden />
                   {t('sheet.addRelative')}
@@ -457,8 +495,9 @@ function SheetBody({
                     <RowTool tool={treeTools.viewAs}>
                       <Eye className="size-4" aria-hidden />
                     </RowTool>
-                    <RowTool tool={treeTools.ownTree}>
-                      <FileText className="size-4" aria-hidden />
+                    <RowTool tool={treeTools.file}>
+                      <treeTools.file.Icon className="size-4" aria-hidden />
+                      {treeTools.file.label}
                     </RowTool>
                   </>
                 )}
@@ -997,22 +1036,3 @@ function AddRelativeForm({
   )
 }
 
-/** "Import …'s file", for someone with no tree of their own yet. */
-function PerspectiveRow({ person, perspectives }: { person: Person; perspectives: Perspectives }) {
-  const { t } = useT()
-  const picker = useBackupPicker((graph) => perspectives.onOpenFile(person.id, graph))
-  return (
-    <div className="flex flex-col gap-2">
-      <Button variant="ghost" className="self-start px-3 py-2" onClick={picker.open}>
-        <FileUp className="size-4 text-stone-500" aria-hidden />
-        {t('view.linkFile', { name: fullName(person) })}
-      </Button>
-      {picker.input}
-      {picker.error && (
-        <p role="alert" className="text-sm text-red-800">
-          {picker.error}
-        </p>
-      )}
-    </div>
-  )
-}

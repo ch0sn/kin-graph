@@ -71,7 +71,7 @@ describe('toPersonFields', () => {
         emptyValues({ names: [emptyName({ given: ' Ann ', surname: ' ' })], birthDate: '1963' }),
       ),
     ).toEqual({
-      names: [{ given: 'Ann' }],
+      names: [{ type: 'birth', given: 'Ann' }],
       gender: undefined,
       birthDate: '1963',
       deceased: undefined,
@@ -93,7 +93,10 @@ describe('toPersonFields', () => {
     const values = emptyValues({
       names: [emptyName({ given: 'Ann' }), emptyName({ type: 'birth' }), emptyName({ given: 'Annie' })],
     })
-    expect(toPersonFields(values).names).toEqual([{ given: 'Ann' }, { given: 'Annie' }])
+    expect(toPersonFields(values).names).toEqual([
+      { type: 'birth', given: 'Ann' },
+      { type: 'birth', given: 'Annie' },
+    ])
   })
 
   it('round-trips a person through the form', () => {
@@ -137,6 +140,12 @@ describe('toPersonFields', () => {
 describe('toPersonName', () => {
   it('returns null when nothing was entered, even with a kind chosen', () => {
     expect(toPersonName(emptyName({ type: 'nickname', surname: ' ' }))).toBeNull()
+  })
+
+  it('records a new person’s name as a birth name, and leaves an untyped name untyped', () => {
+    expect(emptyName().type).toBe('birth')
+    expect(toPersonName(emptyName({ given: 'Ann' }))).toEqual({ type: 'birth', given: 'Ann' })
+    expect(toPersonName(emptyName({ type: '', given: 'Ann' }))).toEqual({ given: 'Ann' })
   })
 
   it('keeps a name that only has a surname, like a maiden name', () => {

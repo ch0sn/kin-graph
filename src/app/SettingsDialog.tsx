@@ -55,7 +55,7 @@ function PreviewCard({ name, highlight = false }: { name: string; highlight?: bo
     >
       <span
         className={[
-          'flex size-5 items-center justify-center rounded-full text-[9px] font-serif',
+          'flex aspect-[3/4] h-6 w-auto items-center justify-center rounded-md text-xs font-serif',
           highlight ? 'bg-(--accent-soft) text-(--accent-ink)' : 'bg-stone-100 text-stone-600',
         ].join(' ')}
       >

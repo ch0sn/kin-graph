@@ -88,7 +88,24 @@ export function fitLabel(room: number, fontSize: number, full: string, first: st
   return 'none'
 }
 
-/** Name size for each generation, parents first. */
+/**
+ * Name size for each generation, parents first.
+ * The steps are 16, 14, 12, 10, then 8 for the fifth generation and beyond.
+ */
 export function nameSize(generation: number): number {
-  return [17, 17, 14, 12, 10, 9, 8, 8][generation] ?? 8
+  return [16, 16, 14, 12, 10, 8][Math.min(Math.max(generation, 0), 5)]
+}
+
+/** Years under a fan name, one step down: 12, 10, or 8. */
+export function yearSize(name: number): number {
+  if (name >= 16) return 12
+  if (name >= 14) return 10
+  return 8
+}
+
+/** A lone "+" is one step larger than its "Add" label, still on 14, 12, or 10. */
+export function plusSize(labelSize: number): number {
+  if (labelSize <= 8) return 10
+  if (labelSize <= 10) return 12
+  return 14
 }

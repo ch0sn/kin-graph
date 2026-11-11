@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { fitLabel, labelRoom, ringRadii, sectorPath, slotAngles } from './geometry'
+import { fitLabel, labelRoom, nameSize, plusSize, ringRadii, sectorPath, slotAngles, yearSize } from './geometry'
 
 describe('slotAngles', () => {
   it('splits each generation evenly, father’s side first', () => {
@@ -19,6 +19,17 @@ describe('ringRadii', () => {
 describe('sectorPath', () => {
   it('draws the outer arc clockwise and the inner one back', () => {
     expect(sectorPath(80, 175, 180, 90)).toBe('M-175 0 A175 175 0 0 1 0 -175 L0 -80 A80 80 0 0 0 -80 0 Z')
+  })
+})
+
+describe('name sizes', () => {
+  it('steps down the shared scale, then stays at 8', () => {
+    expect([0, 1, 2, 3, 4, 5, 6, 9].map(nameSize)).toEqual([16, 16, 14, 12, 10, 8, 8, 8])
+  })
+
+  it('puts years and the bare plus on that same scale', () => {
+    expect([16, 14, 12, 10, 8].map(yearSize)).toEqual([12, 10, 8, 8, 8])
+    expect([12, 10, 8].map(plusSize)).toEqual([14, 12, 10])
   })
 })
 

@@ -1,4 +1,4 @@
-import { ChevronLeft, Expand, LocateFixed, Minus, Plus } from 'lucide-react'
+import { ChevronLeft, Minus, Plus } from 'lucide-react'
 import { motion } from 'motion/react'
 import { useMemo, useRef, useState, type KeyboardEvent, type PointerEvent } from 'react'
 import { createPortal } from 'react-dom'
@@ -14,12 +14,14 @@ import {
   type PersonId,
 } from '../model'
 import { MAX_FAN_GENERATIONS, MIN_FAN_GENERATIONS } from '../storage/settings'
-import { ViewButton, ViewDivider, ViewToolbar } from '../ui/ViewToolbar'
+import { ViewButton, ViewToolbar } from '../ui/ViewToolbar'
 import {
   CENTRE_RADIUS,
   fitLabel,
   labelRoom,
   nameSize,
+  plusSize,
+  yearSize,
   polar,
   ringRadii,
   sectorPath,
@@ -97,11 +99,6 @@ export function FanChart({
   const jumpBack = (to: number) => {
     setCentreId(shownTrail[to])
     setTrail(shownTrail.slice(0, to))
-    reset()
-  }
-  const home = () => {
-    setCentreId(graph.managerId)
-    setTrail([])
     reset()
   }
 
@@ -279,14 +276,14 @@ export function FanChart({
                 className="stroke-(--accent) stroke-[2.5] group-focus-visible:stroke-4"
               />
               <text y={-CENTRE_RADIUS * 0.42} textAnchor="middle" className="pointer-events-none">
-                <tspan x={0} className="fill-stone-900 font-serif font-semibold" style={{ fontSize: 15 }}>
-                  {fitLabel(2 * CENTRE_RADIUS - 24, 15, fullName(centrePerson), firstName(centrePerson), '') ===
+                <tspan x={0} className="fill-stone-900 font-serif font-semibold" style={{ fontSize: 16 }}>
+                  {fitLabel(2 * CENTRE_RADIUS - 24, 16, fullName(centrePerson), firstName(centrePerson), '') ===
                   'full'
                     ? fullName(centrePerson)
                     : firstName(centrePerson)}
                 </tspan>
                 {centreYears && (
-                  <tspan x={0} dy="1.4em" className="fill-stone-600" style={{ fontSize: 11 }}>
+                  <tspan x={0} dy="1.4em" className="fill-stone-600" style={{ fontSize: 12 }}>
                     {centreYears}
                   </tspan>
                 )}
@@ -353,13 +350,6 @@ export function FanChart({
       {controlsSlot &&
         createPortal(
           <ViewToolbar label={t('fan.view')}>
-            <ViewButton label={t('fan.home')} onClick={home}>
-              <LocateFixed className="size-5" aria-hidden />
-            </ViewButton>
-            <ViewButton label={t('fan.whole')} onClick={reset}>
-              <Expand className="size-5" aria-hidden />
-            </ViewButton>
-            <ViewDivider />
             <ViewButton
               label={t('fan.more')}
               disabled={generations >= MAX_FAN_GENERATIONS}
@@ -404,15 +394,15 @@ function PersonLabel({ person, generation, r0, r1, a0, a1 }: SlotGeometry & { pe
   if (fit === 'none') return null
   const name = fit === 'full' ? full : fit === 'first' ? first : initials(person)
   const years = lifeYears(person)
-  const yearSize = Math.round(size * 0.72)
-  const withYears = generation <= 3 && years !== null && textWidth(years, yearSize) <= room && r1 - r0 > size * 3
+  const yearsSize = yearSize(size)
+  const withYears = generation <= 3 && years !== null && textWidth(years, yearsSize) <= room && r1 - r0 > size * 3
   return (
     <text x={at.x} y={at.y} textAnchor="middle" className="pointer-events-none">
       <tspan x={at.x} dy={withYears ? '-0.15em' : '0.35em'} className="fill-stone-900 font-serif" style={{ fontSize: size }}>
         {name}
       </tspan>
       {withYears && (
-        <tspan x={at.x} dy="1.45em" className="fill-stone-600" style={{ fontSize: yearSize }}>
+        <tspan x={at.x} dy="1.45em" className="fill-stone-600" style={{ fontSize: yearsSize }}>
           {years}
         </tspan>
       )}
@@ -433,7 +423,7 @@ function EmptyLabel({ generation, r0, r1, a0, a1, label }: SlotGeometry & { labe
       dy="0.35em"
       textAnchor="middle"
       className="pointer-events-none fill-stone-400 font-medium group-hover:fill-(--accent)"
-      style={{ fontSize: text === '+' ? size + 3 : size }}
+      style={{ fontSize: text === '+' ? plusSize(size) : size }}
     >
       {text}
     </text>
@@ -460,11 +450,11 @@ function Baseline({ radii, generations, outer }: { radii: number[]; generations:
   for (let g = 1; g <= generations; g++) {
     const width = radii[g + 1] - radii[g]
     const label = g <= 3 ? t(`fan.ring${g as 1 | 2 | 3}`) : t('fan.ringN', { n: g })
-    if (textWidth(label, 11) > width + 16) continue
+    if (textWidth(label, 12) > width + 16) continue
     const mid = (radii[g] + radii[g + 1]) / 2
     for (const side of [-1, 1]) {
       names.push(
-        <text key={`${g}${side}`} x={side * mid} y={20} textAnchor="middle" className="fill-stone-400 font-medium" style={{ fontSize: 11 }}>
+        <text key={`${g}${side}`} x={side * mid} y={20} textAnchor="middle" className="fill-stone-400 font-medium" style={{ fontSize: 12 }}>
           {label}
         </text>,
       )
@@ -474,10 +464,10 @@ function Baseline({ radii, generations, outer }: { radii: number[]; generations:
     <g className="pointer-events-none">
       <line x1={-outer} x2={outer} y1={1} y2={1} className="stroke-stone-200" />
       {names}
-      <text x={-outer} y={44} className="fill-stone-400 font-semibold tracking-[0.12em] uppercase" style={{ fontSize: 10 }}>
+      <text x={-outer} y={44} className="fill-stone-400 font-semibold tracking-[0.12em] uppercase" style={{ fontSize: 12 }}>
         ← {t('fan.fathersSide')}
       </text>
-      <text x={outer} y={44} textAnchor="end" className="fill-stone-400 font-semibold tracking-[0.12em] uppercase" style={{ fontSize: 10 }}>
+      <text x={outer} y={44} textAnchor="end" className="fill-stone-400 font-semibold tracking-[0.12em] uppercase" style={{ fontSize: 12 }}>
         {t('fan.mothersSide')} →
       </text>
     </g>

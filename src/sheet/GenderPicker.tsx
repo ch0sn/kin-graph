@@ -1,6 +1,5 @@
 import { Mars, Venus } from 'lucide-react'
 import { motion } from 'motion/react'
-import { useId } from 'react'
 import { useT } from '../i18n'
 import type { Gender } from '../model'
 
@@ -11,7 +10,8 @@ const GENDER_OPTIONS = [
 
 /**
  * Female or male. Tapping the selected one again clears it.
- * `icons` is the compact row in the person editor; `cards` is the onboarding step.
+ * `icons` is the compact row in the person editor: no label, and a choice
+ * colors only that icon (red for female, blue for male). `cards` is the onboarding step.
  */
 export function GenderPicker({
   value,
@@ -23,7 +23,6 @@ export function GenderPicker({
   variant?: 'icons' | 'cards'
 }) {
   const { t } = useT()
-  const labelId = useId()
 
   if (variant === 'cards') {
     return (
@@ -62,34 +61,30 @@ export function GenderPicker({
   }
 
   return (
-    <div role="group" aria-labelledby={labelId} className="flex flex-col gap-1.5">
-      <span id={labelId} className="text-xs font-semibold tracking-wide text-stone-500 uppercase">
-        {t('form.gender')}
-      </span>
-      <div className="flex gap-2">
-        {GENDER_OPTIONS.map(({ value: option, label, Icon }) => {
-          const selected = value === option
-          return (
-            <button
-              key={option}
-              type="button"
-              aria-label={t(label)}
-              aria-pressed={selected}
-              title={t(label)}
-              onClick={() => onChange(selected ? '' : option)}
-              className={[
-                'flex size-11 items-center justify-center rounded-full border transition active:scale-95',
-                'focus-visible:ring-4 focus-visible:ring-stone-200 focus-visible:outline-none',
-                selected
-                  ? 'border-stone-900 bg-stone-900 text-white'
-                  : 'border-stone-200 bg-white text-stone-500 hover:border-stone-300 hover:text-stone-800',
-              ].join(' ')}
-            >
-              <Icon className="size-5" aria-hidden />
-            </button>
-          )
-        })}
-      </div>
+    <div role="group" aria-label={t('form.gender')} className="flex gap-2">
+      {GENDER_OPTIONS.map(({ value: option, label, Icon }) => {
+        const selected = value === option
+        return (
+          <button
+            key={option}
+            type="button"
+            aria-label={t(label)}
+            aria-pressed={selected}
+            title={t(label)}
+            onClick={() => onChange(selected ? '' : option)}
+            className={[
+              'flex size-11 items-center justify-center rounded-full border border-stone-200 bg-white text-stone-500 transition active:scale-95',
+              'hover:border-stone-300 hover:text-stone-800',
+              'focus-visible:ring-4 focus-visible:ring-stone-200 focus-visible:outline-none',
+            ].join(' ')}
+          >
+            <Icon
+              className={`size-5 ${selected ? (option === 'female' ? 'text-red-500' : 'text-blue-500') : ''}`}
+              aria-hidden
+            />
+          </button>
+        )
+      })}
     </div>
   )
 }
