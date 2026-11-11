@@ -2,7 +2,7 @@ import type { LucideIcon } from 'lucide-react'
 import { useReducedMotion } from 'motion/react'
 import { useEffect, useRef, useState } from 'react'
 import { useT } from '../i18n'
-import { FAN_BOUNCE, FAN_DOT, clamp, fanDelay, fanSpots, hidePoint, springOf } from './cornerFan'
+import { FAN_BOUNCE, FAN_DOT, clamp, discColumn, discHideX, fanDelay, springOf } from './discColumn'
 
 /** One toolbox action drawn as a disc on the fan. */
 export interface NodeMenuAction {
@@ -19,7 +19,7 @@ export interface NodeMenuAction {
 /** How many springs exist. Hooks cannot be created per action, so this is the ceiling. */
 const FAN_SLOTS = 6
 
-/** Delay each disc, then spring it from under the corner out to its place. */
+/** Delay each disc, then spring it out from behind the card. */
 function useFanTravel(open: boolean, count: number, still: boolean): number[] {
   const [lit, setLit] = useState<boolean[]>(() => Array(FAN_SLOTS).fill(false))
 
@@ -65,7 +65,7 @@ function useFanTravel(open: boolean, count: number, still: boolean): number[] {
         let v = vel.current[i] + (goal[i] - value) * k * dt
         v *= Math.pow(d, dt)
         let p = value + v * dt
-        // Closing discs stop in the corner. A rebound would bring them back out, and the card waits for them.
+        // Closing discs stop inside the card. A rebound would bring them back out, and the card waits for them.
         if (goal[i] === 0 && p <= 0) {
           vel.current[i] = 0
           return 0
@@ -91,18 +91,20 @@ function useFanTravel(open: boolean, count: number, still: boolean): number[] {
 }
 
 /**
- * The person's toolbox, folded into a card's top-right corner until it opens.
- * Disc colour comes from the theme, the same surface and ink as settings.
+ * The person's toolbox. The discs rest in a column off the card's right edge
+ * and slide straight out of the card at their own height. Colour comes from
+ * the theme, the same surface and ink as settings.
  */
 export function NodeFan({
   open,
   actions,
-  corner,
+  lineY,
   onFolded,
 }: {
   open: boolean
   actions: NodeMenuAction[]
-  corner: number
+  /** The relationship label's centre, down from the card's top-right corner. */
+  lineY: number
   /** Called once the discs have folded away, so the fan can unmount. */
   onFolded?: () => void
 }) {
@@ -111,8 +113,8 @@ export function NodeFan({
   const still = reduce === true
   const count = Math.min(actions.length, FAN_SLOTS)
   const travel = useFanTravel(open, count, still)
-  const spots = fanSpots(count, corner)
-  const hid = hidePoint(clamp(corner, 0, 40))
+  const spots = discColumn(count, lineY)
+  const hideX = discHideX()
   // Travel starts at 0 while `open` is still true, so this is false until the fan has shut.
   const folded = !open && travel.every((v) => v === 0)
 
@@ -127,8 +129,8 @@ export function NodeFan({
       {actions.slice(0, count).map((action, i) => {
         const u = clamp(travel[i] / 100, 0, 1.4)
         const spot = spots[i]
-        const x = hid.x + (spot.x - hid.x) * u
-        const y = hid.y + (spot.y - hid.y) * u
+        const x = hideX + (spot.x - hideX) * u
+        const y = spot.y
         return (
           <button
             key={action.id}

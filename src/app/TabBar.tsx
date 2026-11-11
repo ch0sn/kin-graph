@@ -205,7 +205,7 @@ function AddMenu({
             <MenuItem icon={<Upload />} onClick={choose(onImport)}>
               {t('tabs.import')}
             </MenuItem>
-            <p className="mt-1.5 border-t border-stone-100 px-3 pt-2.5 pb-1 text-[11px] font-semibold tracking-[0.12em] text-stone-400 uppercase">
+            <p className="mt-1.5 border-t border-stone-100 px-3 pt-2.5 pb-1 text-xs font-semibold tracking-[0.12em] text-stone-400 uppercase">
               {t('tabs.saved')}
             </p>
             {closedTrees.length === 0 ? (

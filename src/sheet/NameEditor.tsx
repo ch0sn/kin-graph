@@ -5,8 +5,8 @@ import type { NameType } from '../model'
 import { Field, SelectInput, TextInput, type Option } from '../ui/fields'
 import type { NameValues } from './personValues'
 
-/** The kinds a name added in the form can be. */
-const NAME_TYPES: NameType[] = ['birth', 'nickname']
+/** The kinds a name added in the form can be. A new person's name is a birth name; another name starts as married. */
+const NAME_TYPES: NameType[] = ['birth', 'married', 'nickname']
 
 interface NameEditorProps {
   value: NameValues
@@ -16,6 +16,8 @@ interface NameEditorProps {
   /** An error for the first name field. */
   error?: string
   autoFocus?: boolean
+  /** `stack` puts the first name above the last name. `row` puts them side by side. */
+  layout?: 'row' | 'stack'
   onRemove?: () => void
   onShow?: () => void
 }
@@ -27,6 +29,7 @@ export function NameEditor({
   shown = false,
   error,
   autoFocus,
+  layout = 'row',
   onRemove,
   onShow,
 }: NameEditorProps) {
@@ -43,37 +46,39 @@ export function NameEditor({
   }))
 
   return (
-    <div className="flex flex-col gap-3">
+    <div className="flex min-w-0 flex-col gap-3">
       {!shown && (
-        <div className="flex items-end gap-1">
-          <div className="min-w-0 flex-1">
-            <Field label={t('form.nameType')}>
-              {(id) => (
-                <SelectInput
-                  id={id}
-                  options={typeOptions}
-                  value={value.type || 'birth'}
-                  onChange={(type) => set('type', type)}
-                />
+        <Field
+          label={t('form.nameType')}
+          end={
+            // Taller than the label. The card above has no top padding, so this
+            // lines the label up with the card's bottom inset.
+            <div className="-my-0.5 flex">
+              {onShow && (
+                <IconButton label={t('form.showName')} onClick={onShow}>
+                  <ArrowUpToLine className="size-4" aria-hidden />
+                </IconButton>
               )}
-            </Field>
-          </div>
-          <div className="flex">
-            {onShow && (
-              <IconButton label={t('form.showName')} onClick={onShow}>
-                <ArrowUpToLine className="size-4" aria-hidden />
-              </IconButton>
-            )}
-            {onRemove && (
-              <IconButton label={t('form.removeName')} onClick={onRemove} danger>
-                <Trash className="size-4" aria-hidden />
-              </IconButton>
-            )}
-          </div>
-        </div>
+              {onRemove && (
+                <IconButton label={t('form.removeName')} onClick={onRemove} danger>
+                  <Trash className="size-4" aria-hidden />
+                </IconButton>
+              )}
+            </div>
+          }
+        >
+          {(id) => (
+            <SelectInput
+              id={id}
+              options={typeOptions}
+              value={value.type || 'birth'}
+              onChange={(type) => set('type', type)}
+            />
+          )}
+        </Field>
       )}
 
-      <div className="grid grid-cols-2 gap-3">
+      <div className={layout === 'stack' ? 'flex flex-col gap-3' : 'grid grid-cols-2 gap-3'}>
         <Field label={t('form.firstName')} error={error}>
           {(id, describedBy) => (
             <TextInput

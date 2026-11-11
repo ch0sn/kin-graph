@@ -99,7 +99,7 @@ function Chooser({
       <main className="mx-auto flex min-h-full w-full max-w-md flex-col justify-center gap-6 py-10">
         <header className="flex flex-col items-center text-center">
           <Logo className="size-16" />
-          <h1 className="mt-3 font-serif text-4xl tracking-tight text-stone-900">KinGraph</h1>
+          <h1 className="mt-3 font-serif text-3xl tracking-tight text-stone-900">KinGraph</h1>
           <p className="mt-2 text-stone-600">{t('welcome.tagline')}</p>
         </header>
 

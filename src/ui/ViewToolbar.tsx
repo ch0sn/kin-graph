@@ -45,7 +45,7 @@ export function ViewButton({
       onClick={onClick}
       className={[
         // Reversed so the icon stays at the right edge while the box widens to the left.
-        'flex w-full flex-row-reverse items-center gap-3 rounded-xl px-2.5 py-2.5 text-[11px] font-medium whitespace-nowrap transition active:scale-[0.98] focus-visible:ring-4 focus-visible:ring-stone-200 focus-visible:outline-none disabled:pointer-events-none disabled:opacity-40',
+        'flex w-full flex-row-reverse items-center gap-3 rounded-xl px-2.5 py-2.5 text-xs font-medium whitespace-nowrap transition active:scale-[0.98] focus-visible:ring-4 focus-visible:ring-stone-200 focus-visible:outline-none disabled:pointer-events-none disabled:opacity-40',
         pressed ? 'bg-stone-100 text-stone-900' : 'text-stone-700 hover:bg-stone-100 hover:text-stone-900',
       ].join(' ')}
     >

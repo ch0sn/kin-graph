@@ -53,7 +53,8 @@ export function PersonNode({ data, selected }: NodeProps<PersonNodeType>) {
         animate={{ opacity: 1, scale: 1, y: 0 }}
         transition={{ type: 'spring', stiffness: 260, damping: 24, delay: entranceDelay }}
         className={[
-          'relative flex size-full items-center gap-3 rounded-(--card-radius) border bg-white px-3 card-shadow transition-[box-shadow,border-color]',
+          // 8px on every side of the portrait, including the gap before the name.
+          'relative flex size-full items-stretch gap-2 rounded-(--card-radius) border bg-white p-2 card-shadow transition-[box-shadow,border-color]',
           border,
           !isManager && 'hover:card-shadow-hover',
           selected
@@ -66,11 +67,11 @@ export function PersonNode({ data, selected }: NodeProps<PersonNodeType>) {
           .join(' ')}
       >
         <Avatar person={person} highlight={isManager} />
-        <div className="min-w-0">
+        <div className="min-w-0 self-center">
           {label && (
             <p
               title={label}
-              className="truncate text-[10px] font-semibold tracking-[0.12em] text-stone-400 uppercase"
+              className="truncate text-xs font-semibold tracking-[0.12em] text-stone-400 uppercase"
             >
               {label}
             </p>

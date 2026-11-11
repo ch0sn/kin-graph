@@ -1,6 +1,6 @@
 import { Plus } from 'lucide-react'
 import { AnimatePresence, motion } from 'motion/react'
-import { useId, useState } from 'react'
+import { useId, useState, type ReactNode } from 'react'
 import { useT } from '../i18n'
 import { DateField } from '../ui/DateField'
 import { PlaceField } from '../ui/PlaceField'
@@ -15,9 +15,15 @@ export { PlaceField }
 export function OtherNamesEditor({
   names,
   onChange,
+  leading,
 }: {
   names: PersonValues['names']
   onChange: (names: PersonValues['names']) => void
+  /**
+   * Sits on the same row as "Add another name". In the person form that row
+   * belongs to the portrait grid, and this group centers under the frame.
+   */
+  leading?: ReactNode
 }) {
   const { t } = useT()
   const [addedKey, setAddedKey] = useState<string | null>(null)
@@ -26,7 +32,8 @@ export function OtherNamesEditor({
   const setNames = (change: (names: NameValues[]) => NameValues[]) =>
     onChange(change(names) as PersonValues['names'])
   const addName = () => {
-    const name = emptyName({ type: 'birth' })
+    // The name already on the form is the birth name. Another name starts as the name after marriage.
+    const name = emptyName({ type: 'married' })
     setAddedKey(name.key)
     setNames((current) => [...current, name])
   }
@@ -40,41 +47,80 @@ export function OtherNamesEditor({
     setNames((current) => current.map((item) => (item.key === key ? name : item)))
 
   const addNameButton = (
-    <Button variant="ghost" className="-ml-3 w-fit px-3 py-1.5" onClick={addName}>
-      <Plus className="size-4" aria-hidden />
+    <Button variant="ghost" className="-mr-3 ml-auto w-fit min-w-0 shrink px-3 py-1.5 text-xs" onClick={addName}>
+      <Plus className="size-3.5" aria-hidden />
       {t('form.addName')}
     </Button>
   )
 
-  if (names.length === 1) return <div className="-mt-2">{addNameButton}</div>
+  const cards = names.slice(1).map((name) => (
+    // No top padding: the kind-row buttons fill that space, matching the bottom inset.
+    // Hidden overflow keeps a hovered button inside the rounded edge.
+    <div key={name.key} className="overflow-hidden rounded-2xl border border-stone-200 px-3 pt-0 pb-3">
+      <NameEditor
+        value={name}
+        onChange={(next) => setName(name.key, next)}
+        autoFocus={name.key === addedKey}
+        onRemove={() => removeName(name.key)}
+        onShow={() => showName(name.key)}
+      />
+    </div>
+  ))
+
+  // The person editor's grid places the icons in the portrait column.
+  if (leading) {
+    return (
+      <div className="contents">
+        <div className="col-start-2 flex justify-center self-center">{leading}</div>
+        <div className="col-start-4 flex min-w-0 items-center self-center">{addNameButton}</div>
+        {cards.length > 0 && (
+          <fieldset className="col-span-4 flex flex-col gap-3 pl-5">
+            <legend className="mb-1.5 w-full">
+              <HelpLabel
+                id={helpId}
+                about={t('form.otherNames')}
+                help={t('form.otherNamesHint')}
+                label={
+                  <span className="text-xs font-semibold tracking-wide text-stone-500 uppercase">
+                    {t('form.otherNames')}
+                  </span>
+                }
+              />
+            </legend>
+            {cards}
+          </fieldset>
+        )}
+      </div>
+    )
+  }
+
+  const addRow = (
+    <div className={`flex items-center gap-3 ${names.length === 1 ? '-mt-2' : ''}`}>
+      {addNameButton}
+    </div>
+  )
+
+  if (names.length === 1) return addRow
 
   return (
-    <fieldset className="flex flex-col gap-3">
-      <legend className="mb-1.5 w-full">
-        <HelpLabel
-          id={helpId}
-          about={t('form.otherNames')}
-          help={t('form.otherNamesHint')}
-          label={
-            <span className="text-xs font-semibold tracking-wide text-stone-500 uppercase">
-              {t('form.otherNames')}
-            </span>
-          }
-        />
-      </legend>
-      {names.slice(1).map((name) => (
-        <div key={name.key} className="rounded-2xl border border-stone-200 p-3">
-          <NameEditor
-            value={name}
-            onChange={(next) => setName(name.key, next)}
-            autoFocus={name.key === addedKey}
-            onRemove={() => removeName(name.key)}
-            onShow={() => showName(name.key)}
+    <div className="flex flex-col gap-3">
+      <fieldset className="flex flex-col gap-3">
+        <legend className="mb-1.5 w-full">
+          <HelpLabel
+            id={helpId}
+            about={t('form.otherNames')}
+            help={t('form.otherNamesHint')}
+            label={
+              <span className="text-xs font-semibold tracking-wide text-stone-500 uppercase">
+                {t('form.otherNames')}
+              </span>
+            }
           />
-        </div>
-      ))}
-      {addNameButton}
-    </fieldset>
+        </legend>
+        {cards}
+      </fieldset>
+      {addRow}
+    </div>
   )
 }
 

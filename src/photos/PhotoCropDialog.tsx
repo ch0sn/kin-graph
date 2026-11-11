@@ -14,7 +14,7 @@ interface PhotoCropDialogProps {
 }
 
 /**
- * Lets someone position a photo inside the circle it will be shown in: drag
+ * Lets someone position a photo inside the portrait frame it will be shown in: drag
  * to move, pinch, scroll or use the slider to zoom, or use the keyboard.
  */
 export function PhotoCropDialog({ source, initialCrop, onConfirm, onCancel }: PhotoCropDialogProps) {
@@ -176,8 +176,8 @@ function Cropper({
             height: `${(source.height / crop.side) * 100}%`,
           }}
         />
-        {/* Dim everything outside the circle the photo is shown in. */}
-        <div className="pointer-events-none absolute inset-0 rounded-full shadow-[0_0_0_999px_rgb(28_25_23/0.55)] ring-2 ring-[rgb(255_255_255/0.8)]" />
+        {/* Dim everything outside the 4:3 portrait the photo is shown in. */}
+        <div className="pointer-events-none absolute inset-y-0 left-1/2 aspect-[3/4] h-full w-auto -translate-x-1/2 rounded-xl shadow-[0_0_0_999px_rgb(28_25_23/0.55)] ring-2 ring-[rgb(255_255_255/0.8)]" />
       </div>
 
       <div className="flex items-center gap-3 text-stone-500">

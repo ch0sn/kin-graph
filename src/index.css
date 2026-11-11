@@ -123,7 +123,7 @@ body {
   initial-value: 1;
 }
 
-/* A point on the card's top-right corner. The discs are placed from it. */
+/* The card's top-right corner. The discs are placed from it, down the right edge. */
 .node-fan {
   position: absolute;
   top: 0;
@@ -192,7 +192,7 @@ body {
   border-radius: 999px;
   background: var(--color-white);
   color: inherit;
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 600;
   line-height: 1.2;
   white-space: nowrap;
@@ -322,7 +322,7 @@ body {
 [data-theme] {
   --card-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
   --card-shadow-hover: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
-  --name-size: 15px;
+  --name-size: 16px;
   --edge-w: 1.5px;
   --fan-mother-l: oklch(66% 0.09 160);
   --fan-mother-d: oklch(72% 0.09 160);
@@ -383,7 +383,6 @@ body {
   --accent-d: oklch(82% 0.12 200);
   --card-radius: 22px;
   --font-serif: 'Inter', ui-sans-serif, system-ui, sans-serif;
-  --name-size: 15px;
 }
 
 /* 5 · Midnight: deep indigo */
@@ -418,7 +417,6 @@ body {
   --font-serif: 'Space Grotesk', ui-sans-serif, system-ui, sans-serif;
   --card-shadow: 0 0 0 0 transparent;
   --card-shadow-hover: 0 0 0 3px color-mix(in oklab, var(--accent) 25%, transparent);
-  --name-size: 14.5px;
 }
 
 /* 8 · Newsprint: black ink, square corners, no frills */
@@ -462,7 +460,8 @@ body {
   --accent-d: oklch(80% 0.15 85);
   --card-radius: 255px 18px 225px 18px / 18px 225px 18px 255px;
   --font-serif: 'Caveat', cursive;
-  --name-size: 21px;
+  /* Caveat draws small, so names step up to the 20px heading size. */
+  --name-size: 20px;
   --card-shadow: 2px 3px 0 0 rgb(0 0 0 / 0.12);
   --card-shadow-hover: 3px 4px 0 0 rgb(0 0 0 / 0.2);
   --edge-w: 2px;
@@ -476,7 +475,8 @@ body {
   --accent-d: oklch(86% 0.25 145);
   --card-radius: 0px;
   --font-serif: 'JetBrains Mono', ui-monospace, monospace;
-  --name-size: 13px;
+  /* Mono is wide, so names step down to the 14px interface size. */
+  --name-size: 14px;
   --card-shadow: 0 0 0 0 transparent;
   --card-shadow-hover: 0 0 0 2px color-mix(in oklab, var(--accent) 35%, transparent);
   --edge-w: 1px;

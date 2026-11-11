@@ -1,7 +1,7 @@
 import { t } from '../i18n'
 import { roundCrop, squareCrop, type Crop, type ImageSize } from './crop'
 
-/** Photos are shown in small circles, so a 320px square is plenty even on 3× screens. */
+/** Photos are shown in small portraits, so a 320px square is plenty even on 3× screens. */
 export const PHOTO_SIZE = 320
 const JPEG_QUALITY = 0.85
 
