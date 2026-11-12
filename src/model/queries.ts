@@ -1,3 +1,4 @@
+import { displayName } from './format'
 import { PARENT_KINDS } from './types'
 import type {
   FamilyGraph,
@@ -84,6 +85,46 @@ export function partnershipBetween(
   return graph.partnerships.find(
     (p) => p.partnerIds.includes(a) && p.partnerIds.includes(b),
   )
+}
+
+/** The surnames of the name a person is shown by, copied so a form can keep them. */
+function shownSurnames(person: Pick<Person, 'names'>): string[] | undefined {
+  const surnames = displayName(person).surnames
+  return surnames?.length ? [...surnames] : undefined
+}
+
+/**
+ * The father, when exactly one of the two is recorded as male. Two fathers,
+ * or no recorded father, have no single side for a child to take a name from.
+ */
+function recordedFather(a: Person, b: Person): Person | undefined {
+  if (a.gender === 'male' && b.gender !== 'male') return a
+  if (b.gender === 'male' && a.gender !== 'male') return b
+  return undefined
+}
+
+/**
+ * Surnames a new child starts with.
+ *
+ * A child of a couple who are married and still together takes the father's
+ * surnames, whether the child is added from the father or the mother. A
+ * child added from anyone else, or when the other parent isn't recorded,
+ * takes that parent's surnames. `coParentId` is the other parent chosen for
+ * this child, or null when there isn't one.
+ */
+export function surnamesForChild(
+  graph: FamilyGraph,
+  parentId: PersonId,
+  coParentId: PersonId | null,
+): string[] | undefined {
+  const parent = getPerson(graph, parentId)
+  const own = shownSurnames(parent)
+  if (!coParentId) return own
+  const partnership = partnershipBetween(graph, parentId, coParentId)
+  if (partnership?.status !== 'married') return own
+  const father = recordedFather(parent, getPerson(graph, coParentId))
+  const his = father ? shownSurnames(father) : undefined
+  return his ?? own
 }
 
 /**

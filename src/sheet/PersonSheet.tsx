@@ -17,6 +17,7 @@ import {
   parentIdsOf,
   partnershipsOf,
   coParentFor,
+  surnamesForChild,
   unlinkedCoParentIdsOf,
   partnerOf,
   peopleCount,
@@ -912,12 +913,18 @@ function AddRelativeForm({
   )
   const [childKind, setChildKind] = useState<ParentKind>('biological')
 
-  const sharesFamilyName = relation === 'sibling' || relation === 'child'
-  // Siblings and children start with the same surnames.
-  const { surnames } = displayName(person)
+  // A sibling takes this person's surnames. A child of a couple who are
+  // married and still together takes the father's, from either parent.
+  const childCoParentId = relation === 'child' && coParent !== NO_CO_PARENT ? coParent : null
+  const surnames =
+    relation === 'child'
+      ? surnamesForChild(graph, person.id, childCoParentId)
+      : relation === 'sibling'
+        ? displayName(person).surnames
+        : undefined
   const initial = emptyValues({
     names: [
-      sharesFamilyName && surnames?.length
+      surnames?.length
         ? emptyName({ surname: surnames.join(' '), surnameParts: surnames })
         : emptyName(),
     ],
@@ -950,6 +957,7 @@ function AddRelativeForm({
   return (
     <PersonForm
       initial={initial}
+      suggestedSurnames={relation === 'child' ? surnames ?? null : undefined}
       submitLabel={t(`add.${relation}.submit`)}
       error={error}
       onCancel={onCancel}

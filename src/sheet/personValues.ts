@@ -70,6 +70,21 @@ export function emptyValues(overrides: Partial<PersonValues> = {}): PersonValues
   }
 }
 
+/** Whether the last name is still exactly `surnames`. `null` means no last name. */
+export function surnameFollows(name: NameValues, surnames: string[] | null): boolean {
+  const text = surnames?.join(' ') ?? ''
+  if (name.surname !== text) return false
+  if (!surnames?.length) return !name.surnameParts?.length
+  const parts = name.surnameParts
+  return !!parts && parts.length === surnames.length && parts.every((part, index) => part === surnames[index])
+}
+
+/** Sets a name's last name, leaving the given name and the rest as they are. */
+export function withSuggestedSurname(name: NameValues, surnames: string[] | null): NameValues {
+  if (!surnames?.length) return { ...name, surname: '', surnameParts: undefined }
+  return { ...name, surname: surnames.join(' '), surnameParts: [...surnames] }
+}
+
 export function nameValues(name: PersonName): NameValues {
   return emptyName({
     type: name.type ?? '',
