@@ -6,18 +6,24 @@ import { saveLastBackupAt } from './db'
 import { loadPhotos } from './photos'
 import { parseBackup, toDocument, TreeFileError, type Backup } from './treeDocument'
 
-/** e.g. "kingraph-alex-morgan-2026-10-01.json", dated in local time. */
+/**
+ * e.g. "alex-morgan_kingraph_2026-10-01.json", dated in local time.
+ * The root's name comes first. Words in the name stay hyphenated, so the
+ * underscores only separate name, "kingraph", and the date.
+ */
 export function backupFileName(graph: FamilyGraph, now = new Date(), extension = 'json'): string {
   const manager = graph.people[graph.managerId]
   const slug = fullName(manager)
     .normalize('NFKD')
-    .replace(/[̀-ͯ]/g, '')
+    .replace(/\p{M}/gu, '')
+    .normalize('NFC')
     .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/[^\p{L}\p{N}]+/gu, '-')
     .replace(/^-|-$/g, '')
   const pad = (n: number) => String(n).padStart(2, '0')
   const date = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`
-  return ['kingraph', slug, date].filter(Boolean).join('-') + `.${extension}`
+  const stem = slug ? `${slug}_kingraph_${date}` : `kingraph_${date}`
+  return `${stem}.${extension}`
 }
 
 export function photoIdsOf(graph: FamilyGraph): string[] {

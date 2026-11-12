@@ -4,10 +4,12 @@ import {
   emptyName,
   emptyValues,
   nameValues,
+  surnameFollows,
   toPersonFields,
   toPersonName,
   validate,
   valuesFromPerson,
+  withSuggestedSurname,
   type PersonValues,
 } from './personValues'
 
@@ -163,6 +165,17 @@ describe('toPersonName', () => {
     expect(toPersonName({ ...ana, surname: ' García López ' })?.surnames).toEqual(['García', 'López'])
     expect(toPersonName({ ...ana, surname: 'García Pérez' })?.surnames).toEqual(['García Pérez'])
     expect(toPersonName({ ...ana, surname: '' })?.surnames).toBeUndefined()
+  })
+
+  it('follows a suggested surname until the last name is edited', () => {
+    const suggested = ['García', 'López']
+    const name = withSuggestedSurname(emptyName(), suggested)
+    expect(name.surname).toBe('García López')
+    expect(surnameFollows(name, suggested)).toBe(true)
+    expect(surnameFollows({ ...name, given: 'Ana' }, suggested)).toBe(true)
+    expect(surnameFollows({ ...name, surname: 'García Pérez' }, suggested)).toBe(false)
+    expect(surnameFollows(withSuggestedSurname(name, null), null)).toBe(true)
+    expect(surnameFollows(name, null)).toBe(false)
   })
 
   it('keeps a patronymic, which the form does not show', () => {

@@ -4,7 +4,15 @@ import type { NewPerson } from '../model'
 import { useT } from '../i18n'
 import { DateField } from '../ui/DateField'
 import { NameEditor } from './NameEditor'
-import { toPersonFields, validate, type NameValues, type PersonErrors, type PersonValues } from './personValues'
+import {
+  surnameFollows,
+  toPersonFields,
+  validate,
+  withSuggestedSurname,
+  type NameValues,
+  type PersonErrors,
+  type PersonValues,
+} from './personValues'
 import { FormActions } from './FormActions'
 import { GenderPicker } from './GenderPicker'
 import { DeceasedFields, NotesField, OtherNamesEditor, PlaceField } from './personFields'
@@ -13,6 +21,11 @@ import { usePersonPhoto } from './usePersonPhoto'
 
 interface PersonFormProps {
   initial: PersonValues
+  /**
+   * Last name to keep in the shown name until it is edited. `null` clears it.
+   * Left unset on forms that don't suggest one.
+   */
+  suggestedSurnames?: string[] | null
   submitLabel: string
   /** An error from applying the change, e.g. a rejected relationship. */
   error: string | null
@@ -25,6 +38,7 @@ interface PersonFormProps {
 
 export function PersonForm({
   initial,
+  suggestedSurnames,
   submitLabel,
   error,
   onSubmit,
@@ -34,6 +48,20 @@ export function PersonForm({
   const { t } = useT()
   const [values, setValues] = useState(initial)
   const [errors, setErrors] = useState<PersonErrors>({})
+  // Changing the other parent updates the last name while it still matches the previous suggestion.
+  const suggestionKey = JSON.stringify(suggestedSurnames ?? null)
+  const [applied, setApplied] = useState(() =>
+    suggestedSurnames === undefined ? null : { key: suggestionKey, surnames: suggestedSurnames },
+  )
+  if (suggestedSurnames !== undefined && applied?.key !== suggestionKey) {
+    const previous = applied?.surnames ?? null
+    setApplied({ key: suggestionKey, surnames: suggestedSurnames })
+    setValues((current) => {
+      const [shown, ...rest] = current.names
+      if (!surnameFollows(shown, previous)) return current
+      return { ...current, names: [withSuggestedSurname(shown, suggestedSurnames), ...rest] }
+    })
+  }
   const formId = useId()
   const photo = usePersonPhoto(values.photoId, (photoId) => setValues((current) => ({ ...current, photoId })))
 

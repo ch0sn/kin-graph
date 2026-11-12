@@ -28,8 +28,35 @@ describe('themes', () => {
 
   it('loads every typeface the themes use', () => {
     const families = [...css.matchAll(/--font-(?:serif|sans):\s*'([^']+)'/g)].map((m) => m[1])
+    const selfHosted = new Set(
+      [...css.matchAll(/@font-face\s*\{[^}]*font-family:\s*'([^']+)'/g)].map((m) => m[1]),
+    )
     for (const family of new Set(families)) {
+      if (selfHosted.has(family)) continue
       expect(html, `${family} isn't loaded in index.html`).toContain(family.replace(/ /g, '+'))
     }
+  })
+
+  it('uses Kakao Big Sans for Hangul in every theme face', () => {
+    expect(css).toContain('unicode-range: U+1100-11FF, U+3130-318F, U+A960-A97F, U+AC00-D7AF, U+D7B0-D7FF')
+    const stacks = [...css.matchAll(/--font-(?:serif|sans):\s*([^;]+);/g)].map((match) => match[1])
+    expect(stacks.length).toBeGreaterThan(THEME_IDS.length)
+    for (const stack of stacks) {
+      expect(stack, stack).toContain("'Kakao Big Sans'")
+    }
+  })
+
+  it('uses Kakao Big Sans when the language is Korean', () => {
+    const block = css.match(/html\[lang=['"]ko['"]\]\s*\{([^}]*)\}/)?.[1]
+    expect(block, 'no html[lang=ko] font override').toBeDefined()
+    expect(block).toContain("--font-sans: 'Kakao Big Sans'")
+    expect(block).toContain("--font-serif: 'Kakao Big Sans'")
+    for (const file of ['KakaoBigSans-Regular.woff2', 'KakaoBigSans-Bold.woff2']) {
+      expect(css).toContain(`/fonts/${file}`)
+      expect(readFileSync(new URL(`../../public/fonts/${file}`, import.meta.url)).byteLength).toBeGreaterThan(0)
+    }
+    expect(readFileSync(new URL('../../public/fonts/OFL.txt', import.meta.url), 'utf8')).toContain(
+      'SIL Open Font License',
+    )
   })
 })

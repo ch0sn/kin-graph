@@ -2,8 +2,8 @@
 @import '@xyflow/react/dist/style.css';
 
 @theme {
-  --font-serif: 'Fraunces', ui-serif, Georgia, serif;
-  --font-sans: 'Inter', ui-sans-serif, system-ui, sans-serif;
+  --font-serif: 'Fraunces', 'Kakao Big Sans', ui-serif, Georgia, serif;
+  --font-sans: 'Inter', 'Kakao Big Sans', ui-sans-serif, system-ui, sans-serif;
 }
 
 html,
@@ -349,7 +349,7 @@ body {
   --accent-l: oklch(75% 0.183 56);
   --accent-d: oklch(85.2% 0.199 92);
   --card-radius: 1rem;
-  --font-serif: 'Fraunces', ui-serif, Georgia, serif;
+  --font-serif: 'Fraunces', 'Kakao Big Sans', ui-serif, Georgia, serif;
 }
 
 /* 2 · Parchment: aged paper and a scholar's serif */
@@ -359,7 +359,7 @@ body {
   --accent-l: oklch(46% 0.1 50);
   --accent-d: oklch(80% 0.12 80);
   --card-radius: 6px;
-  --font-serif: 'Playfair Display', ui-serif, Georgia, serif;
+  --font-serif: 'Playfair Display', 'Kakao Big Sans', ui-serif, Georgia, serif;
   --card-shadow: 0 1px 2px 0 rgb(60 40 10 / 0.18);
   --card-shadow-hover: 0 3px 8px -2px rgb(60 40 10 / 0.25);
   --edge-w: 1.25px;
@@ -372,7 +372,7 @@ body {
   --accent-l: oklch(52% 0.15 150);
   --accent-d: oklch(80% 0.18 148);
   --card-radius: 12px;
-  --font-serif: 'Lora', ui-serif, Georgia, serif;
+  --font-serif: 'Lora', 'Kakao Big Sans', ui-serif, Georgia, serif;
 }
 
 /* 4 · Ocean: cool, calm and roomy */
@@ -382,7 +382,7 @@ body {
   --accent-l: oklch(62% 0.13 215);
   --accent-d: oklch(82% 0.12 200);
   --card-radius: 22px;
-  --font-serif: 'Inter', ui-sans-serif, system-ui, sans-serif;
+  --font-serif: 'Inter', 'Kakao Big Sans', ui-sans-serif, system-ui, sans-serif;
 }
 
 /* 5 · Midnight: deep indigo */
@@ -392,7 +392,7 @@ body {
   --accent-l: oklch(52% 0.21 275);
   --accent-d: oklch(78% 0.15 275);
   --card-radius: 14px;
-  --font-serif: 'Fraunces', ui-serif, Georgia, serif;
+  --font-serif: 'Fraunces', 'Kakao Big Sans', ui-serif, Georgia, serif;
   --card-shadow: 0 2px 8px -1px rgb(30 20 90 / 0.25);
   --card-shadow-hover: 0 6px 16px -2px rgb(30 20 90 / 0.35);
 }
@@ -404,7 +404,7 @@ body {
   --accent-l: oklch(64% 0.19 8);
   --accent-d: oklch(80% 0.14 10);
   --card-radius: 38px;
-  --font-serif: 'Lora', ui-serif, Georgia, serif;
+  --font-serif: 'Lora', 'Kakao Big Sans', ui-serif, Georgia, serif;
 }
 
 /* 7 · Blueprint: technical drawing on a grid */
@@ -414,7 +414,7 @@ body {
   --accent-l: oklch(55% 0.16 240);
   --accent-d: oklch(84% 0.12 205);
   --card-radius: 2px;
-  --font-serif: 'Space Grotesk', ui-sans-serif, system-ui, sans-serif;
+  --font-serif: 'Space Grotesk', 'Kakao Big Sans', ui-sans-serif, system-ui, sans-serif;
   --card-shadow: 0 0 0 0 transparent;
   --card-shadow-hover: 0 0 0 3px color-mix(in oklab, var(--accent) 25%, transparent);
 }
@@ -426,7 +426,7 @@ body {
   --accent-l: oklch(22% 0 0);
   --accent-d: oklch(95% 0 0);
   --card-radius: 0px;
-  --font-serif: 'Playfair Display', ui-serif, Georgia, serif;
+  --font-serif: 'Playfair Display', 'Kakao Big Sans', ui-serif, Georgia, serif;
   --card-shadow: 3px 3px 0 0 rgb(0 0 0 / 0.14);
   --card-shadow-hover: 4px 4px 0 0 rgb(0 0 0 / 0.25);
   --edge-w: 2px;
@@ -439,7 +439,7 @@ body {
   --accent-l: oklch(62% 0.22 15);
   --accent-d: oklch(82% 0.16 60);
   --card-radius: 26px;
-  --font-serif: 'Fraunces', ui-serif, Georgia, serif;
+  --font-serif: 'Fraunces', 'Kakao Big Sans', ui-serif, Georgia, serif;
 }
 
 /* 10 · Lavender: soft purples and a friendly serif */
@@ -449,7 +449,7 @@ body {
   --accent-l: oklch(56% 0.19 300);
   --accent-d: oklch(80% 0.13 300);
   --card-radius: 18px;
-  --font-serif: 'Lora', ui-serif, Georgia, serif;
+  --font-serif: 'Lora', 'Kakao Big Sans', ui-serif, Georgia, serif;
 }
 
 /* 11 · Sketchbook: hand-drawn and a little wobbly */
@@ -459,7 +459,7 @@ body {
   --accent-l: oklch(56% 0.2 28);
   --accent-d: oklch(80% 0.15 85);
   --card-radius: 255px 18px 225px 18px / 18px 225px 18px 255px;
-  --font-serif: 'Caveat', cursive;
+  --font-serif: 'Caveat', 'Kakao Big Sans', cursive;
   /* Caveat draws small, so names step up to the 20px heading size. */
   --name-size: 20px;
   --card-shadow: 2px 3px 0 0 rgb(0 0 0 / 0.12);
@@ -474,12 +474,58 @@ body {
   --accent-l: oklch(52% 0.2 148);
   --accent-d: oklch(86% 0.25 145);
   --card-radius: 0px;
-  --font-serif: 'JetBrains Mono', ui-monospace, monospace;
+  --font-serif: 'JetBrains Mono', 'Kakao Big Sans', ui-monospace, monospace;
   /* Mono is wide, so names step down to the 14px interface size. */
   --name-size: 14px;
   --card-shadow: 0 0 0 0 transparent;
   --card-shadow-hover: 0 0 0 2px color-mix(in oklab, var(--accent) 35%, transparent);
   --edge-w: 1px;
+}
+
+/*
+ * Kakao Big Sans (OFL-1.1, public/fonts/OFL.txt). Theme faces have no Hangul,
+ * so a Korean name falls through to the faces limited to Hangul. Those come
+ * first, and their unicode-range keeps the file unloaded until Hangul is drawn.
+ * The unrestricted faces cover Latin when the language itself is Korean.
+ * Regular is 400, so font-medium (500) uses it. Bold is 700, so font-semibold (600) uses it.
+ */
+@font-face {
+  font-family: 'Kakao Big Sans';
+  src: url('/fonts/KakaoBigSans-Regular.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+  unicode-range: U+1100-11FF, U+3130-318F, U+A960-A97F, U+AC00-D7AF, U+D7B0-D7FF;
+}
+
+@font-face {
+  font-family: 'Kakao Big Sans';
+  src: url('/fonts/KakaoBigSans-Bold.woff2') format('woff2');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+  unicode-range: U+1100-11FF, U+3130-318F, U+A960-A97F, U+AC00-D7AF, U+D7B0-D7FF;
+}
+
+@font-face {
+  font-family: 'Kakao Big Sans';
+  src: url('/fonts/KakaoBigSans-Regular.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Kakao Big Sans';
+  src: url('/fonts/KakaoBigSans-Bold.woff2') format('woff2');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+html[lang='ko'] {
+  --font-sans: 'Kakao Big Sans', ui-sans-serif, system-ui, sans-serif;
+  --font-serif: 'Kakao Big Sans', ui-sans-serif, system-ui, sans-serif;
 }
 
 /* The page and base typeface follow the theme. */
