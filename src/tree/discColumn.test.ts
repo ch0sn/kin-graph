@@ -8,6 +8,7 @@ import {
   discColumn,
   discHideX,
   fanDelay,
+  labelOffset,
   gapPx,
   springOf,
 } from './discColumn'
@@ -49,6 +50,12 @@ describe('disc column', () => {
     for (let i = 1; i < spots.length; i++) {
       expect(spots[i].y - spots[i - 1].y).toBeCloseTo(FAN_SPACING)
     }
+  })
+
+  it('keeps the column beside the card when the label has left the layout', () => {
+    expect(labelOffset({ top: 520, width: 48, height: 16 }, 491)).toBeCloseTo(37)
+    // A detached label reports a zero box at the viewport origin.
+    expect(labelOffset({ top: 0, width: 0, height: 0 }, 390)).toBeNull()
   })
 
   it('hides a closed disc fully inside the right edge', () => {

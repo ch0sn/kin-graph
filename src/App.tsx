@@ -12,6 +12,7 @@ import { UndoButtons, UndoToast, type Notice } from './app/UndoControls'
 import { useUndoShortcuts } from './app/useUndoShortcuts'
 import { ViewSwitcher } from './app/ViewSwitcher'
 import { FanChart } from './fan/FanChart'
+import { TimelineView } from './timeline/TimelineView'
 import { DEFAULT_LANGUAGE, LanguageProvider, useT } from './i18n'
 import {
   checkTree,
@@ -664,6 +665,14 @@ function TreeTab({
             setSelectedId(childId)
             setSheetStart('parent')
           }}
+          controlsSlot={controlsSlot}
+        />
+      ) : view === 'timeline' ? (
+        <TimelineView
+          key={graph.managerId}
+          graph={graph}
+          selectedId={selectedId}
+          onSelect={select}
           controlsSlot={controlsSlot}
         />
       ) : (

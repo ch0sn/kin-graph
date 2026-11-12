@@ -1,8 +1,8 @@
-import { Network, Rainbow, type LucideIcon } from 'lucide-react'
+import { ChartGantt, Network, Rainbow, type LucideIcon } from 'lucide-react'
 import { useT } from '../i18n'
 import { TREE_VIEWS, type TreeView } from '../storage/workspace'
 
-const ICONS: Record<TreeView, LucideIcon> = { tree: Network, fan: Rainbow }
+const ICONS: Record<TreeView, LucideIcon> = { tree: Network, fan: Rainbow, timeline: ChartGantt }
 
 /** Switches how the open tab shows its tree, floating over the canvas's top-left corner. */
 export function ViewSwitcher({ view, onChange }: { view: TreeView; onChange: (view: TreeView) => void }) {

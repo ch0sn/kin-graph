@@ -54,6 +54,19 @@ export interface FanPoint {
 }
 
 /**
+ * How far down the card's top-right corner the relationship label sits.
+ * A label that has left the layout reports an empty box at the viewport
+ * origin. Callers keep the previous offset instead of following that box.
+ */
+export function labelOffset(
+  label: { top: number; width: number; height: number },
+  originTop: number,
+): number | null {
+  if (label.width < 1 || label.height < 1) return null
+  return label.top + label.height / 2 - originTop
+}
+
+/**
  * Resting places. `lineY` is the relationship label's centre, measured down
  * from the card's top-right corner. +x is right, +y is down.
  */
