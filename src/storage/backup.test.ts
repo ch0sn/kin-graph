@@ -5,19 +5,28 @@ import { backupFileName, createBackup, readBackupFile } from './backup'
 import { TreeFileError } from './treeDocument'
 
 describe('backupFileName', () => {
-  it("includes the manager's name and the local date", () => {
+  it("leads with the root's name, then kingraph and the local date", () => {
     expect(backupFileName(sampleFamily(), new Date(2026, 9, 1))).toBe(
-      'kingraph-joseph-2026-10-01.json',
+      'joseph_kingraph_2026-10-01.json',
     )
   })
 
-  it('simplifies accents and symbols, and copes with no usable name', () => {
+  it('simplifies accents and symbols, and keeps names in other scripts', () => {
     const date = new Date(2026, 0, 5)
     expect(backupFileName(createGraph({ names: [{ given: 'Zoë', surnames: ["O'Brien"] }] }), date)).toBe(
-      'kingraph-zoe-o-brien-2026-01-05.json',
+      'zoe-o-brien_kingraph_2026-01-05.json',
+    )
+    expect(backupFileName(createGraph({ names: [{ given: '민준', surnames: ['김'] }] }), date)).toBe(
+      '김민준_kingraph_2026-01-05.json',
     )
     expect(backupFileName(createGraph({ names: [{ given: '李' }] }), date)).toBe(
-      'kingraph-2026-01-05.json',
+      '李_kingraph_2026-01-05.json',
+    )
+  })
+
+  it('omits a name that has no letters or digits', () => {
+    expect(backupFileName(createGraph({ names: [{ given: '…' }] }), new Date(2026, 0, 5))).toBe(
+      'kingraph_2026-01-05.json',
     )
   })
 })
