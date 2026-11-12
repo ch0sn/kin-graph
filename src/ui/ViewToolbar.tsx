@@ -1,16 +1,79 @@
-import type { ReactNode } from 'react'
+import { useEffect, useRef, useState, type FocusEvent, type MouseEvent, type ReactNode } from 'react'
+
+/** How long a click keeps the rail open before it folds shut. */
+const CLICK_HOLD_MS = 3000
 
 /**
  * A view's controls in a narrow box hanging from the header: icons only,
- * widening to the left on hover or focus to show what each does.
+ * widening to the left on hover or keyboard focus to show what each does.
+ * A click holds it open briefly, then folds it so it does not stay open.
  */
 export function ViewToolbar({ label, children }: { label: string; children: ReactNode }) {
+  const [hovered, setHovered] = useState(false)
+  const [keyboard, setKeyboard] = useState(false)
+  const [held, setHeld] = useState(false)
+  // After the click hold, ignore hover until the pointer leaves. Otherwise the rail would pop straight back open.
+  const [resting, setResting] = useState(false)
+  const hoveredRef = useRef(false)
+  const holdTimer = useRef<number | undefined>(undefined)
+
+  useEffect(() => () => window.clearTimeout(holdTimer.current), [])
+
+  const expanded = keyboard || held || (hovered && !resting)
+
+  const onPointerEnter = () => {
+    const cameFromOutside = !hoveredRef.current
+    hoveredRef.current = true
+    setHovered(true)
+    if (cameFromOutside) setResting(false)
+  }
+
+  const onPointerLeave = () => {
+    hoveredRef.current = false
+    setHovered(false)
+    setResting(false)
+    window.clearTimeout(holdTimer.current)
+    setHeld(false)
+  }
+
+  const onClick = (event: MouseEvent<HTMLDivElement>) => {
+    const target = event.target
+    if (!(target instanceof Element) || !target.closest('button')) return
+    // Enter and Space report detail 0. Keyboard focus keeps the rail open on its own.
+    if (event.detail === 0) return
+    window.clearTimeout(holdTimer.current)
+    setKeyboard(false)
+    setResting(false)
+    setHeld(true)
+    holdTimer.current = window.setTimeout(() => {
+      setHeld(false)
+      if (hoveredRef.current) setResting(true)
+    }, CLICK_HOLD_MS)
+  }
+
+  const onFocus = (event: FocusEvent<HTMLDivElement>) => {
+    const target = event.target
+    if (target instanceof Element && target.matches(':focus-visible')) setKeyboard(true)
+  }
+
+  const onBlur = (event: FocusEvent<HTMLDivElement>) => {
+    const next = event.relatedTarget
+    if (next instanceof Element && event.currentTarget.contains(next) && next.matches(':focus-visible')) return
+    setKeyboard(false)
+  }
+
   return (
     <div
       role="toolbar"
       aria-label={label}
+      data-open={expanded ? 'true' : undefined}
+      onPointerEnter={onPointerEnter}
+      onPointerLeave={onPointerLeave}
+      onFocus={onFocus}
+      onBlur={onBlur}
+      onClick={onClick}
       // Flush with the window's right edge. 57px less the padding and left border leaves 40px: a 20px icon with 10px either side.
-      className="group/view flex w-[57px] flex-col gap-1 overflow-hidden rounded-bl-2xl border border-t-0 border-r-0 border-stone-200 bg-white/80 p-2 shadow-[0_8px_30px_-12px_rgb(0_0_0/0.25)] backdrop-blur transition-[width] duration-200 ease-out focus-within:w-48 hover:w-48 motion-reduce:transition-none"
+      className="group/view flex w-[57px] flex-col gap-1 overflow-hidden rounded-bl-2xl border border-t-0 border-r-0 border-stone-200 bg-white/80 p-2 shadow-[0_8px_30px_-12px_rgb(0_0_0/0.25)] backdrop-blur transition-[width] duration-200 ease-out data-[open=true]:w-48 motion-reduce:transition-none"
     >
       {children}
     </div>
@@ -50,7 +113,7 @@ export function ViewButton({
       ].join(' ')}
     >
       <span className="flex w-5 shrink-0 justify-center">{children}</span>
-      <span className="opacity-0 transition-opacity duration-150 group-focus-within/view:opacity-100 group-hover/view:opacity-100 motion-reduce:transition-none">
+      <span className="opacity-0 transition-opacity duration-150 group-data-[open=true]/view:opacity-100 motion-reduce:transition-none">
         {label}
       </span>
     </button>
