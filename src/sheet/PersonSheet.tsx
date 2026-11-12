@@ -38,6 +38,7 @@ import {
 } from '../model'
 import { useT } from '../i18n'
 import { useBackupPicker } from '../storage/useBackupPicker'
+import { labelOffset } from '../tree/discColumn'
 import { NodeFan, type NodeMenuAction } from '../tree/NodeMenu'
 import { Avatar } from '../ui/Avatar'
 import { ConfirmDialog } from '../ui/ConfirmDialog'
@@ -324,14 +325,16 @@ function SheetBody({
   const [lineY, setLineY] = useState(42)
 
   useLayoutEffect(() => {
+    // Other sheets replace the relationship label. Keep the discs where they
+    // were; measuring the label as it leaves throws the column off the card.
+    if (mode.view !== 'details') return
     const el = lineRef.current
     if (!el || !anchor) return
     const measure = () => {
       // The anchor is display:none on a narrow screen, where the fan is hidden.
       if (anchor.getClientRects().length === 0) return
-      const labelBox = el.getBoundingClientRect()
-      const origin = anchor.getBoundingClientRect()
-      const y = labelBox.top + labelBox.height / 2 - origin.top
+      const y = labelOffset(el.getBoundingClientRect(), anchor.getBoundingClientRect().top)
+      if (y === null) return
       setLineY((current) => (Math.abs(current - y) < 0.5 ? current : y))
     }
     measure()

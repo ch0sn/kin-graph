@@ -118,11 +118,13 @@ describe('parsing', () => {
       { id: 'a', treeId: 'x', view: 'fan' },
       { id: 'b', treeId: 'x', view: 'tree' },
       { id: 'c', treeId: 'x', view: 'globe' },
+      { id: 'd', treeId: 'x', view: 'timeline' },
     ]
     expect(parseWorkspace({ tabs, activeTabId: 'a' })?.tabs).toEqual([
       { id: 'a', treeId: 'x', view: 'fan' },
       { id: 'b', treeId: 'x' },
       { id: 'c', treeId: 'x' },
+      { id: 'd', treeId: 'x', view: 'timeline' },
     ])
   })
 })
