@@ -117,6 +117,7 @@ export function valuesFromPerson(person: Person): PersonValues {
 export function dateError(text: string): string | undefined {
   const problem = text ? dateProblem(text) : null
   if (!problem) return undefined
+  if (problem === 'invalidDay') return t('v.dateDay')
   return problem === 'rangeOrder' ? t('v.rangeOrder') : t('v.dateHint')
 }
 

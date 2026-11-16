@@ -251,6 +251,7 @@ export const de: Record<MessageId, string> = {
   'form.yearPlaceholder': 'JJJJ',
   'v.firstNeeded': 'Ein Vorname ist erforderlich',
   'v.dateHint': 'Gib ein vierstelliges Jahr ein, und Monat oder Tag, wenn du sie kennst',
+  'v.dateDay': 'Wähle einen gültigen Tag für diesen Monat und dieses Jahr oder lass den Tag leer.',
   'v.deathBeforeBirth': 'Darf nicht vor dem Geburtsdatum liegen',
   'photo.unreadable': 'Dieses Bild konnte nicht geöffnet werden. Versuche ein JPEG- oder PNG-Foto.',
   'photo.noCanvas': 'Dieser Browser kann keine Fotos verarbeiten.',

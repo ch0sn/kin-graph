@@ -77,7 +77,7 @@ function earliest(plain: string): string {
 function latest(plain: string): string {
   const [year, month = '12', day] = plain.split('-')
   if (day) return plain
-  const lastDay = new Date(Date.UTC(Number(year), Number(month), 0)).getUTCDate()
+  const lastDay = daysInMonth(Number(year), Number(month))
   return `${year}-${month}-${String(lastDay).padStart(2, '0')}`
 }
 
@@ -250,6 +250,12 @@ export interface CalendarFields {
   day: string
 }
 
+export function daysInMonth(year: number, month: number): number {
+  const date = new Date(0)
+  date.setUTCFullYear(year, month, 0)
+  return date.getUTCDate()
+}
+
 const DRAFT_DATE = /^(\d{0,4})(?:-(\d{2})(?:-(\d{2}))?)?$/
 
 /** Splits a plain date, including one still being typed ("18", "1815-03"). */
@@ -295,10 +301,16 @@ export function joinDate({ qualifier, start, end }: DateParts): string {
   }
 }
 
-/** Why date text can't be used: not a date at all, or a range that ends before it starts. */
-export function dateProblem(text: string): 'invalid' | 'rangeOrder' | null {
+/** Validates typed dates without changing how saved or imported dates are read. */
+export function dateProblem(text: string): 'invalid' | 'invalidDay' | 'rangeOrder' | null {
+  const { start, end } = splitDate(text)
+  const hasInvalidDay = [start, end].some((part) => {
+    if (!isPlainDate(part)) return false
+    const [year, month, day] = part.split('-').map(Number)
+    return day !== undefined && day > daysInMonth(year, month)
+  })
+  if (hasInvalidDay) return 'invalidDay'
   if (parseDate(text)) return null
-  const [start, end, ...rest] = text.split('/')
-  const backwards = rest.length === 0 && isPlainDate(start) && end !== undefined && isPlainDate(end)
+  const backwards = text === `${start}/${end}` && isPlainDate(start) && isPlainDate(end)
   return backwards ? 'rangeOrder' : 'invalid'
 }

@@ -254,6 +254,7 @@ export const ko: Record<MessageId, string> = {
   'form.yearPlaceholder': 'YYYY',
   'v.firstNeeded': '이름을 입력하세요',
   'v.dateHint': '네 자리 연도를 입력하세요. 알고 있으면 월이나 일도 적으세요',
+  'v.dateDay': '이 연월에 맞는 날짜를 선택하거나 일자를 비워 두세요.',
   'v.deathBeforeBirth': '출생일보다 앞설 수 없습니다',
   'photo.unreadable': '이 이미지를 열 수 없습니다. JPEG 또는 PNG 사진을 사용해 보세요.',
   'photo.noCanvas': '이 브라우저에서는 사진을 처리할 수 없습니다.',

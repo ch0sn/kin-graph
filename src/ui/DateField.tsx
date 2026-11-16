@@ -2,6 +2,7 @@ import { useId, useState } from 'react'
 import { useT } from '../i18n'
 import {
   calendarFields,
+  daysInMonth,
   fromCalendarFields,
   joinDate,
   splitDate,
@@ -92,12 +93,16 @@ function PlainDateInput({
   onChange: (value: string) => void
   error?: string
 }) {
-  const { language } = useT()
+  const { language, t } = useT()
   const labelId = useId()
   const helpId = useId()
   const errorId = useId()
   const fields = calendarFields(value)
+  const dayError = fields.year.length === 4 && fields.day && !dayStillFits(fields.year, fields.month, fields.day)
+    ? t('v.dateDay')
+    : undefined
   const describedBy = [help ? helpId : undefined, error ? errorId : undefined].filter(Boolean).join(' ') || undefined
+  const dayDescribedBy = dayError && !error ? [describedBy, errorId].filter(Boolean).join(' ') : describedBy
 
   const change = (next: CalendarFields) => onChange(fromCalendarFields(next))
   const months = monthOptions(language)
@@ -121,15 +126,15 @@ function PlainDateInput({
             fields={fields}
             months={months}
             days={days}
-            describedBy={describedBy}
-            invalid={!!error}
+            describedBy={part === 'day' ? dayDescribedBy : describedBy}
+            invalid={!!error || (part === 'day' && !!dayError)}
             onChange={change}
           />
         ))}
       </div>
-      {error && (
+      {(error || dayError) && (
         <p id={errorId} className="text-xs text-red-700">
-          {error}
+          {dayError ?? error}
         </p>
       )}
     </fieldset>
@@ -201,13 +206,10 @@ function DatePartField({
                   value={fields.year}
                   onChange={(event) => {
                     const year = event.target.value.replace(/\D/g, '').slice(0, 4)
-                    const known = year.length === 4
-                    onChange({
-                      ...fields,
-                      year,
-                      month: known ? fields.month : '',
-                      day: known && dayStillFits(year, fields.month, fields.day) ? fields.day : '',
-                    })
+                    onChange({ ...fields, year })
+                  }}
+                  onBlur={() => {
+                    if (!fields.year && fields.month) onChange({ year: '', month: '', day: '' })
                   }}
                   placeholder={t('form.yearPlaceholder')}
                   inputMode="numeric"
@@ -237,7 +239,7 @@ function monthOptions(language: string): Option<string>[] {
 }
 
 function dayOptions(year: string, month: string, selected: string): Option<string>[] {
-  const count = daysInMonth(year, month)
+  const count = calendarDayCount(year, month)
   const options = [
     { value: '', label: '—' },
     ...Array.from({ length: count }, (_, index) => ({
@@ -251,15 +253,15 @@ function dayOptions(year: string, month: string, selected: string): Option<strin
   return options
 }
 
-function daysInMonth(year: string, month: string): number {
+function calendarDayCount(year: string, month: string): number {
   const m = Number(month)
   if (!m || m < 1 || m > 12) return 31
   // An unfinished year still offers 29 February; a finished one follows the calendar.
   const y = year.length === 4 ? Number(year) : 2000
-  return new Date(Date.UTC(y, m, 0)).getUTCDate()
+  return daysInMonth(y, m)
 }
 
 function dayStillFits(year: string, month: string, day: string): boolean {
   if (!day || !month) return false
-  return Number(day) <= daysInMonth(year, month)
+  return Number(day) <= calendarDayCount(year, month)
 }
