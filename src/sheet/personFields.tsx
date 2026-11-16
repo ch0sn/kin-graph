@@ -47,7 +47,11 @@ export function OtherNamesEditor({
     setNames((current) => current.map((item) => (item.key === key ? name : item)))
 
   const addNameButton = (
-    <Button variant="ghost" className="-mr-3 ml-auto w-fit min-w-0 shrink px-3 py-1.5 text-xs" onClick={addName}>
+    <Button
+      variant="ghost"
+      className={`ml-auto w-fit min-w-0 shrink px-3 py-1.5 text-xs ${leading ? '-mr-3' : 'mr-1'}`}
+      onClick={addName}
+    >
       <Plus className="size-3.5" aria-hidden />
       {t('form.addName')}
     </Button>

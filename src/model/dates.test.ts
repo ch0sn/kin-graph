@@ -56,6 +56,14 @@ describe('dateProblem', () => {
     expect(dateProblem('1910/')).toBe('invalid')
     expect(dateProblem('soon')).toBe('invalid')
   })
+
+  it('requires a valid calendar day when one is supplied', () => {
+    expect(dateProblem('2000-02-29')).toBeNull()
+    expect(dateProblem('2001-02-29')).toBe('invalidDay')
+    expect(dateProblem('2001-02')).toBeNull()
+    expect(dateProblem('~1900-02-29')).toBe('invalidDay')
+    expect(dateProblem('2000/2001-04-31')).toBe('invalidDay')
+  })
 })
 
 describe('calendar fields', () => {
