@@ -13,7 +13,13 @@ import { Expand, LocateFixed, Mars, Venus } from 'lucide-react'
 import { animate, useReducedMotion, type AnimationPlaybackControls } from 'motion/react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { genderCounts, type FamilyGraph, type PersonId } from '../model'
+import { MobileOption, type MobileControlSlots } from '../app/MobileControls'
+import {
+  fullName,
+  genderCounts,
+  type FamilyGraph,
+  type PersonId,
+} from '../model'
 import { useT } from '../i18n'
 import { elk } from './elk'
 import {
@@ -54,6 +60,7 @@ const ENTRANCE_STAGGER = 0.06
 const SELECTED_VIEWPORT_Y = 0.28
 /** How far a pinch can zoom out until someone asks for the whole tree. */
 const PINCH_MIN_ZOOM = 0.2
+const MOBILE = '(width < 640px)'
 /** The view rail hangs over the canvas from the top-right, at its collapsed width. */
 const VIEW_RAIL = 57
 const CANVAS_INSETS: Insets = {
@@ -79,6 +86,8 @@ interface FamilyTreeProps {
   onSelect: (id: PersonId | null) => void
   /** Where the view controls are drawn, outside the canvas; none are shown until it exists. */
   controlsSlot: HTMLElement | null
+  mobileControls: MobileControlSlots
+  onFind: () => void
 }
 
 export function FamilyTree(props: FamilyTreeProps) {
@@ -100,8 +109,10 @@ function FamilyTreeCanvas({
   selectedId,
   onSelect,
   controlsSlot,
+  mobileControls,
+  onFind,
 }: FamilyTreeProps) {
-  const { language } = useT()
+  const { language, t } = useT()
   const display = useMemo(() => ({ highlightGender, flagged: flaggedIds }), [highlightGender, flaggedIds])
   /** The latest layout, i.e. where everything is heading. */
   const [layout, setLayout] = useState<FamilyLayout | null>(null)
@@ -116,6 +127,7 @@ function FamilyTreeCanvas({
   const viewportHeight = useStore((s) => s.height)
   /** How far a pinch can zoom out. Whole tree lowers it so that framing stays reachable. */
   const [minZoom, setMinZoom] = useState(PINCH_MIN_ZOOM)
+  const mobileZoom = Math.min(0.76, (viewportWidth || document.documentElement.clientWidth) / 530)
   /** Whole tree keeps the camera until the open person changes. */
   const overviewRef = useRef(false)
   /** Who was selected when whole tree was asked for. */
@@ -202,7 +214,7 @@ function FamilyTreeCanvas({
         treeBounds(layout.nodes),
         { width, height },
         selectedId ? sheetInFlow(domNode) : null,
-        CANVAS_INSETS,
+        width < 640 ? { ...CANVAS_INSETS, right: WHOLE_TREE_GAP } : CANVAS_INSETS,
       )
       // Pinch can reach this framing, and no further once the family is larger than the old floor.
       const nextFloor = Math.min(PINCH_MIN_ZOOM, viewport.zoom)
@@ -222,11 +234,11 @@ function FamilyTreeCanvas({
     if (overviewRef.current && selectedId === overviewSelection.current) return
     overviewRef.current = false
     centerOn(selectedId, {
-      zoom: Math.max(getZoom(), 0.8),
+      zoom: Math.max(getZoom(), window.matchMedia(MOBILE).matches ? mobileZoom : 0.8),
       offsetY: viewportHeight * (0.5 - SELECTED_VIEWPORT_Y),
       duration: 500,
     })
-  }, [selectedId, centerOn, getZoom, viewportHeight])
+  }, [selectedId, centerOn, getZoom, mobileZoom, viewportHeight])
 
   // The sheet closing, or the family moving, changes what "everyone" means.
   useEffect(() => {
@@ -245,57 +257,80 @@ function FamilyTreeCanvas({
     fitWholeTreeRef.current(0)
   }, [viewportWidth, viewportHeight])
 
+  const focus = () => {
+    overviewRef.current = false
+    const mobile = window.matchMedia(MOBILE).matches
+    if (mobile) onSelect(null)
+    centerOn(graph.managerId, { zoom: mobile ? mobileZoom : 1, duration: reduceMotion ? 0 : 600 })
+  }
   const counts = useMemo(() => genderCounts(graph), [graph])
 
   if (!layout) return null
 
   return (
     <TreeDisplayContext.Provider value={display}>
-      <ReactFlow
-        nodes={nodes}
-        edges={edges}
-        nodeTypes={nodeTypes}
-        edgeTypes={edgeTypes}
-        onInit={() => centerOn(graph.managerId, { duration: 0 })}
-        onNodeClick={(_, node) => {
-          setClickedEdgeId(null)
-          if (node.type === 'person') onSelect(node.id)
-        }}
-        onEdgeClick={(_, edge) => setClickedEdgeId(edge.id)}
-        onPaneClick={() => {
-          setClickedEdgeId(null)
-          onSelect(null)
-        }}
-        edgesFocusable={false}
-        nodesDraggable={false}
-        nodesConnectable={false}
-        minZoom={minZoom}
-        maxZoom={MAX_OVERVIEW_ZOOM}
-        proOptions={{ hideAttribution: true }}
-      >
-        {pattern !== 'none' && (
-          <Background
-            variant={PATTERNS[pattern]}
-            gap={24}
-            size={pattern === 'dots' ? 1.5 : 1}
-            color="var(--color-stone-300)"
-          />
-        )}
-        {controlsSlot &&
-          createPortal(
-            <ViewControls
-              onFocus={() => {
-                overviewRef.current = false
-                centerOn(graph.managerId)
-              }}
-              onWhole={() => fitWholeTree(reduceMotion ? 0 : 600)}
-              highlightGender={highlightGender}
-              onToggleHighlightGender={onToggleHighlightGender}
-              counts={counts}
-            />,
-            controlsSlot,
+      <div className="absolute inset-0">
+        <ReactFlow
+          nodes={nodes}
+          edges={edges}
+          nodeTypes={nodeTypes}
+          edgeTypes={edgeTypes}
+          onInit={() => centerOn(graph.managerId, { zoom: window.matchMedia(MOBILE).matches ? mobileZoom : 1, duration: 0 })}
+          nodeClickDistance={6}
+          paneClickDistance={6}
+          onNodeClick={(_, node) => {
+            setClickedEdgeId(null)
+            if (node.type === 'person') onSelect(node.id)
+          }}
+          onEdgeClick={(_, edge) => setClickedEdgeId(edge.id)}
+          onPaneClick={() => {
+            setClickedEdgeId(null)
+            onSelect(null)
+          }}
+          edgesFocusable={false}
+          nodesDraggable={false}
+          nodesConnectable={false}
+          minZoom={minZoom}
+          maxZoom={MAX_OVERVIEW_ZOOM}
+          proOptions={{ hideAttribution: true }}
+        >
+          {pattern !== 'none' && (
+            <Background
+              variant={PATTERNS[pattern]}
+              gap={24}
+              size={pattern === 'dots' ? 1.5 : 1}
+              color="var(--color-stone-300)"
+            />
           )}
-      </ReactFlow>
+          {controlsSlot &&
+            createPortal(
+              <ViewControls
+                onFind={onFind}
+                onFocus={focus}
+                onWhole={() => fitWholeTree(reduceMotion ? 0 : 600)}
+                highlightGender={highlightGender}
+                onToggleHighlightGender={onToggleHighlightGender}
+                counts={counts}
+              />,
+              controlsSlot,
+            )}
+        </ReactFlow>
+      </div>
+      {mobileControls.options && createPortal(
+        <>
+          <MobileOption icon={LocateFixed} label={t('mobile.centerOn', { name: fullName(graph.people[graph.managerId]) })} close onClick={focus} />
+          <MobileOption icon={Expand} label={t('mobile.fitScreen')} close onClick={() => fitWholeTree(reduceMotion ? 0 : 400)} />
+          <MobileOption
+            icon={Venus}
+            label={t('mobile.highlightGender')}
+            description={highlightGender ? t('tree.genderCounts', counts) : undefined}
+            switchControl
+            pressed={highlightGender}
+            onClick={onToggleHighlightGender}
+          />
+        </>,
+        mobileControls.options,
+      )}
     </TreeDisplayContext.Provider>
   )
 }
@@ -346,12 +381,14 @@ function sheetInFlow(flow: HTMLElement): Rect | null {
 
 /** The tree's view controls, hanging from the header. */
 function ViewControls({
+  onFind,
   onFocus,
   onWhole,
   highlightGender,
   onToggleHighlightGender,
   counts,
 }: {
+  onFind: () => void
   onFocus: () => void
   onWhole: () => void
   highlightGender: boolean
@@ -360,7 +397,7 @@ function ViewControls({
 }) {
   const { t } = useT()
   return (
-    <ViewToolbar label={t('tree.view')}>
+    <ViewToolbar label={t('tree.view')} onFind={onFind}>
       <ViewButton label={t('tree.focus')} onClick={onFocus}>
         <LocateFixed className="size-5" aria-hidden />
       </ViewButton>

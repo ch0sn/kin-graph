@@ -1,3 +1,4 @@
+import { MobileOption, type MobileControlSlots } from '../app/MobileControls'
 import { ChevronLeft, Minus, Plus } from 'lucide-react'
 import { motion } from 'motion/react'
 import { useMemo, useRef, useState, type KeyboardEvent, type PointerEvent } from 'react'
@@ -42,6 +43,8 @@ interface FanChartProps {
   onAddParent: (childId: PersonId) => void
   /** Where the view controls are drawn, outside the canvas; none are shown until it exists. */
   controlsSlot: HTMLElement | null
+  mobileControls: MobileControlSlots
+  onFind: () => void
 }
 
 /** How strongly each generation is tinted with its side's colour, the parents most. */
@@ -69,6 +72,8 @@ export function FanChart({
   onSelect,
   onAddParent,
   controlsSlot,
+  mobileControls,
+  onFind,
 }: FanChartProps) {
   const { t } = useT()
   const [centreId, setCentreId] = useState<PersonId>(graph.managerId)
@@ -228,7 +233,7 @@ export function FanChart({
       className={[
         'relative size-full overflow-hidden transition-[padding] duration-300 ease-out motion-reduce:transition-none',
         // Make room for the person sheet: beside it (with its toolbox) on wide screens, above it on phones.
-        selectedId ? 'pb-[50dvh] sm:pb-0 sm:pl-[min(34rem,55%)]' : '',
+        selectedId ? 'pb-[min(16rem,40dvh)] sm:pb-0 sm:pl-[min(34rem,55%)]' : '',
       ].join(' ')}
     >
       <svg
@@ -347,9 +352,16 @@ export function FanChart({
         </p>
       </div>
 
+      {mobileControls.options && createPortal(
+        <>
+          <MobileOption icon={Plus} label={t('fan.more')} disabled={generations >= MAX_FAN_GENERATIONS} onClick={() => onGenerationsChange(generations + 1)} />
+          <MobileOption icon={Minus} label={t('fan.fewer')} disabled={generations <= MIN_FAN_GENERATIONS} onClick={() => onGenerationsChange(generations - 1)} />
+        </>,
+        mobileControls.options,
+      )}
       {controlsSlot &&
         createPortal(
-          <ViewToolbar label={t('fan.view')}>
+          <ViewToolbar label={t('fan.view')} onFind={onFind}>
             <ViewButton
               label={t('fan.more')}
               disabled={generations >= MAX_FAN_GENERATIONS}

@@ -187,7 +187,7 @@ export function dropTree(trees: TreeMeta[], id: TreeId): TreeMeta[] {
 
 /** The tree as a view shows it: the same people, seen from the view's root. */
 export function viewGraph(graph: FamilyGraph, tab: Tab): FamilyGraph {
-  return tab.viewRootId && tab.viewRootId !== graph.managerId
+  return tab.viewRootId && tab.viewRootId !== graph.managerId && Object.hasOwn(graph.people, tab.viewRootId)
     ? { ...graph, managerId: tab.viewRootId }
     : graph
 }

@@ -11,7 +11,7 @@ export function ViewSwitcher({ view, onChange }: { view: TreeView; onChange: (vi
     <div
       role="group"
       aria-label={t('views.label')}
-      className="absolute top-3 left-3 z-[8] flex gap-0.5 rounded-xl border border-stone-200 bg-white/90 p-1 shadow-sm backdrop-blur"
+      className="absolute top-3 left-3 z-[8] hidden gap-0.5 rounded-xl border border-stone-200 bg-white/90 p-1 shadow-sm backdrop-blur sm:flex"
     >
       {TREE_VIEWS.map((id) => {
         const Icon = ICONS[id]

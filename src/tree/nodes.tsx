@@ -25,8 +25,8 @@ const GENDER_BORDERS: Partial<Record<Gender, string>> = {
  * mode and yellow in dark mode; see index.css).
  */
 const MANAGER_BORDER = 'border-(--accent)'
-const MANAGER_GLOW = 'ring-4 ring-(--accent-glow)'
-const MANAGER_SELECTED = 'card-shadow-hover ring-4 ring-(--accent-strong)'
+const MANAGER_GLOW = 'sm:ring-4 sm:ring-(--accent-glow)'
+const MANAGER_SELECTED = 'card-shadow-hover sm:ring-4 sm:ring-(--accent-strong)'
 
 export function PersonNode({ data, selected }: NodeProps<PersonNodeType>) {
   const { person, label, isManager, entranceDelay = 0 } = data
@@ -39,7 +39,7 @@ export function PersonNode({ data, selected }: NodeProps<PersonNodeType>) {
     (isManager
       ? MANAGER_BORDER
       : selected
-        ? 'border-stone-400'
+        ? 'border-stone-400 max-sm:border-(--accent) max-sm:bg-(--accent-soft)'
         : 'border-stone-200 hover:border-stone-300')
 
   return (
@@ -60,18 +60,19 @@ export function PersonNode({ data, selected }: NodeProps<PersonNodeType>) {
           selected
             ? isManager
               ? MANAGER_SELECTED
-              : 'card-shadow-hover ring-4 ring-stone-300/60'
+              : 'card-shadow-hover sm:ring-4 sm:ring-stone-300/60'
             : isManager && MANAGER_GLOW,
         ]
           .filter(Boolean)
           .join(' ')}
       >
-        <Avatar person={person} highlight={isManager} />
-        <div className="min-w-0 self-center">
+        <div className="size-10 shrink-0 self-center sm:hidden"><Avatar person={person} cover highlight={isManager || selected} className="!rounded-full text-sm" /></div>
+        <Avatar person={person} highlight={isManager} className="hidden! sm:flex!" />
+        <div className="flex min-w-0 flex-col self-center">
           {label && (
             <p
               title={label}
-              className="truncate text-xs font-semibold tracking-[0.12em] text-stone-400 uppercase"
+              className="truncate text-xs font-semibold tracking-[0.12em] text-stone-400 uppercase max-sm:order-1 max-sm:mt-0.5 max-sm:text-sm max-sm:font-medium max-sm:tracking-normal max-sm:text-stone-600 max-sm:normal-case"
             >
               {label}
             </p>
@@ -79,11 +80,11 @@ export function PersonNode({ data, selected }: NodeProps<PersonNodeType>) {
           {/* Long names wrap onto a second line rather than being cut off. */}
           <p
             title={fullName(person)}
-            className="line-clamp-2 font-serif text-(length:--name-size) leading-tight break-words text-stone-900"
+            className="line-clamp-2 font-serif text-(length:--name-size) leading-tight break-words text-stone-900 max-sm:text-xl"
           >
             {fullName(person)}
           </p>
-          <LifeLine person={person} className="text-xs" />
+          <LifeLine person={person} className="hidden! text-xs sm:flex!" />
         </div>
         {flagged.has(person.id) && (
           <span

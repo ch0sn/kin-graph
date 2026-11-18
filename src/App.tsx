@@ -1,12 +1,15 @@
+import { ArrowLeft, LocateFixed } from 'lucide-react'
 import { motion, MotionConfig } from 'motion/react'
 import { useCallback, useMemo, useState } from 'react'
 import { AppMenu, SaveIndicator } from './app/AppMenu'
 import { CheckPanel } from './app/CheckPanel'
+import { FindPerson } from './app/FindPerson'
 import { HeaderActions } from './app/HeaderActions'
 import { HistoryDialog } from './app/HistoryDialog'
+import { MobileControls, MobileOption } from './app/MobileControls'
 import { ReplaceTreeConfirm } from './app/ReplaceTreeConfirm'
 import { SettingsDialog } from './app/SettingsDialog'
-import { TabBar, type SavedTreeItem, type TabItem } from './app/TabBar'
+import { AddMenu, TabBar, type SavedTreeItem, type TabItem } from './app/TabBar'
 import { useAppearance } from './app/theme'
 import { UndoButtons, UndoToast, type Notice } from './app/UndoControls'
 import { useUndoShortcuts } from './app/useUndoShortcuts'
@@ -163,9 +166,20 @@ function WorkspaceScreen({
 
   const activeGraph = activeTab ? graphOf(activeTab.treeId) : null
   const shownGraph = !creating && activeTab && activeGraph ? viewGraph(activeGraph, activeTab) : null
+  const heading = shownGraph
+    ? t('header.family', { name: fullName(shownGraph.people[shownGraph.managerId]) })
+    : 'KinGraph'
   const replaces = settings.newTreeIn === 'replace' && Boolean(activeTab && !activeTab.viewRootId)
 
   const activeMeta = activeTab ? trees.find((tree) => tree.id === activeTab.treeId) : undefined
+  const perspectiveReturn = shownGraph && activeGraph && activeTab && shownGraph.managerId !== activeGraph.managerId
+    ? {
+        label: activeMeta?.own
+          ? t('header.backToMe')
+          : t('header.backToRoot', { name: fullName(activeGraph.people[activeGraph.managerId]) }),
+        onClick: () => stored.showTree(activeTab.treeId),
+      }
+    : undefined
   const issues = useMemo(() => (activeGraph ? checkTree(activeGraph) : []), [activeGraph])
   const ignoredIssues = useMemo(() => new Set(activeMeta?.ignoredIssues ?? []), [activeMeta])
   const openIssues = issues.filter((issue) => !ignoredIssues.has(issue.id))
@@ -244,29 +258,70 @@ function WorkspaceScreen({
     void stored.createTree(graph, { replaceTabId })
   }
 
+  const treePicker = {
+    tabs: tabItems,
+    activeId: stored.workspace.activeTabId,
+    creating: creating !== null,
+    onCancelCreating: () => setCreating(null),
+    onSelect: (tabId: string) => {
+      setCreating(null)
+      stored.selectTab(tabId)
+    },
+    onClose: closeTab,
+    onNewTree: () => inPlaceOrNewTab((replaceTabId) => setCreating({ replaceTabId })),
+    onImport: importPicker.open,
+    closedTrees,
+    onOpenTree: (treeId: TreeId) => {
+      setCreating(null)
+      stored.showTree(treeId)
+    },
+    onDeleteTree: (treeId: TreeId) => {
+      setExported(false)
+      setPending({ kind: 'delete', treeId })
+    },
+  }
+  const undoButtons = editable && (
+    <UndoButtons
+      canUndo={Boolean(stored.undoable[editable]?.undo)}
+      canRedo={Boolean(stored.undoable[editable]?.redo)}
+      onUndo={undoActive}
+      onRedo={redoActive}
+    />
+  )
+
   return (
     <>
       <div className="flex h-full flex-col">
         <motion.header
           initial={{ opacity: 0, y: -8 }}
           animate={{ opacity: 1, y: 0 }}
-          className="relative z-10 flex items-center justify-between gap-3 border-b border-stone-200 bg-white/80 py-2 pr-2 pl-4 backdrop-blur"
+          className="relative z-[22] flex items-center justify-between gap-3 border-b border-stone-200 bg-stone-50 pt-[max(0.375rem,env(safe-area-inset-top))] pr-3 pb-1.5 pl-4 sm:z-10 sm:bg-white/80 sm:py-2 sm:pr-2 sm:backdrop-blur"
         >
-          <h1 className="flex items-center gap-2 font-serif text-xl tracking-tight">
-            <Logo />
-            KinGraph
-          </h1>
-          <div className="flex items-center gap-1">
-            <SaveIndicator state={stored.saveState} />
-            {editable && (
-              <UndoButtons
-                canUndo={Boolean(stored.undoable[editable]?.undo)}
-                canRedo={Boolean(stored.undoable[editable]?.redo)}
-                onUndo={undoActive}
-                onRedo={redoActive}
-              />
-            )}
-            <HeaderActions graph={shownGraph} />
+          <div className="flex min-w-0 items-center gap-2">
+            <Logo className="size-8 shrink-0" />
+            <AddMenu {...treePicker} mobile={{ ...treePicker, heading }} />
+            <div className="hidden min-w-0 sm:block">
+              <h1 className="font-serif text-xl leading-tight tracking-tight [overflow-wrap:anywhere]" aria-live="polite">
+                {heading}
+              </h1>
+              {perspectiveReturn && (
+                <button
+                  type="button"
+                  onClick={perspectiveReturn.onClick}
+                  className="flex min-h-11 items-center gap-1 rounded-md text-left text-sm font-medium text-stone-600 hover:text-stone-900 focus-visible:ring-4 focus-visible:ring-stone-200 focus-visible:outline-none"
+                >
+                  <ArrowLeft className="size-4 shrink-0" aria-hidden />
+                  <span className="[overflow-wrap:anywhere]">{perspectiveReturn.label}</span>
+                </button>
+              )}
+            </div>
+          </div>
+          <div className="flex shrink-0 items-center gap-1">
+            <div className="hidden items-center gap-1 sm:flex">
+              <SaveIndicator state={stored.saveState} />
+              {undoButtons}
+              <HeaderActions graph={shownGraph} />
+            </div>
             <AppMenu
               persisted={stored.persisted}
               onShowIntro={onShowIntro}
@@ -275,32 +330,19 @@ function WorkspaceScreen({
               issueCount={openIssues.length}
               onOpenHistory={editable ? () => setPanel('history') : undefined}
               backupReminder={backupReminder}
+              mobileActions={editable ? (
+                <>
+                  <div className="flex items-center justify-between gap-2 px-2">
+                    {undoButtons}
+                    <SaveIndicator state={stored.saveState} />
+                  </div>
+                  <HeaderActions graph={shownGraph} inline />
+                </>
+              ) : undefined}
             />
           </div>
         </motion.header>
-        <TabBar
-          tabs={tabItems}
-          activeId={stored.workspace.activeTabId}
-          creating={creating !== null}
-          onCancelCreating={() => setCreating(null)}
-          onSelect={(tabId) => {
-            setCreating(null)
-            stored.selectTab(tabId)
-          }}
-          onClose={closeTab}
-          onNewTree={() => inPlaceOrNewTab((replaceTabId) => setCreating({ replaceTabId }))}
-          onImport={importPicker.open}
-          closedTrees={closedTrees}
-          onOpenTree={(treeId) => {
-            setCreating(null)
-            stored.showTree(treeId)
-          }}
-          onDeleteTree={(treeId) => {
-            setExported(false)
-            setPending({ kind: 'delete', treeId })
-          }}
-          controlsRef={setViewControls}
-        />
+        <TabBar {...treePicker} controlsRef={setViewControls} />
         {importPicker.input}
         <main className="relative min-h-0 flex-1">
           {creating ? (
@@ -343,6 +385,7 @@ function WorkspaceScreen({
                   setPending({ kind: 'delete', treeId: activeTab.treeId })
                 }}
                 treeName={treeName(activeTab.treeId)}
+                perspectiveReturn={perspectiveReturn}
               />
             )
           )}
@@ -560,6 +603,7 @@ function TreeTab({
   onViewAs,
   onDeleteTree,
   treeName,
+  perspectiveReturn,
 }: {
   tab: Tab
   /** The tree as this tab shows it, from the view's root if it's a view. */
@@ -586,17 +630,30 @@ function TreeTab({
   /** Asks to delete this tab's tree. */
   onDeleteTree: () => void
   treeName: string
+  perspectiveReturn?: { label: string; onClick: () => void }
 }) {
   const { t } = useT()
   const [selectedId, setSelectedId] = useState<PersonId | null>(null)
+  const [personTrail, setPersonTrail] = useState<PersonId[]>([])
+  const [finding, setFinding] = useState(false)
+  const [options, setOptions] = useState<HTMLElement | null>(null)
+  const mobileControls = { options }
   /** Opens the sheet on a form for adding this kind of relative, e.g. from an empty slot in the fan. */
   const [sheetStart, setSheetStart] = useState<Relation | undefined>(undefined)
   const select = useCallback((id: PersonId | null) => {
     setSelectedId(id)
     setSheetStart(undefined)
+    setPersonTrail([])
   }, [])
   const closeSheet = useCallback(() => select(null), [select])
   const view = tab.view ?? 'tree'
+  const followPerson = (id: PersonId) => {
+    if (selectedId) setPersonTrail((trail) => [...trail, selectedId])
+    if (view === 'fan') stored.setTabView(tab.id, 'tree')
+    setSheetStart(undefined)
+    setSelectedId(id)
+  }
+  const previousPerson = personTrail.findLastIndex((id) => Object.hasOwn(graph.people, id))
   const flaggedIds = useMemo(
     () => flaggedPeople(issues.filter((issue) => !ignoredIssues.has(issue.id))),
     [issues, ignoredIssues],
@@ -652,45 +709,65 @@ function TreeTab({
 
   return (
     <>
-      {/* A different root (import, new start) gets a fresh view and entrance. */}
-      {view === 'fan' ? (
-        <FanChart
-          key={graph.managerId}
-          graph={graph}
-          generations={settings.fanGenerations}
-          onGenerationsChange={(fanGenerations) => onSettingsChange({ fanGenerations })}
-          selectedId={selectedId}
-          onSelect={select}
-          onAddParent={(childId) => {
-            setSelectedId(childId)
-            setSheetStart('parent')
-          }}
-          controlsSlot={controlsSlot}
-        />
-      ) : view === 'timeline' ? (
-        <TimelineView
-          key={graph.managerId}
-          graph={graph}
-          selectedId={selectedId}
-          onSelect={select}
-          controlsSlot={controlsSlot}
-        />
-      ) : (
-        <FamilyTree
-          key={graph.managerId}
-          graph={graph}
-          flaggedIds={flaggedIds}
-          siblingOrder={settings.siblingOrder}
-          nameOrder={settings.nameOrder}
-          pattern={themeInfo(settings.theme).pattern}
-          highlightGender={settings.highlightGender}
-          onToggleHighlightGender={() => onSettingsChange({ highlightGender: !settings.highlightGender })}
-          selectedId={selectedId}
-          onSelect={select}
-          controlsSlot={controlsSlot}
-        />
-      )}
-      <ViewSwitcher view={view} onChange={(next) => stored.setTabView(tab.id, next)} />
+      <div className="absolute inset-x-0 top-0 bottom-(--mobile-dock) overflow-hidden sm:bottom-0">
+        {/* A different root (import, new start) gets a fresh view and entrance. */}
+        {view === 'fan' ? (
+          <FanChart
+            key={graph.managerId}
+            graph={graph}
+            generations={settings.fanGenerations}
+            onGenerationsChange={(fanGenerations) => onSettingsChange({ fanGenerations })}
+            selectedId={selectedId}
+            onSelect={select}
+            onAddParent={(childId) => {
+              setSelectedId(childId)
+              setSheetStart('parent')
+            }}
+            controlsSlot={controlsSlot}
+            mobileControls={mobileControls}
+            onFind={() => setFinding(true)}
+          />
+        ) : view === 'timeline' ? (
+          <TimelineView
+            key={graph.managerId}
+            graph={graph}
+            selectedId={selectedId}
+            onSelect={select}
+            controlsSlot={controlsSlot}
+            mobileControls={mobileControls}
+            onFind={() => setFinding(true)}
+          />
+        ) : (
+          <FamilyTree
+            key={graph.managerId}
+            graph={graph}
+            flaggedIds={flaggedIds}
+            siblingOrder={settings.siblingOrder}
+            nameOrder={settings.nameOrder}
+            pattern={themeInfo(settings.theme).pattern}
+            highlightGender={settings.highlightGender}
+            onToggleHighlightGender={() => onSettingsChange({ highlightGender: !settings.highlightGender })}
+            selectedId={selectedId}
+            onSelect={select}
+            controlsSlot={controlsSlot}
+            mobileControls={mobileControls}
+            onFind={() => setFinding(true)}
+          />
+        )}
+        <ViewSwitcher view={view} onChange={(next) => stored.setTabView(tab.id, next)} />
+      </div>
+      <MobileControls
+        view={view}
+        onChange={(next) => stored.setTabView(tab.id, next)}
+        onFind={() => setFinding(true)}
+        onOptions={setOptions}
+        returnAction={perspectiveReturn && <MobileOption icon={LocateFixed} {...perspectiveReturn} />}
+      />
+      {finding && <FindPerson graph={graph} onClose={() => setFinding(false)} onChoose={(id) => {
+        setFinding(false)
+        if (view === 'fan') stored.setTabView(tab.id, 'tree')
+        select(id)
+      }} />}
       <PersonSheet
         graph={graph}
         personId={selectedId}
@@ -698,6 +775,11 @@ function TreeTab({
         onClose={closeSheet}
         perspectives={perspectives}
         startWith={sheetStart}
+        onSelectPerson={followPerson}
+        onBackPerson={previousPerson >= 0 ? () => {
+          setSelectedId(personTrail[previousPerson])
+          setPersonTrail(personTrail.slice(0, previousPerson))
+        } : undefined}
       />
       <CheckPanel
         open={checking}

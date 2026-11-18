@@ -8,7 +8,7 @@ import { ConfirmDialog } from '../ui/ConfirmDialog'
 import { GedcomExportDialog } from './GedcomExportDialog'
 
 /** Export, for the tree on show; nothing while starting one or with no tab open. */
-export function HeaderActions({ graph }: { graph: FamilyGraph | null }) {
+export function HeaderActions({ graph, inline = false }: { graph: FamilyGraph | null; inline?: boolean }) {
   const { t } = useT()
   const [error, setError] = useState<string | null>(null)
   const [choosingGedcom, setChoosingGedcom] = useState(false)
@@ -34,7 +34,12 @@ export function HeaderActions({ graph }: { graph: FamilyGraph | null }) {
 
   return (
     <>
-      <ExportMenu onBackup={() => void exportBackup()} onGedcom={() => setChoosingGedcom(true)} />
+      {inline ? (
+        <>
+          <FormatItem title={t('export.backup')} hint={t('export.backupHint')} onClick={() => void exportBackup()} />
+          <FormatItem title={t('export.gedcom')} hint={t('export.gedcomHint')} onClick={() => setChoosingGedcom(true)} />
+        </>
+      ) : <ExportMenu onBackup={() => void exportBackup()} onGedcom={() => setChoosingGedcom(true)} />}
       <GedcomExportDialog
         graph={choosingGedcom ? graph : null}
         choices={gedcomChoices}

@@ -54,6 +54,7 @@ interface AppMenuProps {
   onOpenHistory?: () => void
   /** A reminder that the last backup is old, if it is. */
   backupReminder?: string | null
+  mobileActions?: ReactNode
 }
 
 export function AppMenu({
@@ -64,6 +65,7 @@ export function AppMenu({
   issueCount = 0,
   onOpenHistory,
   backupReminder,
+  mobileActions,
 }: AppMenuProps) {
   const { t } = useT()
   const [open, setOpen] = useState(false)
@@ -99,7 +101,7 @@ export function AppMenu({
         aria-haspopup="menu"
         aria-expanded={open}
         onClick={() => setOpen(!open)}
-        className="relative rounded-full p-2 text-stone-600 transition hover:bg-stone-100 hover:text-stone-900 focus-visible:ring-4 focus-visible:ring-stone-200 focus-visible:outline-none"
+        className="relative grid size-11 place-items-center rounded-xl border border-stone-200 bg-white text-stone-600 transition hover:bg-stone-100 hover:text-stone-900 focus-visible:ring-4 focus-visible:ring-stone-200 focus-visible:outline-none sm:size-9 sm:rounded-full sm:border-transparent sm:bg-transparent"
       >
         <Ellipsis className="size-5" />
         {/* Something in the tree check needs a look. */}
@@ -118,6 +120,7 @@ export function AppMenu({
             transition={{ duration: 0.12 }}
             className="absolute top-full right-0 z-30 mt-2 w-72 origin-top-right rounded-2xl border border-stone-200 bg-white p-1.5 shadow-xl"
           >
+            {mobileActions && <div className="border-b border-stone-100 pb-1 sm:hidden">{mobileActions}</div>}
             {onOpenCheck && (
               <MenuItem icon={issueCount > 0 ? <ShieldAlert /> : <ShieldCheck />} onClick={choose(onOpenCheck)}>
                 <span className="flex-1">{t('check.title')}</span>
