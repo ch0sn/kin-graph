@@ -1,4 +1,4 @@
-import { Cake, Clock } from 'lucide-react'
+import { Cake, Clock, ListFilter } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent, type PointerEvent } from 'react'
 import { createPortal } from 'react-dom'
 import { useT } from '../i18n'
@@ -18,7 +18,7 @@ import {
   type PersonId,
 } from '../model'
 import { ViewButton, ViewToolbar } from '../ui/ViewToolbar'
-import { timelineRows } from './rows'
+import { aliveTimelineRows, timelineRows } from './rows'
 import { aliveIn, ageIn, fractionalYear, lifeSpan, todayYear, type LifeSpan } from './spans'
 
 interface TimelineViewProps {
@@ -69,6 +69,7 @@ export function TimelineView({ graph, selectedId, onSelect, controlsSlot }: Time
   const scrollRef = useRef<HTMLDivElement>(null)
   const [width, setWidth] = useState(0)
   const [year, setYear] = useState(() => (root.birthDate && yearOf(root.birthDate)) || today.getFullYear())
+  const [aliveOnly, setAliveOnly] = useState(false)
 
   useEffect(() => {
     const element = scrollRef.current
@@ -95,9 +96,10 @@ export function TimelineView({ graph, selectedId, onSelect, controlsSlot }: Time
     [graph, rootId],
   )
 
+  const visibleRows = aliveOnly ? aliveTimelineRows(rows, spans, year) : rows
   const lines: Line[] = []
   let height = 0
-  for (const group of rows.groups) {
+  for (const group of visibleRows.groups) {
     lines.push({ kind: 'head', generation: group.generation, top: height })
     height += HEAD
     for (const id of group.personIds) {
@@ -176,7 +178,7 @@ export function TimelineView({ graph, selectedId, onSelect, controlsSlot }: Time
   // Family lines for the selected person: from each parent's bar at their birth, and to each child's.
   const family: { id: PersonId; parentId: PersonId; childId: PersonId; at: number; accent: boolean }[] = []
   const selectedSpan = selectedId ? spans.get(selectedId) : undefined
-  if (selectedId && selectedSpan) {
+  if (selectedId && selectedSpan && rowTop.has(selectedId)) {
     for (const parentId of parentIdsOf(graph, selectedId)) {
       if (!rowTop.has(parentId)) continue
       family.push({
@@ -189,7 +191,7 @@ export function TimelineView({ graph, selectedId, onSelect, controlsSlot }: Time
     }
     for (const childId of childIdsOf(graph, selectedId)) {
       const childSpan = spans.get(childId)
-      if (!childSpan) continue
+      if (!childSpan || !rowTop.has(childId)) continue
       family.push({
         id: `c${childId}`,
         parentId: selectedId,
@@ -308,12 +310,18 @@ export function TimelineView({ graph, selectedId, onSelect, controlsSlot }: Time
               </svg>
             </div>
 
-            {rows.undated.length > 0 && (
+            {aliveOnly && visibleRows.groups.length === 0 && (
+              <p className="px-3 py-6 text-sm text-stone-500" style={{ width: axisWidth }}>
+                {t('timeline.noneAlive', { year })}
+              </p>
+            )}
+
+            {visibleRows.undated.length > 0 && (
               <div className="mt-6 flex flex-wrap items-center gap-2 px-3" style={{ width: axisWidth }}>
                 <span className="text-[10px] font-semibold tracking-[0.12em] text-stone-400 uppercase">
                   {t('timeline.undated')}
                 </span>
-                {rows.undated.map((id) => (
+                {visibleRows.undated.map((id) => (
                   <button
                     key={id}
                     type="button"
@@ -342,6 +350,14 @@ export function TimelineView({ graph, selectedId, onSelect, controlsSlot }: Time
             </ViewButton>
             <ViewButton label={t('timeline.now')} onClick={() => setYear(Math.floor(now))}>
               <Clock className="size-5" aria-hidden />
+            </ViewButton>
+            <ViewButton
+              label={t('timeline.aliveOnly')}
+              hint={t('timeline.aliveOnlyHint')}
+              pressed={aliveOnly}
+              onClick={() => setAliveOnly((value) => !value)}
+            >
+              <ListFilter className="size-5" aria-hidden />
             </ViewButton>
           </ViewToolbar>,
           controlsSlot,
