@@ -1,4 +1,4 @@
-import { ArrowLeft, ArrowUp, Baby, Eye, FileText, FileUp, Heart, Mars, Pencil, Plus, Trash, Users, Venus, X, type LucideIcon } from 'lucide-react'
+import { ArrowLeft, ArrowUp, Baby, ChevronDown, ChevronRight, Eye, FileText, FileUp, Heart, Mars, Pencil, Plus, Trash, Users, Venus, X, type LucideIcon } from 'lucide-react'
 import { AnimatePresence, motion, useDragControls } from 'motion/react'
 import { createContext, useCallback, useContext, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
@@ -8,15 +8,19 @@ import {
   addParent,
   addPartner,
   addSibling,
+  childIdsOf,
   displayName,
   formatFuzzyDate,
   fullName,
   GraphError,
   isOngoing,
+  lifeYears,
   linkPartners,
   parentIdsOf,
+  partnerIdsOf,
   partnershipsOf,
   coParentFor,
+  siblingsOf,
   surnamesForChild,
   unlinkedCoParentIdsOf,
   partnerOf,
@@ -111,6 +115,8 @@ interface PersonSheetProps {
   personId: PersonId | null
   onChange: (graph: FamilyGraph) => void
   onClose: () => void
+  onSelectPerson: (id: PersonId) => void
+  onBackPerson?: () => void
   perspectives?: Perspectives
   /** Opens the sheet on the form for adding this kind of relative, rather than the details. */
   startWith?: Relation
@@ -125,6 +131,8 @@ export function PersonSheet({
   personId,
   onChange,
   onClose,
+  onSelectPerson,
+  onBackPerson,
   perspectives,
   startWith,
 }: PersonSheetProps) {
@@ -158,6 +166,8 @@ export function PersonSheet({
             person={person}
             onChange={onChange}
             onClose={onClose}
+            onSelectPerson={onSelectPerson}
+            onBackPerson={onBackPerson}
             perspectives={perspectives}
             startWith={startWith}
             fanOpen={fanOpen}
@@ -213,11 +223,11 @@ function Sheet({
         onDragEnd={(_, info) => {
           if (info.offset.y > 120 || info.velocity.y > 600) onClose()
         }}
-        className="fixed inset-x-0 bottom-0 z-20 mx-auto w-full max-w-md sm:inset-x-auto sm:bottom-4 sm:left-4 sm:max-w-sm"
+        className="fixed inset-x-0 bottom-(--mobile-dock) z-20 mx-auto w-full sm:inset-x-auto sm:bottom-4 sm:left-4 sm:max-w-sm"
       >
         {/* Wide screens only: a full-width sheet's right edge is the screen edge. */}
         <div ref={setAnchor} className="absolute top-0 right-0 z-0 hidden sm:block" />
-        <div className="sheet-card relative z-1 flex max-h-[85dvh] w-full flex-col rounded-t-3xl border border-b-0 border-stone-200 bg-white shadow-[0_-8px_40px_-12px_rgb(0_0_0/0.25)] sm:max-h-[calc(100dvh-12rem)] sm:rounded-3xl sm:border-b">
+        <div className="sheet-card relative z-1 flex max-h-[calc(90dvh-var(--mobile-dock))] w-full flex-col rounded-t-3xl border border-b-0 border-stone-200 bg-white shadow-[0_-8px_40px_-12px_rgb(0_0_0/0.25)] sm:max-h-[calc(100dvh-12rem)] sm:rounded-3xl sm:border-b">
           <div
             className="flex shrink-0 cursor-grab touch-none justify-center pt-3 pb-1 active:cursor-grabbing"
             onPointerDown={(e) => dragControls.start(e)}
@@ -225,7 +235,7 @@ function Sheet({
           >
             <div className="h-1.5 w-10 rounded-full bg-stone-300" />
           </div>
-          <div className="overflow-y-auto overscroll-contain px-5 pb-[max(1.25rem,env(safe-area-inset-bottom))]">
+          <div className="overflow-y-auto overscroll-contain px-4 pb-4 sm:px-5 sm:pb-5">
             {children}
           </div>
         </div>
@@ -239,6 +249,8 @@ function SheetBody({
   person,
   onChange,
   onClose,
+  onSelectPerson,
+  onBackPerson,
   perspectives,
   startWith,
   fanOpen,
@@ -248,6 +260,8 @@ function SheetBody({
   person: Person
   onChange: (graph: FamilyGraph) => void
   onClose: () => void
+  onSelectPerson: (id: PersonId) => void
+  onBackPerson?: () => void
   perspectives?: Perspectives
   startWith?: Relation
   /** False while the discs fold back in, ahead of the card leaving. */
@@ -258,6 +272,7 @@ function SheetBody({
   const filePicker = useBackupPicker((picked) => perspectives?.onOpenFile(person.id, picked))
   const [mode, setMode] = useState<Mode>(startWith ? { view: 'add', relation: startWith } : { view: 'details' })
   const [error, setError] = useState<string | null>(null)
+  const [expanded, setExpanded] = useState(false)
   const go = useCallback((next: Mode) => {
     setMode(next)
     setError(null)
@@ -278,6 +293,7 @@ function SheetBody({
   const isManager = person.id === graph.managerId
   const [confirmingTree, setConfirmingTree] = useState(false)
   const name = fullName(person)
+  const years = lifeYears(person)
   /** The tree's own root, who is "you" here and can only go with the whole tree. */
   const isTreeRoot = isManager && perspectives !== undefined && !perspectives.isView
   const showsTree = perspectives && !person.isPlaceholder
@@ -417,14 +433,16 @@ function SheetBody({
         transition={{ duration: 0.15 }}
       >
         {mode.view === 'details' && (
-          <div className="flex flex-col gap-5">
-            <header className="flex items-center gap-4 pt-1">
-              <div className="flex self-stretch">
+          <div className="flex flex-col gap-4 sm:gap-5">
+            <header className="flex items-center gap-3 pt-1 sm:gap-4">
+              {onBackPerson && <button type="button" onClick={onBackPerson} className="grid size-10 shrink-0 place-items-center rounded-xl bg-stone-100 sm:hidden" aria-label={t('mobile.previousPerson')}><ArrowLeft className="size-4" aria-hidden /></button>}
+              <div className="size-12 shrink-0 sm:hidden"><Avatar person={person} cover highlight className="!rounded-full text-sm" /></div>
+              <div className="hidden self-stretch sm:flex">
                 <Avatar person={person} fill highlight={isManager} />
               </div>
               <div className="min-w-0 flex-1">
                 {label && (
-                  <p ref={setLine} className="text-xs font-semibold tracking-[0.12em] text-stone-400 uppercase">
+                  <p ref={setLine} className="hidden text-xs font-semibold tracking-[0.12em] text-stone-400 uppercase sm:block">
                     {label}
                   </p>
                 )}
@@ -433,14 +451,15 @@ function SheetBody({
                   className="flex items-center gap-2 font-serif text-2xl leading-tight text-stone-900"
                 >
                   <span className="truncate">{fullName(person)}</span>
-                  <GenderIcon gender={person.gender} />
+                  <span className="hidden sm:contents"><GenderIcon gender={person.gender} /></span>
                 </h2>
-                <LifeLine person={person} detailed className="text-sm" />
+                <p className="mt-1 text-sm text-stone-600 sm:hidden">{[label, years].filter(Boolean).join(' · ')}</p>
+                <LifeLine person={person} detailed className="hidden! text-sm sm:flex!" />
               </div>
               <button
                 type="button"
                 onClick={onClose}
-                className="self-start rounded-full p-2 text-stone-500 transition hover:bg-stone-100 hover:text-stone-900"
+                className="grid size-11 shrink-0 place-items-center self-start rounded-xl bg-stone-100 text-stone-500 transition hover:bg-stone-200 hover:text-stone-900 sm:size-9 sm:rounded-full sm:bg-transparent"
                 aria-label={t('common.close')}
               >
                 <X className="size-5" />
@@ -448,62 +467,70 @@ function SheetBody({
             </header>
 
 
-            <PartnerList
-              graph={graph}
-              personId={person.id}
-              onEdit={(partnerId, partnership) => go({ view: 'partnership', partnerId, partnership })}
-            />
-
-            {filePicker.error && (
-              <p role="alert" className="text-sm text-red-800">
-                {filePicker.error}
-              </p>
-            )}
-
-            <Timeline
-              graph={graph}
-              personId={person.id}
-              onAdd={() => go({ view: 'event' })}
-              onEdit={(event) => go({ view: 'event', event })}
-              before={
-                <LocationRow
-                  location={person.location}
-                  knownCountries={knownCountries(graph)}
-                  onSave={(location, locationCountry) =>
-                    apply(() => updatePerson(graph, person.id, { location, locationCountry }), () => {})
-                  }
-                />
-              }
-            />
-
-            {person.notes && (
-              <section aria-labelledby="notes-title" className="flex flex-col gap-2 border-t border-stone-100 pt-4">
-                <h3 id="notes-title" className="text-xs font-semibold tracking-wide text-stone-500 uppercase">
-                  {t('form.notes')}
-                </h3>
-                <p className="text-sm break-words whitespace-pre-line text-stone-700">{person.notes}</p>
-              </section>
-            )}
-
-            <div className="flex flex-wrap gap-2 border-t border-stone-100 pt-4 sm:hidden">
-                <Button variant="primary" onClick={() => go({ view: 'relative' })}>
-                  <Plus className="size-4" aria-hidden />
-                  {t('sheet.addRelative')}
+            <div className="grid grid-cols-[1.35fr_0.8fr_1fr] gap-2 sm:hidden">
+              <Button variant="primary" className="min-h-11 min-w-0 justify-center px-1! text-xs sm:text-sm" onClick={() => go({ view: 'relative' })}>
+                <Plus className="size-4 shrink-0" aria-hidden />
+                {t('sheet.addRelative')}
+              </Button>
+              <Button variant="secondary" className="min-h-11 min-w-0 justify-center border-stone-200 px-1! text-xs" onClick={() => go({ view: 'edit' })}>
+                <Pencil className="size-4 shrink-0" aria-hidden />
+                {t('mobile.editShort')}
+              </Button>
+              {treeTools && (
+                <Button variant="secondary" className="min-h-11 min-w-0 justify-center border-stone-200 px-1! text-xs" aria-label={treeTools.viewAs.title} disabled={!treeTools.viewAs.available} onClick={treeTools.viewAs.onClick}>
+                  {t('sheet.viewAs')}
                 </Button>
-                <Button variant="ghost" onClick={() => go({ view: 'edit' })}>
-                  <Pencil className="size-4" aria-hidden />
-                  {t('sheet.edit')}
-                </Button>
+              )}
+            </div>
+
+            <CloseFamily graph={graph} personId={person.id} onSelect={onSelectPerson} expanded={expanded} onExpand={() => setExpanded(!expanded)} />
+
+            <div id="person-sheet-details" className={expanded ? 'flex flex-col gap-5' : 'hidden flex-col gap-5 sm:flex'}>
+              <PartnerList
+                graph={graph}
+                personId={person.id}
+                onEdit={(partnerId, partnership) => go({ view: 'partnership', partnerId, partnership })}
+              />
+
+              {filePicker.error && (
+                <p role="alert" className="text-sm text-red-800">
+                  {filePicker.error}
+                </p>
+              )}
+
+              <Timeline
+                graph={graph}
+                personId={person.id}
+                onAdd={() => go({ view: 'event' })}
+                onEdit={(event) => go({ view: 'event', event })}
+                before={
+                  <LocationRow
+                    location={person.location}
+                    knownCountries={knownCountries(graph)}
+                    onSave={(location, locationCountry) =>
+                      apply(() => updatePerson(graph, person.id, { location, locationCountry }), () => {})
+                    }
+                  />
+                }
+              />
+
+              {person.notes && (
+                <section aria-labelledby="notes-title" className="flex flex-col gap-2 border-t border-stone-100 pt-4">
+                  <h3 id="notes-title" className="text-xs font-semibold tracking-wide text-stone-500 uppercase">
+                    {t('form.notes')}
+                  </h3>
+                  <p className="text-sm break-words whitespace-pre-line text-stone-700">{person.notes}</p>
+                </section>
+              )}
+            </div>
+
+            {expanded && (treeTools || removeTool) && (
+              <div className="flex flex-wrap gap-2 border-t border-stone-100 pt-3 sm:hidden">
                 {treeTools && (
-                  <>
-                    <RowTool tool={treeTools.viewAs}>
-                      <Eye className="size-4" aria-hidden />
-                    </RowTool>
-                    <RowTool tool={treeTools.file}>
-                      <treeTools.file.Icon className="size-4" aria-hidden />
-                      {treeTools.file.label}
-                    </RowTool>
-                  </>
+                  <RowTool tool={treeTools.file}>
+                    <treeTools.file.Icon className="size-4" aria-hidden />
+                    {treeTools.file.label}
+                  </RowTool>
                 )}
                 {removeTool && (
                   <RowTool tool={removeTool} className="ml-auto text-red-700 hover:bg-red-50 hover:text-red-800">
@@ -512,6 +539,7 @@ function SheetBody({
                   </RowTool>
                 )}
               </div>
+            )}
           </div>
         )}
 
@@ -699,7 +727,48 @@ function SheetBody({
   )
 }
 
-/** The person's partners with the status and dates of each partnership, to edit. */
+function CloseFamily({ graph, personId, onSelect, expanded, onExpand }: {
+  graph: FamilyGraph
+  personId: PersonId
+  onSelect: (id: PersonId) => void
+  expanded: boolean
+  onExpand: () => void
+}) {
+  const { t } = useT()
+  const ids = [...new Set([
+    ...partnerIdsOf(graph, personId),
+    ...childIdsOf(graph, personId),
+    ...parentIdsOf(graph, personId),
+    ...siblingsOf(graph, personId).map(({ id }) => id),
+  ])].filter((id) => graph.people[id] && !graph.people[id].isPlaceholder)
+
+  return (
+    <section className="border-t border-stone-200 pt-1 sm:hidden">
+      <div className="flex items-center justify-between gap-2">
+        {ids.length > 0 && <h3 className="text-sm font-semibold text-stone-700">{t('mobile.closeFamily')}</h3>}
+        <button type="button" aria-controls="person-sheet-details" aria-expanded={expanded} onClick={onExpand} className="ml-auto flex min-h-10 items-center gap-1 rounded-lg px-1.5 text-xs font-semibold text-stone-600 focus-visible:outline-2 focus-visible:outline-(--accent)">
+          {t('mobile.personDetails')}
+          <ChevronDown aria-hidden className={`size-4 ${expanded ? 'rotate-180' : ''}`} />
+        </button>
+      </div>
+      {ids.length > 0 && <ul className="grid grid-cols-2 gap-2">
+        {(expanded ? ids : ids.slice(0, 2)).map((id) => (
+          <li key={id} className="min-w-0">
+            <button type="button" onClick={() => onSelect(id)} className="flex min-h-12 w-full items-center gap-1.5 rounded-xl bg-stone-100 px-2.5 py-1 text-left focus-visible:outline-2 focus-visible:outline-(--accent)">
+              <span className="min-w-0 flex-1">
+                <span className="block truncate text-xs font-semibold">{fullName(graph.people[id])}</span>
+                <span className="block truncate text-[11px] text-stone-600">{relationshipLabel(graph, id, personId)}</span>
+              </span>
+              <ChevronRight aria-hidden className="size-3.5 shrink-0 text-stone-500" />
+            </button>
+          </li>
+        ))}
+      </ul>}
+    </section>
+  )
+}
+
+
 /**
  * The person's partners with the status and dates of each partnership, to
  * edit, and anyone they share a child with who isn't recorded as a partner.

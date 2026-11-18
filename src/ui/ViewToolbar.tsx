@@ -1,3 +1,5 @@
+import { Search } from 'lucide-react'
+import { useT } from '../i18n'
 import { useEffect, useRef, useState, type FocusEvent, type MouseEvent, type ReactNode } from 'react'
 
 /** How long a click keeps the rail open before it folds shut. */
@@ -8,7 +10,8 @@ const CLICK_HOLD_MS = 3000
  * widening to the left on hover or keyboard focus to show what each does.
  * A click holds it open briefly, then folds it so it does not stay open.
  */
-export function ViewToolbar({ label, children }: { label: string; children: ReactNode }) {
+export function ViewToolbar({ label, children, onFind }: { label: string; children: ReactNode; onFind: () => void }) {
+  const { t } = useT()
   const [hovered, setHovered] = useState(false)
   const [keyboard, setKeyboard] = useState(false)
   const [held, setHeld] = useState(false)
@@ -75,6 +78,10 @@ export function ViewToolbar({ label, children }: { label: string; children: Reac
       // Flush with the window's right edge. 57px less the padding and left border leaves 40px: a 20px icon with 10px either side.
       className="group/view flex w-[57px] flex-col gap-1 overflow-hidden rounded-bl-2xl border border-t-0 border-r-0 border-stone-200 bg-white/80 p-2 shadow-[0_8px_30px_-12px_rgb(0_0_0/0.25)] backdrop-blur transition-[width] duration-200 ease-out data-[open=true]:w-48 motion-reduce:transition-none"
     >
+      <ViewButton label={t('mobile.findPerson')} onClick={onFind}>
+        <Search className="size-5" aria-hidden />
+      </ViewButton>
+      <ViewDivider />
       {children}
     </div>
   )

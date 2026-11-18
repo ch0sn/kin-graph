@@ -99,6 +99,11 @@ describe('views', () => {
     expect(viewed.people).toBe(graph.people)
     expect(unviewGraph(viewed, graph).managerId).toBe(graph.managerId)
   })
+
+  it('keeps a valid root when a perspective references a deleted person', () => {
+    const graph = sampleFamily()
+    expect(viewGraph(graph, { id: 't', treeId: 'mine', viewRootId: 'deleted' })).toBe(graph)
+  })
 })
 
 describe('parsing', () => {

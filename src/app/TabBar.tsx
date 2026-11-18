@@ -1,4 +1,4 @@
-import { Eye, FilePlus, FileText, Plus, Star, Trash2, Upload, X } from 'lucide-react'
+import { ChevronDown, Eye, FilePlus, FileText, Plus, Star, Trash2, Upload, X } from 'lucide-react'
 import { AnimatePresence, motion } from 'motion/react'
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { useT } from '../i18n'
@@ -61,7 +61,7 @@ export function TabBar({
   }, [activeId, creating])
 
   return (
-    <div className="relative z-[9] flex items-end border-b border-stone-200 bg-white/80 pl-2 backdrop-blur">
+    <div className="relative z-[9] hidden items-end border-b border-stone-200 bg-white/80 pl-2 backdrop-blur sm:flex">
       <div
         role="tablist"
         aria-label={t('tabs.label')}
@@ -144,13 +144,16 @@ export function TabBar({
   )
 }
 
-function AddMenu({
+export function AddMenu({
   onNewTree,
   onImport,
   closedTrees,
   onOpenTree,
   onDeleteTree,
-}: Pick<TabBarProps, 'onNewTree' | 'onImport' | 'closedTrees' | 'onOpenTree' | 'onDeleteTree'>) {
+  mobile,
+}: Pick<TabBarProps, 'onNewTree' | 'onImport' | 'closedTrees' | 'onOpenTree' | 'onDeleteTree'> & {
+  mobile?: Pick<TabBarProps, 'tabs' | 'activeId' | 'onSelect' | 'onClose' | 'creating' | 'onCancelCreating'> & { heading: string }
+}) {
   const { t } = useT()
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
@@ -177,8 +180,15 @@ function AddMenu({
   }
 
   return (
-    <div ref={ref} className="relative shrink-0 self-center px-1">
-      <button
+    <div ref={ref} className={mobile ? 'relative min-w-0 sm:hidden' : 'relative shrink-0 self-center px-1'}>
+      {mobile ? (
+        <h1 className="font-serif text-xl leading-tight tracking-tight" aria-live="polite">
+          <button type="button" aria-haspopup="menu" aria-expanded={open} onClick={() => setOpen(!open)} className="flex min-h-11 items-center gap-1.5 rounded-lg text-left focus-visible:outline-2 focus-visible:outline-(--accent)">
+            <span className="min-w-0 [overflow-wrap:anywhere]">{mobile.heading}</span>
+            <ChevronDown className="size-4 shrink-0" aria-hidden />
+          </button>
+        </h1>
+      ) : <button
         type="button"
         title={t('tabs.add')}
         aria-haspopup="menu"
@@ -188,7 +198,7 @@ function AddMenu({
       >
         <Plus className="size-4" aria-hidden />
         {t('header.newTree')}
-      </button>
+      </button>}
       <AnimatePresence>
         {open && (
           <motion.div
@@ -197,8 +207,22 @@ function AddMenu({
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -4, scale: 0.98 }}
             transition={{ duration: 0.12 }}
-            className="absolute top-full right-1 z-30 mt-1.5 w-72 origin-top-right rounded-2xl border border-stone-200 bg-white p-1.5 shadow-xl"
+            className={`absolute top-full z-30 mt-1.5 max-h-[70dvh] w-72 overflow-y-auto rounded-2xl border border-stone-200 bg-white p-1.5 shadow-xl ${mobile ? '-left-10 origin-top-left' : 'right-1 origin-top-right'}`}
           >
+            {mobile?.tabs.map((tab) => {
+              const Icon = KIND_ICONS[tab.kind]
+              return (
+                <div key={tab.id} className="flex items-center">
+                  <MenuItem icon={<Icon />} active={!mobile.creating && tab.id === mobile.activeId} onClick={choose(() => mobile.onSelect(tab.id))}>
+                    <span className="truncate">{tab.label}</span>
+                  </MenuItem>
+                  <button type="button" aria-label={t('tabs.close', { name: tab.label })} onClick={choose(() => mobile.onClose(tab.id))} className="grid size-10 shrink-0 place-items-center rounded-lg text-stone-500 hover:bg-stone-100">
+                    <X className="size-4" aria-hidden />
+                  </button>
+                </div>
+              )
+            })}
+            {mobile?.creating && <MenuItem icon={<X />} onClick={choose(mobile.onCancelCreating)}>{t('common.cancel')}</MenuItem>}
             <MenuItem icon={<FilePlus />} onClick={choose(onNewTree)}>
               {t('tabs.newTree')}
             </MenuItem>
@@ -238,13 +262,14 @@ function AddMenu({
   )
 }
 
-function MenuItem({ icon, onClick, children }: { icon: ReactNode; onClick: () => void; children: ReactNode }) {
+function MenuItem({ icon, onClick, children, active }: { icon: ReactNode; onClick: () => void; children: ReactNode; active?: boolean }) {
   return (
     <button
       type="button"
       role="menuitem"
+      aria-current={active || undefined}
       onClick={onClick}
-      className="flex min-w-0 flex-1 items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm text-stone-800 transition hover:bg-stone-100 focus-visible:bg-stone-100 focus-visible:outline-none [&_svg]:size-4 [&_svg]:shrink-0 [&_svg]:text-stone-500"
+      className="flex min-w-0 flex-1 items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm text-stone-800 transition hover:bg-stone-100 focus-visible:bg-stone-100 focus-visible:outline-none aria-current:bg-(--accent-soft) [&_svg]:size-4 [&_svg]:shrink-0 [&_svg]:text-stone-500"
     >
       {icon}
       {children}

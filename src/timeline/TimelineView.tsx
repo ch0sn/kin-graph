@@ -1,6 +1,7 @@
 import { Cake, Clock, ListFilter } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent, type PointerEvent } from 'react'
 import { createPortal } from 'react-dom'
+import { MobileOption, type MobileControlSlots } from '../app/MobileControls'
 import { useT } from '../i18n'
 import {
   ancestorsOf,
@@ -27,6 +28,8 @@ interface TimelineViewProps {
   onSelect: (id: PersonId | null) => void
   /** Where the view controls are drawn, outside the canvas; none are shown until it exists. */
   controlsSlot: HTMLElement | null
+  mobileControls: MobileControlSlots
+  onFind: () => void
 }
 
 const ROW = 30
@@ -42,7 +45,9 @@ const PAD_YEARS = 4
  * window. Year labels hang about 16px past their tick, and the rest matches
  * the small inset on the left, so the latest year stays just clear of the buttons.
  */
-const CONTROLS = 57 + 16 + 24
+const DESKTOP_END_SPACE = 57 + 16 + 24
+/** The year and alive-count badge is centred on the scrubber and extends past the axis. */
+const MOBILE_END_SPACE = 64
 
 type Line =
   | { kind: 'head'; generation: number | null; top: number }
@@ -59,7 +64,7 @@ function tickStep(pxPerYear: number): number {
  * scrubber shows who was alive and how old; selecting someone draws lines to
  * their parents and children.
  */
-export function TimelineView({ graph, selectedId, onSelect, controlsSlot }: TimelineViewProps) {
+export function TimelineView({ graph, selectedId, onSelect, controlsSlot, mobileControls, onFind }: TimelineViewProps) {
   const { t } = useT()
   const rootId = graph.managerId
   const root = graph.people[rootId]
@@ -67,17 +72,28 @@ export function TimelineView({ graph, selectedId, onSelect, controlsSlot }: Time
   const [today] = useState(() => new Date())
   const now = todayYear(today)
   const scrollRef = useRef<HTMLDivElement>(null)
-  const [width, setWidth] = useState(0)
+  const [frame, setFrame] = useState({ width: 0, endSpace: MOBILE_END_SPACE })
+  const { width, endSpace } = frame
   const [year, setYear] = useState(() => (root.birthDate && yearOf(root.birthDate)) || today.getFullYear())
   const [aliveOnly, setAliveOnly] = useState(false)
 
   useEffect(() => {
     const element = scrollRef.current
     if (!element) return
-    const observer = new ResizeObserver(([entry]) => setWidth(entry.contentRect.width))
+    const observer = new ResizeObserver(([entry]) => {
+      const endSpace = window.matchMedia('(min-width: 640px)').matches
+        ? DESKTOP_END_SPACE
+        : MOBILE_END_SPACE
+      setFrame({ width: entry.contentRect.width, endSpace })
+    })
     observer.observe(element)
     return () => observer.disconnect()
   }, [])
+
+  useEffect(() => {
+    if (!selectedId || !window.matchMedia('(width < 640px)').matches) return
+    scrollRef.current?.querySelector(`[data-person="${CSS.escape(selectedId)}"]`)?.scrollIntoView({ block: 'nearest' })
+  }, [selectedId])
 
   const rows = useMemo(() => timelineRows(graph, rootId), [graph, rootId])
   const spans = useMemo(() => {
@@ -115,7 +131,7 @@ export function TimelineView({ graph, selectedId, onSelect, controlsSlot }: Time
   const from = Math.floor((earliest - 2) / 10) * 10
   const to = now + PAD_YEARS
   const names = width < 640 ? NAMES_NARROW : NAMES_WIDE
-  const chartWidth = Math.max(width - names - CONTROLS, 160)
+  const chartWidth = Math.max(width - names - endSpace, 120)
   const axisWidth = names + chartWidth
   const pxPerYear = chartWidth / (to - from)
   const x = (y: number) => (y - from) * pxPerYear
@@ -205,22 +221,20 @@ export function TimelineView({ graph, selectedId, onSelect, controlsSlot }: Time
   return (
     <div
       className={[
-        // The header and tabs sit outside this view. The top padding clears the
-        // view switcher, which floats over the canvas's top-left corner.
-        // pl-6 keeps the names off the window edge. min-w-0 and the clip keep
-        // the chart from widening the page while the sheet padding opens.
-        'relative flex size-full min-h-0 min-w-0 flex-col overflow-hidden pt-14 pl-6 transition-[padding] duration-300 ease-out motion-reduce:transition-none',
+        // Desktop clears the floating view switcher and the right-hand toolbar.
+        // Mobile uses an even inset with its controls in the bottom bar.
+        'relative flex size-full min-h-0 min-w-0 flex-col overflow-hidden px-3 pt-3 transition-[padding] duration-300 ease-out motion-reduce:transition-none sm:pt-14 sm:pr-0 sm:pl-6',
         // Make room for the person sheet: beside it on wide screens, above it on phones.
-        selectedId ? 'pb-[50dvh] sm:pb-0 sm:pl-[min(34rem,55%)]' : '',
+        selectedId ? 'pb-[min(16rem,40dvh)] sm:pb-0 sm:pl-[min(34rem,55%)]' : '',
       ].join(' ')}
     >
       <div ref={scrollRef} className="min-h-0 min-w-0 flex-1 overflow-auto overscroll-contain">
         {width > 0 && (
-          <div className="relative pb-8" style={{ width: axisWidth + CONTROLS }}>
+          <div className="relative pb-8" style={{ width: axisWidth + endSpace }}>
             {/* The axis and year scrubber stay at the top while the rows scroll. */}
             <div
-              className="sticky top-0 z-[3] flex h-10 border-b border-stone-200 bg-stone-50/90 backdrop-blur"
-              style={{ width: axisWidth }}
+              className="sticky top-0 z-[3] flex h-14 border-b border-stone-200 bg-stone-50"
+              style={{ width: axisWidth + endSpace }}
             >
               <div style={{ width: names }} className="shrink-0" />
               <div
@@ -231,7 +245,7 @@ export function TimelineView({ graph, selectedId, onSelect, controlsSlot }: Time
                 aria-valuemax={Math.floor(now)}
                 aria-valuenow={year}
                 aria-valuetext={t('timeline.alive', { year, count: alive })}
-                className="relative cursor-ew-resize touch-none outline-none focus-visible:ring-4 focus-visible:ring-stone-200"
+                className="relative shrink-0 cursor-ew-resize touch-none outline-none focus-visible:ring-4 focus-visible:ring-stone-200"
                 style={{ width: chartWidth }}
                 {...scrub}
               >
@@ -342,9 +356,16 @@ export function TimelineView({ graph, selectedId, onSelect, controlsSlot }: Time
         )}
       </div>
 
+      {mobileControls.options && createPortal(
+        <>
+          <MobileOption icon={Cake} label={t('timeline.home')} close onClick={goHome} />
+          <MobileOption icon={Clock} label={t('timeline.now')} close onClick={() => setYear(Math.floor(now))} />
+        </>,
+        mobileControls.options,
+      )}
       {controlsSlot &&
         createPortal(
-          <ViewToolbar label={t('timeline.view')}>
+          <ViewToolbar label={t('timeline.view')} onFind={onFind}>
             <ViewButton label={t('timeline.home')} onClick={goHome}>
               <Cake className="size-5" aria-hidden />
             </ViewButton>

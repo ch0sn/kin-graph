@@ -16,6 +16,10 @@ body {
   @apply bg-stone-50 font-sans text-stone-900 antialiased;
 }
 
+:root {
+  --mobile-dock: calc(4.5rem + env(safe-area-inset-bottom, 0px));
+}
+
 /* Family tree edges and handles (React Flow) */
 .react-flow__edge-path {
   stroke: var(--color-stone-300);
