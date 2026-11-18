@@ -360,6 +360,13 @@ export function TimelineView({ graph, selectedId, onSelect, controlsSlot, mobile
         <>
           <MobileOption icon={Cake} label={t('timeline.home')} close onClick={goHome} />
           <MobileOption icon={Clock} label={t('timeline.now')} close onClick={() => setYear(Math.floor(now))} />
+          <MobileOption
+            icon={ListFilter}
+            label={t('timeline.aliveOnly')}
+            switchControl
+            pressed={aliveOnly}
+            onClick={() => setAliveOnly((value) => !value)}
+          />
         </>,
         mobileControls.options,
       )}
