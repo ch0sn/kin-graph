@@ -8,6 +8,7 @@ import {
   type Person,
   type PersonId,
 } from '../model'
+import { aliveIn, type LifeSpan } from './spans'
 
 /** People of one generation, oldest first. */
 export interface TimelineGroup {
@@ -20,6 +21,19 @@ export interface TimelineRows {
   groups: TimelineGroup[]
   /** People with no birth or death date, who can't be placed on the axis. */
   undated: PersonId[]
+}
+
+/** Keep people who were certainly or possibly alive in the selected year. */
+export function aliveTimelineRows(rows: TimelineRows, spans: ReadonlyMap<PersonId, LifeSpan>, year: number): TimelineRows {
+  const groups = rows.groups.flatMap((group) => {
+    const personIds = group.personIds.filter((id) => {
+      const span = spans.get(id)
+      return span !== undefined && aliveIn(span, year) !== 'no'
+    })
+    return personIds.length > 0 ? [{ ...group, personIds }] : []
+  })
+  // Undated people cannot be placed in the selected year.
+  return { groups, undated: [] }
 }
 
 /**

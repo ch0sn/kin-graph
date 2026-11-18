@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import { addChild, addParent, addPartner, addPerson, addSibling, createGraph, type PersonResult } from '../model/graph'
 import type { FamilyGraph, NewPerson, PersonId } from '../model/types'
-import { generationsFrom, timelineRows } from './rows'
+import { aliveTimelineRows, generationsFrom, timelineRows } from './rows'
+import { lifeSpan, type LifeSpan } from './spans'
 
 const p = (given: string, birthDate?: string, deathDate?: string): NewPerson => ({
   names: [{ given }],
@@ -67,5 +68,52 @@ describe('timelineRows', () => {
     const { groups, undated } = timelineRows(graph, graph.managerId)
     expect(groups).toHaveLength(1)
     expect(undated).toEqual([])
+  })
+})
+
+describe('aliveTimelineRows', () => {
+  const today = new Date(2026, 10, 18)
+  const spansFor = (graph: FamilyGraph) => {
+    const spans = new Map<PersonId, LifeSpan>()
+    for (const person of Object.values(graph.people)) {
+      const span = lifeSpan(graph, person, today)
+      if (span) spans.set(person.id, span)
+    }
+    return spans
+  }
+
+  it('follows the selected year, removing unborn people, empty generations and undated people', () => {
+    const { graph, ids } = family()
+    const rows = timelineRows(graph, ids.alex)
+    const spans = spansFor(graph)
+
+    expect(aliveTimelineRows(rows, spans, 1950)).toEqual({
+      groups: [{ generation: -2, personIds: [ids.grace] }],
+      undated: [],
+    })
+
+    const later = aliveTimelineRows(rows, spans, 2020)
+    const visibleIds = later.groups.flatMap((group) => group.personIds)
+    expect(visibleIds).not.toContain(ids.grace)
+    expect(visibleIds).toContain(ids.alex)
+    expect(visibleIds).toContain(ids.lily)
+    expect(later.groups.map((group) => group.generation)).toEqual([-1, 0, 1, null])
+    expect(rows.undated).toEqual([ids.rob])
+    expect(rows.groups).toHaveLength(5)
+  })
+
+  it('keeps people who may be alive because their dates are uncertain', () => {
+    const { graph, ids } = family()
+    graph.people[ids.ann] = { ...graph.people[ids.ann], birthDate: '~1963' }
+    const visible = aliveTimelineRows(timelineRows(graph, ids.alex), spansFor(graph), 1960)
+    expect(visible.groups.flatMap((group) => group.personIds)).toContain(ids.ann)
+  })
+
+  it('returns no rows when nobody can be placed alive in that year', () => {
+    const { graph, ids } = family()
+    expect(aliveTimelineRows(timelineRows(graph, ids.alex), spansFor(graph), 1900)).toEqual({
+      groups: [],
+      undated: [],
+    })
   })
 })
