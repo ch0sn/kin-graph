@@ -66,7 +66,9 @@ export function PersonNode({ data, selected }: NodeProps<PersonNodeType>) {
           .filter(Boolean)
           .join(' ')}
       >
-        <div className="size-10 shrink-0 self-center sm:hidden"><Avatar person={person} cover highlight={isManager || selected} className="!rounded-full text-sm" /></div>
+        <div className="aspect-[3/4] h-10 shrink-0 self-center sm:hidden">
+          <Avatar person={person} cover highlight={isManager || selected} className="rounded-lg! text-sm" />
+        </div>
         <Avatar person={person} highlight={isManager} className="hidden! sm:flex!" />
         <div className="flex min-w-0 flex-col self-center">
           {label && (

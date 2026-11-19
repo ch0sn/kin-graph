@@ -2,7 +2,7 @@ import { initials, type Person } from '../model'
 import { usePhotoUrl } from '../photos/photoCache'
 
 /**
- * 4:3 portrait frames. `sm` fills the tree card inside its 8px inset.
+ * 3:4 portrait frames. `sm` fills the tree card inside its 8px inset.
  * `md` is the person details header. `lg` and `xl` set the width and the ratio sets the height.
  */
 const SIZES = {
@@ -26,7 +26,7 @@ interface AvatarProps {
   className?: string
 }
 
-/** A person's photo, or their initials when there isn't one. Shown as a 4:3 portrait. */
+/** A person's photo, or their initials when there isn't one. Shown as a 3:4 portrait. */
 export function Avatar({
   person,
   size = 'sm',
