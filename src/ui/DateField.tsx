@@ -118,7 +118,7 @@ function PlainDateInput({
           </p>
         )}
       </legend>
-      <div className="flex gap-2">
+      <div className="flex gap-2 max-sm:[&_select]:pr-7 max-sm:[&_select]:pl-2.5 max-sm:[&_svg]:right-2">
         {DATE_PARTS.map((part) => (
           <DatePartField
             key={part}
@@ -160,7 +160,7 @@ function DatePartField({
 }) {
   const { t } = useT()
   const yearKnown = fields.year.length === 4
-  const width = part === 'month' ? 'min-w-0 flex-1' : part === 'year' ? 'w-[5.5rem] shrink-0' : 'w-[4.5rem] shrink-0'
+  const width = part === 'month' ? 'min-w-0 flex-1' : part === 'year' ? 'w-18 shrink-0 sm:w-[5.5rem]' : 'w-16 shrink-0 sm:w-[4.5rem]'
 
   return (
     <div className={width}>

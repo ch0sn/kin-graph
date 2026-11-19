@@ -49,7 +49,7 @@ export function OtherNamesEditor({
   const addNameButton = (
     <Button
       variant="ghost"
-      className={`ml-auto w-fit min-w-0 shrink px-3 py-1.5 text-xs ${leading ? '-mr-3' : 'mr-1'}`}
+      className={`ml-auto w-fit min-w-0 shrink px-3 py-1.5 text-xs max-sm:min-h-11 ${leading ? 'sm:-mr-3' : 'mr-1'}`}
       onClick={addName}
     >
       <Plus className="size-3.5" aria-hidden />
@@ -60,7 +60,7 @@ export function OtherNamesEditor({
   const cards = names.slice(1).map((name) => (
     // No top padding: the kind-row buttons fill that space, matching the bottom inset.
     // Hidden overflow keeps a hovered button inside the rounded edge.
-    <div key={name.key} className="overflow-hidden rounded-2xl border border-stone-200 px-3 pt-0 pb-3">
+    <div key={name.key} className="min-w-0 overflow-hidden rounded-2xl border border-stone-200 px-3 pt-0 pb-3">
       <NameEditor
         value={name}
         onChange={(next) => setName(name.key, next)}
@@ -75,10 +75,12 @@ export function OtherNamesEditor({
   if (leading) {
     return (
       <div className="contents">
-        <div className="col-start-2 flex justify-center self-center">{leading}</div>
-        <div className="col-start-4 flex min-w-0 items-center self-center">{addNameButton}</div>
+        <div className="col-span-2 flex flex-wrap items-center justify-between gap-x-2 sm:contents">
+          <div className="flex justify-center self-center sm:col-start-2">{leading}</div>
+          <div className="ml-auto flex min-w-0 items-center self-center sm:col-start-4 sm:ml-0">{addNameButton}</div>
+        </div>
         {cards.length > 0 && (
-          <fieldset className="col-span-4 flex flex-col gap-3 pl-5">
+          <fieldset className="col-span-2 flex min-w-0 flex-col gap-3 sm:col-span-4 sm:pl-5">
             <legend className="mb-1.5 w-full">
               <HelpLabel
                 id={helpId}
@@ -148,7 +150,7 @@ export function DeceasedFields({
   const { t } = useT()
   return (
     <div className="flex flex-col gap-3">
-      <label className="flex w-fit items-center gap-2.5 text-sm text-stone-800">
+      <label className="flex w-fit items-center gap-2.5 text-sm text-stone-800 max-sm:min-h-11">
         <input
           type="checkbox"
           className="size-4 accent-stone-900"

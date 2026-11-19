@@ -1,6 +1,6 @@
-import { ArrowLeft, ArrowUp, Baby, ChevronDown, ChevronRight, Eye, FileText, FileUp, Heart, Mars, Pencil, Plus, Trash, Users, Venus, X, type LucideIcon } from 'lucide-react'
-import { AnimatePresence, motion, useDragControls } from 'motion/react'
-import { createContext, useCallback, useContext, useEffect, useLayoutEffect, useRef, useState, type ReactNode, type Ref } from 'react'
+import { ArrowLeft, ArrowUp, Baby, ChevronRight, Eye, FileText, FileUp, Heart, Mars, Pencil, Plus, Trash, Users, Venus, X, type LucideIcon } from 'lucide-react'
+import { animate, AnimatePresence, motion, stagger, useDragControls, useIsPresent, useMotionValue, useReducedMotion, type AnimationPlaybackControls, type Variants } from 'motion/react'
+import { createContext, useCallback, useContext, useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore, type ReactNode, type RefObject } from 'react'
 import { createPortal } from 'react-dom'
 import {
   addChild,
@@ -44,7 +44,7 @@ import {
 import { useT } from '../i18n'
 import { useBackupPicker } from '../storage/useBackupPicker'
 import { labelOffset } from '../tree/discColumn'
-import { NodeFan, type NodeMenuAction } from '../tree/NodeMenu'
+import { NodeActionButton, NodeFan, type NodeMenuAction } from '../tree/NodeMenu'
 import { ConfirmDialog } from '../ui/ConfirmDialog'
 import { LifeLine } from '../ui/LifeLine'
 import { Button, CheckboxGroup, Segmented, type Option } from '../ui/fields'
@@ -124,7 +124,52 @@ interface PersonSheetProps {
 }
 
 /** Wide enough for the corner fan. Matches the `sm` anchor on the sheet. */
-const fanFits = () => window.matchMedia('(min-width: 640px)').matches
+const fanBreakpoint = '(min-width: 640px)'
+const fanFits = () => window.matchMedia(fanBreakpoint).matches
+
+function subscribeToFanBreakpoint(onChange: () => void) {
+  const query = window.matchMedia(fanBreakpoint)
+  query.addEventListener('change', onChange)
+  return () => query.removeEventListener('change', onChange)
+}
+
+const mobileActionRow: Variants = {
+  opening: { transition: { delayChildren: stagger(0.04) } },
+  closing: { transition: { delayChildren: stagger(0.03, { from: 'last' }) } },
+}
+
+const mobileActionDisc: Variants = {
+  folded: { opacity: 0, y: 16, scale: 0.8 },
+  opening: { opacity: 1, y: 0, scale: 1, transition: { duration: 0.22, ease: 'easeOut' } },
+  closing: { opacity: 0, y: 16, scale: 0.8, transition: { duration: 0.14, ease: 'easeIn' } },
+}
+
+function MobilePersonActions({ actions }: { actions: NodeMenuAction[] }) {
+  const { t } = useT()
+  const wide = useSyncExternalStore(subscribeToFanBreakpoint, fanFits)
+  const reduce = useReducedMotion()
+  const present = useIsPresent()
+  if (wide) return null
+
+  return (
+    <motion.div
+      className={`flex justify-center gap-2 pb-2 min-[360px]:gap-3 sm:hidden ${present ? '' : 'absolute inset-x-0 bottom-0'}`}
+      role="group"
+      aria-label={t('sheet.tools')}
+      inert={!present}
+      variants={mobileActionRow}
+      initial={reduce ? false : 'folded'}
+      animate="opening"
+      exit={reduce ? undefined : 'closing'}
+    >
+      {actions.map((action) => (
+        <motion.div key={action.id} variants={mobileActionDisc}>
+          <NodeActionButton action={action} />
+        </motion.div>
+      ))}
+    </motion.div>
+  )
+}
 
 /** Details and actions for the selected person, sliding up from the bottom. */
 export function PersonSheet({
@@ -186,8 +231,8 @@ export function PersonSheet({
 }
 
 /**
- * A point on the sheet's top-right corner. The discs are drawn from it,
- * behind the card, so they slide out from under the right edge.
+ * Mobile actions sit above the card. On wide screens the same anchor
+ * positions the fan behind the card's top-right corner.
  */
 const SheetAnchorContext = createContext<HTMLElement | null>(null)
 
@@ -197,13 +242,65 @@ function Sheet({
   onClose,
   children,
 }: {
-  sheetRef: Ref<HTMLElement>
+  sheetRef: RefObject<HTMLElement | null>
   label: string
   onClose: () => void
   children: ReactNode
 }) {
   const dragControls = useDragControls()
   const [anchor, setAnchor] = useState<HTMLElement | null>(null)
+  const card = useRef<HTMLDivElement>(null)
+  const handle = useRef<HTMLDivElement>(null)
+  const content = useRef<HTMLDivElement>(null)
+  const cardHeight = useMotionValue<number | 'auto'>('auto')
+  const wide = useSyncExternalStore(subscribeToFanBreakpoint, fanFits)
+  const reduce = useReducedMotion()
+  const present = useIsPresent()
+
+  useLayoutEffect(() => {
+    if (reduce) {
+      cardHeight.jump('auto')
+      return
+    }
+    const shell = sheetRef.current
+    const surface = card.current
+    const grip = handle.current
+    const body = content.current
+    if (!present || !shell || !surface || !grip || !body || !anchor) return
+
+    let target: number | undefined
+    let animation: AnimationPlaybackControls | undefined
+    const resize = () => {
+      // Animate the actual height so the docked bottom edge, text, and sticky
+      // form controls all stay in their normal layout throughout the transition.
+      const surfaceStyle = getComputedStyle(surface)
+      const surfaceLimit = Number.parseFloat(surfaceStyle.maxHeight)
+      // Only the mobile action row takes up vertical space in the sheet.
+      const limit = wide
+        ? surfaceLimit
+        : Math.min(surfaceLimit, Number.parseFloat(getComputedStyle(shell).maxHeight) - anchor.offsetHeight)
+      const border = Number.parseFloat(surfaceStyle.borderTopWidth) + Number.parseFloat(surfaceStyle.borderBottomWidth)
+      const desired = grip.offsetHeight + body.offsetHeight + border
+      const next = Math.max(0, Math.min(desired, limit))
+      if (!Number.isFinite(next) || next === target) return
+
+      animation?.stop()
+      target = next
+      if (cardHeight.get() === 'auto') cardHeight.jump(next)
+      else animation = animate(cardHeight, next, { duration: 0.3, ease: [0.25, 0.1, 0.25, 1] })
+    }
+    resize()
+    const observer = new ResizeObserver(resize)
+    observer.observe(body)
+    observer.observe(grip)
+    observer.observe(anchor)
+    window.addEventListener('resize', resize)
+    return () => {
+      animation?.stop()
+      observer.disconnect()
+      window.removeEventListener('resize', resize)
+    }
+  }, [anchor, cardHeight, present, reduce, sheetRef, wide])
 
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
@@ -233,22 +330,28 @@ function Sheet({
         onDragEnd={(_, info) => {
           if (info.offset.y > 120 || info.velocity.y > 600) onClose()
         }}
-        className="fixed inset-x-0 bottom-(--mobile-dock) z-20 mx-auto w-full sm:inset-x-auto sm:bottom-4 sm:left-4 sm:max-w-sm"
+        className="fixed inset-x-0 bottom-(--mobile-dock) z-20 mx-auto w-full max-sm:flex max-sm:max-h-[calc(100dvh-var(--mobile-dock)-4rem-env(safe-area-inset-top,0px))] max-sm:flex-col max-sm:justify-end sm:inset-x-auto sm:bottom-4 sm:left-4 sm:max-w-sm"
       >
-        {/* Wide screens only: a full-width sheet's right edge is the screen edge. */}
-        <div ref={setAnchor} className="absolute top-0 right-0 z-0 hidden sm:block" />
-        <div className="sheet-card relative z-1 flex max-h-[calc(90dvh-var(--mobile-dock))] w-full flex-col rounded-t-3xl border border-b-0 border-stone-200 bg-white shadow-[0_-8px_40px_-12px_rgb(0_0_0/0.25)] sm:max-h-[calc(100dvh-12rem)] sm:rounded-3xl sm:border-b">
+        <div ref={setAnchor} className="pointer-events-none relative shrink-0 sm:absolute sm:top-0 sm:right-0 sm:z-0" />
+        <motion.div
+          ref={card}
+          style={{ height: cardHeight, flexShrink: wide || reduce ? undefined : 0 }}
+          className="sheet-card relative z-1 flex max-h-[calc(90dvh-var(--mobile-dock))] min-h-0 w-full flex-col rounded-t-3xl border border-b-0 border-stone-200 bg-white shadow-[0_-8px_40px_-12px_rgb(0_0_0/0.25)] sm:max-h-[calc(100dvh-12rem)] sm:rounded-3xl sm:border-b"
+        >
           <div
+            ref={handle}
             className="flex shrink-0 cursor-grab touch-none justify-center pt-3 pb-1 active:cursor-grabbing"
             onPointerDown={(e) => dragControls.start(e)}
             aria-hidden
           >
             <div className="h-1.5 w-10 rounded-full bg-stone-300" />
           </div>
-          <div className="overflow-y-auto overscroll-contain px-4 pb-4 sm:px-5 sm:pb-5">
-            {children}
+          <div data-sheet-scroll className="overflow-y-auto overscroll-contain px-4 max-sm:scroll-pt-20 sm:px-5">
+            <div ref={content} className="relative pb-4 sm:pb-5">
+              {children}
+            </div>
           </div>
-        </div>
+        </motion.div>
       </motion.section>
     </SheetAnchorContext.Provider>
   )
@@ -279,10 +382,14 @@ function SheetBody({
   onFanFolded: () => void
 }) {
   const { t } = useT()
+  const reduce = useReducedMotion()
+  const resetPaneScroll = useCallback((pane: HTMLDivElement | null) => {
+    const scroller = pane?.closest<HTMLElement>('[data-sheet-scroll]')
+    if (scroller) scroller.scrollTop = 0
+  }, [])
   const filePicker = useBackupPicker((picked) => perspectives?.onOpenFile(person.id, picked))
   const [mode, setMode] = useState<Mode>(startWith ? { view: 'add', relation: startWith } : { view: 'details' })
   const [error, setError] = useState<string | null>(null)
-  const [expanded, setExpanded] = useState(false)
   const go = useCallback((next: Mode) => {
     setMode(next)
     setError(null)
@@ -358,8 +465,7 @@ function SheetBody({
     const el = lineRef.current
     if (!el || !anchor) return
     const measure = () => {
-      // The anchor is display:none on a narrow screen, where the fan is hidden.
-      if (anchor.getClientRects().length === 0) return
+      if (!fanFits()) return
       const y = labelOffset(el.getBoundingClientRect(), anchor.getBoundingClientRect().top)
       if (y === null) return
       setLineY((current) => (Math.abs(current - y) < 0.5 ? current : y))
@@ -434,16 +540,23 @@ function SheetBody({
           <NodeFan open={fanOpen} actions={menuActions} lineY={lineY} onFolded={onFanFolded} />,
           anchor,
         )}
-      <AnimatePresence mode="wait" initial={false}>
+      <AnimatePresence mode="popLayout" initial={false} propagate>
       <motion.div
+        ref={resetPaneScroll}
         key={mode.view === 'add' ? `add-${mode.relation}` : mode.view}
-        initial={{ opacity: 0, x: mode.view === 'details' ? -12 : 12 }}
-        animate={{ opacity: 1, x: 0 }}
-        exit={{ opacity: 0 }}
-        transition={{ duration: 0.15 }}
+        initial={reduce ? false : { opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0, transition: { duration: reduce ? 0 : 0.09 } }}
+        transition={{ duration: reduce ? 0 : 0.15 }}
       >
         {mode.view === 'details' && (
           <div className="flex flex-col gap-4 sm:gap-5">
+            {anchor && createPortal(
+              <AnimatePresence propagate>
+                <MobilePersonActions key="mobile-actions" actions={menuActions} />
+              </AnimatePresence>,
+              anchor,
+            )}
             <header className="flex items-center gap-3 pt-1 sm:gap-4">
               {onBackPerson && <button type="button" onClick={onBackPerson} className="grid size-10 shrink-0 place-items-center rounded-xl bg-stone-100 sm:hidden" aria-label={t('mobile.previousPerson')}><ArrowLeft className="size-4" aria-hidden /></button>}
               <PersonPortrait person={person} isManager={isManager} />
@@ -474,25 +587,9 @@ function SheetBody({
             </header>
 
 
-            <div className="grid grid-cols-[1.35fr_0.8fr_1fr] gap-2 sm:hidden">
-              <Button variant="primary" className="min-h-11 min-w-0 justify-center px-1! text-xs sm:text-sm" onClick={() => go({ view: 'relative' })}>
-                <Plus className="size-4 shrink-0" aria-hidden />
-                {t('sheet.addRelative')}
-              </Button>
-              <Button variant="secondary" className="min-h-11 min-w-0 justify-center border-stone-200 px-1! text-xs" onClick={() => go({ view: 'edit' })}>
-                <Pencil className="size-4 shrink-0" aria-hidden />
-                {t('mobile.editShort')}
-              </Button>
-              {treeTools && (
-                <Button variant="secondary" className="min-h-11 min-w-0 justify-center border-stone-200 px-1! text-xs" aria-label={treeTools.viewAs.title} disabled={!treeTools.viewAs.available} onClick={treeTools.viewAs.onClick}>
-                  {t('sheet.viewAs')}
-                </Button>
-              )}
-            </div>
+            <CloseFamily graph={graph} personId={person.id} onSelect={onSelectPerson} />
 
-            <CloseFamily graph={graph} personId={person.id} onSelect={onSelectPerson} expanded={expanded} onExpand={() => setExpanded(!expanded)} />
-
-            <div id="person-sheet-details" className={expanded ? 'flex flex-col gap-5' : 'hidden flex-col gap-5 sm:flex'}>
+            <div className="flex flex-col gap-5">
               <PartnerList
                 graph={graph}
                 personId={person.id}
@@ -531,22 +628,6 @@ function SheetBody({
               )}
             </div>
 
-            {expanded && (treeTools || removeTool) && (
-              <div className="flex flex-wrap gap-2 border-t border-stone-100 pt-3 sm:hidden">
-                {treeTools && (
-                  <RowTool tool={treeTools.file}>
-                    <treeTools.file.Icon className="size-4" aria-hidden />
-                    {treeTools.file.label}
-                  </RowTool>
-                )}
-                {removeTool && (
-                  <RowTool tool={removeTool} className="ml-auto text-red-700 hover:bg-red-50 hover:text-red-800">
-                    <Trash className="size-4" aria-hidden />
-                    {isManager ? t('sheet.deleteTree') : t('common.remove')}
-                  </RowTool>
-                )}
-              </div>
-            )}
           </div>
         )}
 
@@ -601,6 +682,7 @@ function SheetBody({
             <PersonForm
               initial={valuesFromPerson(person)}
               submitLabel={t('common.save')}
+              autoFocus={fanFits()}
               error={error}
               onCancel={() => go({ view: 'details' })}
               onSubmit={(fields) => apply(() => updatePerson(graph, person.id, fields))}
@@ -734,12 +816,10 @@ function SheetBody({
   )
 }
 
-function CloseFamily({ graph, personId, onSelect, expanded, onExpand }: {
+function CloseFamily({ graph, personId, onSelect }: {
   graph: FamilyGraph
   personId: PersonId
   onSelect: (id: PersonId) => void
-  expanded: boolean
-  onExpand: () => void
 }) {
   const { t } = useT()
   const ids = [...new Set([
@@ -748,18 +828,13 @@ function CloseFamily({ graph, personId, onSelect, expanded, onExpand }: {
     ...parentIdsOf(graph, personId),
     ...siblingsOf(graph, personId).map(({ id }) => id),
   ])].filter((id) => graph.people[id] && !graph.people[id].isPlaceholder)
+  if (ids.length === 0) return null
 
   return (
-    <section className="border-t border-stone-200 pt-1 sm:hidden">
-      <div className="flex items-center justify-between gap-2">
-        {ids.length > 0 && <h3 className="text-sm font-semibold text-stone-700">{t('mobile.closeFamily')}</h3>}
-        <button type="button" aria-controls="person-sheet-details" aria-expanded={expanded} onClick={onExpand} className="ml-auto flex min-h-10 items-center gap-1 rounded-lg px-1.5 text-xs font-semibold text-stone-600 focus-visible:outline-2 focus-visible:outline-(--accent)">
-          {t('mobile.personDetails')}
-          <ChevronDown aria-hidden className={`size-4 ${expanded ? 'rotate-180' : ''}`} />
-        </button>
-      </div>
-      {ids.length > 0 && <ul className="grid grid-cols-2 gap-2">
-        {(expanded ? ids : ids.slice(0, 2)).map((id) => (
+    <section className="flex flex-col gap-2 border-t border-stone-200 pt-3 sm:hidden">
+      <h3 className="text-sm font-semibold text-stone-700">{t('mobile.closeFamily')}</h3>
+      <ul className="grid grid-cols-2 gap-2">
+        {ids.map((id) => (
           <li key={id} className="min-w-0">
             <button type="button" onClick={() => onSelect(id)} className="flex min-h-12 w-full items-center gap-1.5 rounded-xl bg-stone-100 px-2.5 py-1 text-left focus-visible:outline-2 focus-visible:outline-(--accent)">
               <span className="min-w-0 flex-1">
@@ -770,7 +845,7 @@ function CloseFamily({ graph, personId, onSelect, expanded, onExpand }: {
             </button>
           </li>
         ))}
-      </ul>}
+      </ul>
     </section>
   )
 }
@@ -861,11 +936,11 @@ function SubView({
   return (
     <div className="flex flex-col gap-4">
       {/* Stays at the top while the form scrolls, with the form's Cancel and Save. */}
-      <header className="sticky top-0 z-10 -mx-5 flex items-center gap-2 border-b border-stone-100 bg-white px-5 py-2">
+      <header className="sticky top-0 z-10 -mx-4 flex items-center gap-2 border-b border-stone-100 bg-white px-4 py-2 sm:-mx-5 sm:px-5">
         <button
           type="button"
           onClick={onBack}
-          className="-ml-2 rounded-full p-2 text-stone-500 transition hover:bg-stone-100 hover:text-stone-900"
+          className="-ml-2 grid size-11 shrink-0 place-items-center rounded-full text-stone-500 transition hover:bg-stone-100 hover:text-stone-900 sm:size-auto sm:p-2"
           aria-label={t('common.back')}
         >
           <ArrowLeft className="size-5" />
@@ -878,22 +953,6 @@ function SubView({
       </header>
       <FormActionsSlot value={actions}>{children}</FormActionsSlot>
     </div>
-  )
-}
-
-/** The narrow-screen version of a toolbox button, in the row under the details. */
-function RowTool({ tool, className = '', children }: { tool: Tool; className?: string; children: ReactNode }) {
-  return (
-    <Button
-      variant="ghost"
-      title={tool.title}
-      aria-label={tool.title}
-      aria-disabled={!tool.available}
-      onClick={tool.available ? tool.onClick : undefined}
-      className={tool.available ? className : 'cursor-not-allowed opacity-40 active:scale-100'}
-    >
-      {children}
-    </Button>
   )
 }
 

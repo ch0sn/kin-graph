@@ -1,15 +1,16 @@
-import { Camera } from 'lucide-react'
+import { Camera, Trash } from 'lucide-react'
 import { motion } from 'motion/react'
-import { useRef, type ReactNode } from 'react'
+import { useRef, useState, type ReactNode } from 'react'
 import { useT } from '../i18n'
 import { PhotoCropDialog } from '../photos/PhotoCropDialog'
 import { Avatar } from '../ui/Avatar'
+import { ConfirmDialog } from '../ui/ConfirmDialog'
 import { Button } from '../ui/fields'
 import type { PersonPhoto } from './usePersonPhoto'
 
 /**
  * The photo control: a compact one in the person editor, a large one while starting a tree.
- * In the editor, `children` (the name fields) fill the space beside the photo.
+ * In the editor, `children` are the name fields beside the photo.
  */
 export function PersonPhotoField({
   photo,
@@ -25,9 +26,12 @@ export function PersonPhotoField({
 }) {
   const { t } = useT()
   const fileInput = useRef<HTMLInputElement>(null)
+  const [confirmingRemoval, setConfirmingRemoval] = useState(false)
   const hasPhoto = photo.pendingUrl !== null || photo.photoId !== ''
-  // The person editor puts the shown name in the space beside the photo.
   const beside = !prominent && children != null
+  const hasPhotoActions = photo.canAdjust || (!beside && hasPhoto)
+  const photoLabel = hasPhoto ? t('form.changePhoto') : t('form.addPhoto')
+  const removeLabel = t('form.removePhoto')
 
   const picture = hasPhoto ? (
     <Avatar
@@ -52,34 +56,36 @@ export function PersonPhotoField({
     <button
       type="button"
       onClick={() => fileInput.current?.click()}
-      aria-label={hasPhoto ? t('form.changePhoto') : t('form.addPhoto')}
+      aria-label={photoLabel}
       className={[
         'group relative shrink-0 rounded-xl focus-visible:ring-4 focus-visible:ring-stone-200 focus-visible:outline-none',
-        // The button is the grid item. A wrapper around it collapses and the frame overlaps the names.
-        beside ? 'col-start-2 aspect-[3/4] h-full w-auto' : '',
+        beside ? 'col-start-1 row-start-1 block aspect-[3/4] w-full self-start sm:col-start-2 sm:h-full sm:w-auto sm:self-stretch' : '',
       ].join(' ')}
     >
-      {prominent && hasPhoto ? (
-        <motion.span
-          initial={{ scale: 0.92, opacity: 0 }}
-          animate={{ scale: 1, opacity: 1 }}
-          transition={{ duration: 0.28, ease: 'easeOut' }}
-          className="block"
-        >
-          {picture}
-        </motion.span>
-      ) : (
-        picture
-      )}
-      {hasPhoto && (
-        <span className="absolute -right-0.5 -bottom-0.5 flex size-7 items-center justify-center rounded-full border-2 border-white bg-stone-900 text-white">
-          <Camera className="size-3.5" aria-hidden />
-        </span>
-      )}
+      {/* The portrait fills the grid item without contributing its intrinsic image size. */}
+      <span className={beside ? 'absolute inset-0 size-full' : 'contents'}>
+        {prominent && hasPhoto ? (
+          <motion.span
+            initial={{ scale: 0.92, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            transition={{ duration: 0.28, ease: 'easeOut' }}
+            className="block"
+          >
+            {picture}
+          </motion.span>
+        ) : (
+          picture
+        )}
+        {hasPhoto && (
+          <span className="absolute -right-0.5 -bottom-0.5 flex size-7 items-center justify-center rounded-full border-2 border-white bg-stone-900 text-white">
+            <Camera className="size-3.5" aria-hidden />
+          </span>
+        )}
+      </span>
     </button>
   )
 
-  const actions = (hasPhoto || photo.error) && (
+  const actions = (hasPhotoActions || photo.error) && (
     <div
       className={
         prominent
@@ -89,7 +95,7 @@ export function PersonPhotoField({
             : 'flex min-w-0 flex-col items-start gap-1'
       }
     >
-      {hasPhoto && (
+      {hasPhotoActions && (
         <div
           className={
             prominent
@@ -100,17 +106,21 @@ export function PersonPhotoField({
           }
         >
           {photo.canAdjust && (
-            <Button variant="ghost" className="px-3 py-1.5" onClick={photo.adjust}>
+            <Button variant="ghost" className="px-3 py-1.5 max-sm:min-h-11" onClick={photo.adjust}>
               {t('form.adjust')}
             </Button>
           )}
-          <Button
-            variant="ghost"
-            className="px-3 py-1.5 text-red-700 hover:bg-red-50 hover:text-red-800"
-            onClick={photo.remove}
-          >
-            {t('common.remove')}
-          </Button>
+          {!beside && (
+            <Button
+              variant="ghost"
+              className="px-3 py-1.5 text-red-700 hover:bg-red-50 hover:text-red-800 max-sm:min-h-11"
+              aria-label={removeLabel}
+              title={removeLabel}
+              onClick={photo.remove}
+            >
+              {t('common.remove')}
+            </Button>
+          )}
         </div>
       )}
       {photo.error && <p className="text-xs text-red-700">{photo.error}</p>}
@@ -140,16 +150,40 @@ export function PersonPhotoField({
     </>
   )
 
-  // Names sit in the column beside the photo. Adjust and remove stay under that row,
-  // so they don't take the space the name fields use. The parent grid supplies the columns.
   if (beside) {
     return (
-      <div className="contents">
+      <>
         {avatarButton}
-        <div className="col-start-4 min-w-0">{children}</div>
-        {actions && <div className="col-span-4 pl-5">{actions}</div>}
+        {hasPhoto && (
+          <button
+            type="button"
+            aria-label={removeLabel}
+            title={removeLabel}
+            aria-haspopup="dialog"
+            onClick={() => setConfirmingRemoval(true)}
+            className="relative z-1 col-start-1 row-start-1 -mt-0.5 -mr-0.5 grid size-7 place-items-center self-start justify-self-end rounded-full border-2 border-white bg-white text-red-700 shadow-sm ring-1 ring-stone-200 transition hover:bg-red-50 hover:text-red-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-(--accent) max-sm:after:absolute max-sm:after:-inset-2.5 sm:col-start-2"
+          >
+            <Trash className="size-3.5" aria-hidden />
+          </button>
+        )}
+        <div className="col-start-2 row-start-1 min-w-0 sm:col-start-4">{children}</div>
+        {actions && <div className="col-span-2 sm:col-span-4 sm:pl-5">{actions}</div>}
         {fileControls}
-      </div>
+        <ConfirmDialog
+          open={confirmingRemoval}
+          title={t('form.removePhotoTitle')}
+          confirmLabel={removeLabel}
+          cancelLabel={t('common.cancel')}
+          tone="danger"
+          onCancel={() => setConfirmingRemoval(false)}
+          onConfirm={() => {
+            setConfirmingRemoval(false)
+            photo.remove()
+          }}
+        >
+          {t('form.removePhotoBody')}
+        </ConfirmDialog>
+      </>
     )
   }
 

@@ -15,20 +15,23 @@ export function FormActions({
   submitLabel,
   onCancel,
   busy = false,
+  hideMobileCancel = false,
 }: {
   formId: string
   submitLabel: string
   onCancel?: () => void
   busy?: boolean
+  /** The header's Back button already cancels this form on mobile. */
+  hideMobileCancel?: boolean
 }) {
   const { t } = useT()
   const slot = useContext(FormActionsSlot)
   const inHeader = slot !== undefined
-  const size = inHeader ? 'px-3 py-1.5' : ''
+  const size = inHeader ? 'px-3 py-1.5 max-sm:min-h-11' : ''
   const buttons = (
     <>
       {onCancel && (
-        <Button variant="ghost" className={size} onClick={onCancel}>
+        <Button variant="ghost" className={inHeader && hideMobileCancel ? `${size} max-sm:hidden` : size} onClick={onCancel}>
           {t('common.cancel')}
         </Button>
       )}
