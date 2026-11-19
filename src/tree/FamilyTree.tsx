@@ -122,7 +122,7 @@ function FamilyTreeCanvas({
   const [shownNodes, setShownNodes] = useState<TreeNode[]>([])
   const shownRef = useRef<TreeNode[]>([])
   const reduceMotion = useReducedMotion()
-  const { getZoom, setCenter, setViewport } = useReactFlow()
+  const { getZoom, setCenter, setViewport, viewportInitialized } = useReactFlow()
   const store = useStoreApi()
   const domNode = useStore((s) => s.domNode)
   const viewportWidth = useStore((s) => s.width)
@@ -228,10 +228,10 @@ function FamilyTreeCanvas({
     [layout, domNode, selectedId, searchFocus, setViewport, store],
   )
 
-  // Keep the selected person in view above the sheet, including after edits
-  // move them. Whole tree is left alone until a different person is opened.
+  // Keep the selected person in view above the sheet, including when search
+  // opens Tree from another view before the viewport has initialized.
   useEffect(() => {
-    if (!selectedId) return
+    if (!selectedId || !viewportInitialized) return
     if (overviewRef.current && selectedId === overviewSelection.current.id &&
       searchFocus === overviewSelection.current.searchFocus) return
     overviewRef.current = false
@@ -240,7 +240,7 @@ function FamilyTreeCanvas({
       offsetY: viewportHeight * (0.5 - SELECTED_VIEWPORT_Y),
       duration: 500,
     })
-  }, [selectedId, searchFocus, centerOn, getZoom, mobileZoom, viewportHeight])
+  }, [selectedId, searchFocus, centerOn, getZoom, mobileZoom, viewportHeight, viewportInitialized])
 
   // The sheet closing, or the family moving, changes what "everyone" means.
   useEffect(() => {
@@ -277,7 +277,9 @@ function FamilyTreeCanvas({
           edges={edges}
           nodeTypes={nodeTypes}
           edgeTypes={edgeTypes}
-          onInit={() => centerOn(graph.managerId, { zoom: window.matchMedia(MOBILE).matches ? mobileZoom : 1, duration: 0 })}
+          onInit={() => {
+            if (!selectedId) centerOn(graph.managerId, { zoom: window.matchMedia(MOBILE).matches ? mobileZoom : 1, duration: 0 })
+          }}
           nodeClickDistance={6}
           paneClickDistance={6}
           onNodeClick={(_, node) => {
