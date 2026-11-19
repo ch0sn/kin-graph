@@ -636,6 +636,7 @@ function TreeTab({
   const [selectedId, setSelectedId] = useState<PersonId | null>(null)
   const [personTrail, setPersonTrail] = useState<PersonId[]>([])
   const [finding, setFinding] = useState(false)
+  const [searchFocus, setSearchFocus] = useState(0)
   const [options, setOptions] = useState<HTMLElement | null>(null)
   const mobileControls = { options }
   /** Opens the sheet on a form for adding this kind of relative, e.g. from an empty slot in the fan. */
@@ -748,6 +749,7 @@ function TreeTab({
             highlightGender={settings.highlightGender}
             onToggleHighlightGender={() => onSettingsChange({ highlightGender: !settings.highlightGender })}
             selectedId={selectedId}
+            searchFocus={searchFocus}
             onSelect={select}
             controlsSlot={controlsSlot}
             mobileControls={mobileControls}
@@ -764,13 +766,14 @@ function TreeTab({
         returnAction={perspectiveReturn && <MobileOption icon={LocateFixed} {...perspectiveReturn} />}
       />
       {finding && <FindPerson graph={graph} onClose={() => setFinding(false)} onChoose={(id) => {
-        setFinding(false)
-        if (view === 'fan') stored.setTabView(tab.id, 'tree')
+        if (view !== 'tree') stored.setTabView(tab.id, 'tree')
         select(id)
+        setSearchFocus((request) => request + 1)
       }} />}
       <PersonSheet
         graph={graph}
         personId={selectedId}
+        searchFocus={searchFocus}
         onChange={onChange}
         onClose={closeSheet}
         perspectives={perspectives}
