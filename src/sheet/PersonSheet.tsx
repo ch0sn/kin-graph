@@ -45,7 +45,6 @@ import { useT } from '../i18n'
 import { useBackupPicker } from '../storage/useBackupPicker'
 import { labelOffset } from '../tree/discColumn'
 import { NodeFan, type NodeMenuAction } from '../tree/NodeMenu'
-import { Avatar } from '../ui/Avatar'
 import { ConfirmDialog } from '../ui/ConfirmDialog'
 import { LifeLine } from '../ui/LifeLine'
 import { Button, CheckboxGroup, Segmented, type Option } from '../ui/fields'
@@ -55,6 +54,7 @@ import { emptyEventValues, valuesFromEvent } from './eventValues'
 import { LocationRow } from './LocationRow'
 import { PartnershipForm } from './PartnershipForm'
 import { PersonForm } from './PersonForm'
+import { PersonPortrait } from './PersonPortrait'
 import { Timeline } from './Timeline'
 import { emptyName, emptyValues, valuesFromPerson } from './personValues'
 
@@ -436,10 +436,7 @@ function SheetBody({
           <div className="flex flex-col gap-4 sm:gap-5">
             <header className="flex items-center gap-3 pt-1 sm:gap-4">
               {onBackPerson && <button type="button" onClick={onBackPerson} className="grid size-10 shrink-0 place-items-center rounded-xl bg-stone-100 sm:hidden" aria-label={t('mobile.previousPerson')}><ArrowLeft className="size-4" aria-hidden /></button>}
-              <div className="size-12 shrink-0 sm:hidden"><Avatar person={person} cover highlight className="!rounded-full text-sm" /></div>
-              <div className="hidden self-stretch sm:flex">
-                <Avatar person={person} fill highlight={isManager} />
-              </div>
+              <PersonPortrait person={person} isManager={isManager} />
               <div className="min-w-0 flex-1">
                 {label && (
                   <p ref={setLine} className="hidden text-xs font-semibold tracking-[0.12em] text-stone-400 uppercase sm:block">

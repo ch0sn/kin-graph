@@ -269,6 +269,7 @@ export const en = {
   'v.dateHint': 'Enter a four-digit year, and the month or day if you know them',
   'v.dateDay': 'Choose a valid day for this month and year, or leave the day blank.',
   'v.deathBeforeBirth': 'Can’t be before the birth date',
+  'photo.preview': 'Profile photo preview',
   'photo.unreadable': 'This image couldn’t be opened. Try a JPEG or PNG photo.',
   'photo.noCanvas': 'This browser can’t process photos.',
   'photo.notSaved': 'The photo couldn’t be saved.',

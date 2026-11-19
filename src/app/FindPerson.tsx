@@ -38,7 +38,9 @@ export function FindPerson({ graph, onChoose, onClose }: {
         {matching.slice(0, 50).map(({ person, name }) => (
           <li key={person.id}>
             <button type="button" className="flex min-h-14 w-full items-center gap-3 rounded-xl px-2 py-1.5 text-left hover:bg-stone-100 focus-visible:outline-2 focus-visible:outline-(--accent)" onClick={() => onChoose(person.id)}>
-              <span className="size-9 shrink-0"><Avatar person={person} cover className="!rounded-full text-xs" /></span>
+              <div className="aspect-[3/4] h-9 shrink-0">
+                <Avatar person={person} cover className="rounded-[7px]! text-xs" />
+              </div>
               <span className="min-w-0 flex-1">
                 <span className="block font-medium break-words">{name}</span>
                 <span className="block text-xs text-stone-600">{[relationshipLabel(graph, person.id), lifeYears(person)].filter(Boolean).join(' · ')}</span>
