@@ -774,6 +774,8 @@ function TreeTab({
         graph={graph}
         personId={selectedId}
         searchFocus={searchFocus}
+        personCard={settings.personCard}
+        personCardOrder={settings.personCardOrder}
         onChange={onChange}
         onClose={closeSheet}
         perspectives={perspectives}

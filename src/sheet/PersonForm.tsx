@@ -1,8 +1,6 @@
 import { TriangleAlert } from 'lucide-react'
 import { useId, useState, type FormEvent, type ReactNode } from 'react'
 import type { NewPerson } from '../model'
-import { useT } from '../i18n'
-import { DateField } from '../ui/DateField'
 import { NameEditor } from './NameEditor'
 import {
   surnameFollows,
@@ -15,7 +13,7 @@ import {
 } from './personValues'
 import { FormActions } from './FormActions'
 import { GenderPicker } from './GenderPicker'
-import { DeceasedFields, NotesField, OtherNamesEditor, PlaceField } from './personFields'
+import { NotesField, OtherNamesEditor, VitalFields } from './personFields'
 import { PersonPhotoField } from './PersonPhotoField'
 import { usePersonPhoto } from './usePersonPhoto'
 
@@ -33,7 +31,7 @@ interface PersonFormProps {
   /** Shows a Cancel button when given. */
   onCancel?: () => void
   autoFocus?: boolean
-  /** Relationship-specific options, shown below the person's details. */
+  /** Additional fields and options, shown below the person's details. */
   children?: ReactNode
 }
 
@@ -47,7 +45,6 @@ export function PersonForm({
   autoFocus = true,
   children,
 }: PersonFormProps) {
-  const { t } = useT()
   const [values, setValues] = useState(initial)
   const [errors, setErrors] = useState<PersonErrors>({})
   // Changing the other parent updates the last name while it still matches the previous suggestion.
@@ -114,28 +111,10 @@ export function PersonForm({
         />
       </div>
 
-      <DateField
-        label={t('form.born')}
-        value={values.birthDate}
-        onChange={(date) => update('birthDate', date)}
-        error={errors.birthDate}
-        qualifiers={false}
-      />
-      <PlaceField
-        label={t('form.birthPlace')}
-        value={values.birthPlace}
-        onChange={(place) => update('birthPlace', place)}
-      />
-
-      <DeceasedFields
-        deceased={values.deceased}
-        deathDate={values.deathDate}
-        deathPlace={values.deathPlace}
-        deathDateError={errors.deathDate}
-        onDeceased={(deceased) => update('deceased', deceased)}
-        onDeathDate={(date) => update('deathDate', date)}
-        onDeathPlace={(place) => update('deathPlace', place)}
-      />
+      <VitalFields values={values} errors={errors} onChange={(patch) => {
+        setValues((current) => ({ ...current, ...patch }))
+        setErrors((current) => ({ ...current, birthDate: undefined, deathDate: undefined }))
+      }} />
 
       <NotesField value={values.notes} onChange={(notes) => update('notes', notes)} />
 

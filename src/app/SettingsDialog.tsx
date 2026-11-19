@@ -7,6 +7,7 @@ import {
   Upload,
   type LucideIcon,
 } from 'lucide-react'
+import { motion } from 'motion/react'
 import { useEffect, useRef, useState } from 'react'
 import {
   CLOSE_TAB_ACTIONS,
@@ -28,6 +29,7 @@ import { ConfirmDialog } from '../ui/ConfirmDialog'
 import { Button } from '../ui/fields'
 import { HelpLabel } from '../ui/HelpLabel'
 import { GedcomExportDialog } from './GedcomExportDialog'
+import { PersonCardSettings } from './PersonCardSettings'
 
 /** A miniature tree drawn in a theme's own colours, shape and typeface. */
 function ThemePreview({ id }: { id: ThemeId }) {
@@ -147,7 +149,7 @@ export function SettingsDialog({
       }}
       className="m-auto w-[min(26rem,calc(100%-2rem))] rounded-3xl border border-stone-200 bg-white p-0 text-stone-900 shadow-2xl backdrop:bg-black/20 open:animate-[dialog-in_160ms_ease-out]"
     >
-      <div className="flex max-h-[85dvh] flex-col gap-6 overflow-y-auto p-6">
+      <motion.div layoutScroll className="flex max-h-[85dvh] flex-col gap-6 overflow-y-auto p-6">
         <h2 id="settings-title" className="font-serif text-2xl leading-tight">
           {t('settings.title')}
         </h2>
@@ -338,6 +340,13 @@ export function SettingsDialog({
           </div>
         </div>
 
+        <PersonCardSettings
+          visibility={settings.personCard}
+          order={settings.personCardOrder}
+          onVisibilityChange={(personCard) => onChange({ personCard })}
+          onOrderChange={(personCardOrder) => onChange({ personCardOrder })}
+        />
+
         <fieldset className="flex flex-col gap-3" aria-labelledby="tabs-label">
           <HelpLabel
             id="tabs-help"
@@ -410,7 +419,7 @@ export function SettingsDialog({
             {t('common.done')}
           </Button>
         </div>
-      </div>
+      </motion.div>
     </dialog>
 
     <ConfirmDialog

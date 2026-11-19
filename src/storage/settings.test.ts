@@ -19,12 +19,24 @@ describe('parseSettings', () => {
       siblingOrder: 'girls-first',
       nameOrder: 'family-first',
       highlightGender: true,
+      personCard: { location: false, lifeEvents: false, birthAndDeath: true, notes: false },
+      personCardOrder: ['birthAndDeath', 'notes', 'location', 'lifeEvents'],
       closeTab: 'ask',
       newTreeIn: 'replace',
       onStart: 'own-tree',
       fanGenerations: 6,
     } as const
     expect(parseSettings(settings)).toEqual(settings)
+  })
+
+  it('keeps explicit card toggles and defaults missing or invalid preferences independently', () => {
+    expect(parseSettings({ personCard: { location: false, notes: 'false', birthAndDeath: true } }).personCard).toEqual({
+      location: false,
+      lifeEvents: true,
+      birthAndDeath: true,
+      notes: true,
+    })
+    expect(parseSettings({ personCard: null }).personCard).toEqual(DEFAULT_SETTINGS.personCard)
   })
 
   it('reads the old light/dark choice that was stored as `theme`', () => {
@@ -34,5 +46,15 @@ describe('parseSettings', () => {
       siblingOrder: 'boys-first',
     })
     expect(parseSettings({ theme: 'system' }).colorMode).toBe('system')
+  })
+
+  it('keeps the order of known sections, including hidden ones, and appends missing sections', () => {
+    const settings = parseSettings({
+      personCard: { notes: false },
+      personCardOrder: ['notes', 'unknown', 'birthAndDeath', 'notes'],
+    })
+    expect(settings.personCardOrder).toEqual(['notes', 'birthAndDeath', 'location', 'lifeEvents'])
+    expect(settings.personCard.notes).toBe(false)
+    expect(parseSettings({ personCardOrder: 'notes' }).personCardOrder).toEqual(DEFAULT_SETTINGS.personCardOrder)
   })
 })

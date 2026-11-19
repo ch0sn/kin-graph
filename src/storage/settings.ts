@@ -24,6 +24,34 @@ export const COLOR_VISIONS: readonly ColorVision[] = [
   'monochrome',
 ]
 
+export const PERSON_CARD_SECTIONS = ['location', 'lifeEvents', 'birthAndDeath', 'notes'] as const
+export type PersonCardSection = (typeof PERSON_CARD_SECTIONS)[number]
+export type PersonCardPreferences = Record<PersonCardSection, boolean>
+
+const DEFAULT_PERSON_CARD: PersonCardPreferences = {
+  location: true,
+  lifeEvents: true,
+  birthAndDeath: false,
+  notes: true,
+}
+
+function parsePersonCard(raw: unknown): PersonCardPreferences {
+  const stored = raw && typeof raw === 'object' ? raw as Partial<Record<PersonCardSection, unknown>> : {}
+  const preferences = { ...DEFAULT_PERSON_CARD }
+  for (const section of PERSON_CARD_SECTIONS) {
+    const value = stored[section]
+    if (typeof value === 'boolean') preferences[section] = value
+  }
+  return preferences
+}
+
+function parsePersonCardOrder(raw: unknown): PersonCardSection[] {
+  const order = Array.isArray(raw) ? raw.filter(
+    (value): value is PersonCardSection => PERSON_CARD_SECTIONS.includes(value),
+  ) : []
+  return [...new Set([...order, ...PERSON_CARD_SECTIONS])]
+}
+
 /** Display preferences for this device. They aren't part of the tree or its backups. */
 export interface Settings {
   /** The language of the app (not of names or the title). */
@@ -38,6 +66,8 @@ export interface Settings {
   nameOrder: NameOrder
   /** Colours card borders by gender: blue for male, red for female. */
   highlightGender: boolean
+  personCard: PersonCardPreferences
+  personCardOrder: PersonCardSection[]
   /** What closing a tab does to its tree: keep it in "My trees", delete it, or ask. */
   closeTab: CloseTabAction
   /** Where a new or imported tree opens: in a new tab, or in place of the current one. */
@@ -66,6 +96,8 @@ export const DEFAULT_SETTINGS: Settings = {
   siblingOrder: DEFAULT_SIBLING_ORDER,
   nameOrder: 'given-first',
   highlightGender: false,
+  personCard: DEFAULT_PERSON_CARD,
+  personCardOrder: [...PERSON_CARD_SECTIONS],
   closeTab: 'keep',
   newTreeIn: 'new-tab',
   onStart: 'last-tabs',
@@ -108,6 +140,8 @@ export function parseSettings(raw: unknown): Settings {
       typeof stored.highlightGender === 'boolean'
         ? stored.highlightGender
         : DEFAULT_SETTINGS.highlightGender,
+    personCard: parsePersonCard(stored.personCard),
+    personCardOrder: parsePersonCardOrder(stored.personCardOrder),
     closeTab: oneOf(CLOSE_TAB_ACTIONS, stored.closeTab, DEFAULT_SETTINGS.closeTab),
     newTreeIn: oneOf(NEW_TREE_TARGETS, stored.newTreeIn, DEFAULT_SETTINGS.newTreeIn),
     onStart: oneOf(START_TABS, stored.onStart, DEFAULT_SETTINGS.onStart),

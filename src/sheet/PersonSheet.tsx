@@ -1,6 +1,6 @@
 import { ArrowLeft, ArrowUp, Baby, ChevronRight, Eye, FileText, FileUp, Heart, Mars, Pencil, Plus, Trash, Users, Venus, X, type LucideIcon } from 'lucide-react'
 import { animate, AnimatePresence, motion, stagger, useDragControls, useIsPresent, useMotionValue, useReducedMotion, type AnimationPlaybackControls, type Variants } from 'motion/react'
-import { createContext, useCallback, useContext, useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore, type ReactNode, type RefObject } from 'react'
+import { createContext, Fragment, useCallback, useContext, useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore, type ReactNode, type RefObject } from 'react'
 import { createPortal } from 'react-dom'
 import {
   addChild,
@@ -14,7 +14,6 @@ import {
   fullName,
   GraphError,
   isOngoing,
-  lifeYears,
   linkPartners,
   parentIdsOf,
   partnerIdsOf,
@@ -43,20 +42,23 @@ import {
 } from '../model'
 import { useT } from '../i18n'
 import { useBackupPicker } from '../storage/useBackupPicker'
+import type { PersonCardPreferences, PersonCardSection } from '../storage/settings'
 import { labelOffset } from '../tree/discColumn'
 import { NodeActionButton, NodeFan, type NodeMenuAction } from '../tree/NodeMenu'
 import { ConfirmDialog } from '../ui/ConfirmDialog'
 import { LifeLine } from '../ui/LifeLine'
 import { Button, CheckboxGroup, Segmented, type Option } from '../ui/fields'
+import { EditPersonForm } from './EditPersonForm'
 import { EventForm } from './EventForm'
 import { FormActionsSlot } from './formActionsSlot'
 import { emptyEventValues, valuesFromEvent } from './eventValues'
 import { LocationRow } from './LocationRow'
 import { PartnershipForm } from './PartnershipForm'
+import { CardBirthAndDeath, CardNotes } from './PersonCardDetails'
 import { PersonForm } from './PersonForm'
 import { PersonPortrait } from './PersonPortrait'
 import { Timeline } from './Timeline'
-import { emptyName, emptyValues, valuesFromPerson } from './personValues'
+import { emptyName, emptyValues } from './personValues'
 
 export type Relation = 'parent' | 'partner' | 'sibling' | 'child'
 
@@ -114,6 +116,8 @@ interface PersonSheetProps {
   graph: FamilyGraph
   personId: PersonId | null
   searchFocus: number
+  personCard: PersonCardPreferences
+  personCardOrder: PersonCardSection[]
   onChange: (graph: FamilyGraph) => void
   onClose: () => void
   onSelectPerson: (id: PersonId) => void
@@ -176,6 +180,8 @@ export function PersonSheet({
   graph,
   personId,
   searchFocus,
+  personCard,
+  personCardOrder,
   onChange,
   onClose,
   onSelectPerson,
@@ -215,6 +221,8 @@ export function PersonSheet({
             key={`${person.id}:${startWith ?? ''}`}
             graph={graph}
             person={person}
+            personCard={personCard}
+            personCardOrder={personCardOrder}
             onChange={onChange}
             onClose={onClose}
             onSelectPerson={onSelectPerson}
@@ -360,6 +368,8 @@ function Sheet({
 function SheetBody({
   graph,
   person,
+  personCard,
+  personCardOrder,
   onChange,
   onClose,
   onSelectPerson,
@@ -371,6 +381,8 @@ function SheetBody({
 }: {
   graph: FamilyGraph
   person: Person
+  personCard: PersonCardPreferences
+  personCardOrder: PersonCardSection[]
   onChange: (graph: FamilyGraph) => void
   onClose: () => void
   onSelectPerson: (id: PersonId) => void
@@ -410,7 +422,6 @@ function SheetBody({
   const isManager = person.id === graph.managerId
   const [confirmingTree, setConfirmingTree] = useState(false)
   const name = fullName(person)
-  const years = lifeYears(person)
   /** The tree's own root, who is "you" here and can only go with the whole tree. */
   const isTreeRoot = isManager && perspectives !== undefined && !perspectives.isView
   const showsTree = perspectives && !person.isPlaceholder
@@ -532,6 +543,40 @@ function SheetBody({
     return list
   })()
 
+  const countries = knownCountries(graph)
+  const cardSections: Record<PersonCardSection, ReactNode> = {
+    location: (
+      <section className="border-t border-stone-100 pt-4" aria-label={t('location.label')}>
+        <LocationRow
+          location={person.location}
+          knownCountries={countries}
+          onSave={(location, locationCountry) =>
+            apply(() => updatePerson(graph, person.id, { location, locationCountry }), () => {})
+          }
+        />
+      </section>
+    ),
+    lifeEvents: (
+      <Timeline
+        graph={graph}
+        personId={person.id}
+        onAdd={() => go({ view: 'event' })}
+        onEdit={(event) => go({ view: 'event', event })}
+        omitBirthAndDeath={personCard.birthAndDeath}
+      />
+    ),
+    birthAndDeath: (
+      <CardBirthAndDeath person={person} onSave={(fields) =>
+        apply(() => updatePerson(graph, person.id, fields), () => {})
+      } />
+    ),
+    notes: (
+      <CardNotes notes={person.notes} onSave={(notes) =>
+        apply(() => updatePerson(graph, person.id, { notes }), () => {})
+      } />
+    ),
+  }
+
   return (
     <>
       {filePicker.input}
@@ -573,8 +618,10 @@ function SheetBody({
                   <span className="truncate">{fullName(person)}</span>
                   <span className="hidden sm:contents"><GenderIcon gender={person.gender} /></span>
                 </h2>
-                <p className="mt-1 text-sm text-stone-600 sm:hidden">{[label, years].filter(Boolean).join(' · ')}</p>
-                <LifeLine person={person} detailed className="hidden! text-sm sm:flex!" />
+                <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm empty:hidden sm:mt-0">
+                  {label && <p className="text-stone-600 sm:hidden">{label}</p>}
+                  <LifeLine person={person} ageOnly />
+                </div>
               </div>
               <button
                 type="button"
@@ -602,30 +649,9 @@ function SheetBody({
                 </p>
               )}
 
-              <Timeline
-                graph={graph}
-                personId={person.id}
-                onAdd={() => go({ view: 'event' })}
-                onEdit={(event) => go({ view: 'event', event })}
-                before={
-                  <LocationRow
-                    location={person.location}
-                    knownCountries={knownCountries(graph)}
-                    onSave={(location, locationCountry) =>
-                      apply(() => updatePerson(graph, person.id, { location, locationCountry }), () => {})
-                    }
-                  />
-                }
-              />
-
-              {person.notes && (
-                <section aria-labelledby="notes-title" className="flex flex-col gap-2 border-t border-stone-100 pt-4">
-                  <h3 id="notes-title" className="text-xs font-semibold tracking-wide text-stone-500 uppercase">
-                    {t('form.notes')}
-                  </h3>
-                  <p className="text-sm break-words whitespace-pre-line text-stone-700">{person.notes}</p>
-                </section>
-              )}
+              {personCardOrder.map((section) => personCard[section] && (
+                <Fragment key={section}>{cardSections[section]}</Fragment>
+              ))}
             </div>
 
           </div>
@@ -679,13 +705,15 @@ function SheetBody({
 
         {mode.view === 'edit' && (
           <SubView title={t('sheet.edit')} subtitle={fullName(person)} onBack={() => go({ view: 'details' })}>
-            <PersonForm
-              initial={valuesFromPerson(person)}
-              submitLabel={t('common.save')}
+            <EditPersonForm
+              graph={graph}
+              person={person}
+              personCard={personCard}
+              knownCountries={countries}
               autoFocus={fanFits()}
               error={error}
               onCancel={() => go({ view: 'details' })}
-              onSubmit={(fields) => apply(() => updatePerson(graph, person.id, fields))}
+              onSubmit={apply}
             />
           </SubView>
         )}
