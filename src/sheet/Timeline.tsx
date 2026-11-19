@@ -1,5 +1,5 @@
 import { Pencil, Plus } from 'lucide-react'
-import type { ReactNode } from 'react'
+import { useId } from 'react'
 import { useT } from '../i18n'
 import {
   eventTitle,
@@ -19,24 +19,26 @@ interface TimelineProps {
   personId: PersonId
   onAdd: () => void
   onEdit: (event: LifeEvent) => void
-  /** Shown at the top of the section, above the heading. */
-  before?: ReactNode
+  /** The person's birth and death have their own editor or section. */
+  omitBirthAndDeath?: boolean
 }
 
 /**
  * A person's life in date order: birth, death and marriages from their
  * record, with the events added to it. Approximate dates get a dashed marker.
  */
-export function Timeline({ graph, personId, onAdd, onEdit, before }: TimelineProps) {
+export function Timeline({ graph, personId, onAdd, onEdit, omitBirthAndDeath = false }: TimelineProps) {
   const { t } = useT()
-  const entries = timelineOf(graph, personId)
+  const headingId = useId()
+  const entries = timelineOf(graph, personId).filter(
+    (entry) => !omitBirthAndDeath || (entry.type !== 'birth' && entry.type !== 'death'),
+  )
 
   return (
-    <section aria-labelledby="timeline-title" className="flex flex-col gap-2 border-t border-stone-100 pt-4">
-      {before && <div className="mb-3">{before}</div>}
+    <section aria-labelledby={headingId} className="flex flex-col gap-2 border-t border-stone-100 pt-4">
       <div className="flex items-center justify-between">
         <h3
-          id="timeline-title"
+          id={headingId}
           className="text-xs font-semibold tracking-wide text-stone-500 uppercase"
         >
           {t('event.title')}

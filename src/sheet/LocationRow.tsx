@@ -1,8 +1,8 @@
 import { Check, MapPin, Pencil, Plus } from 'lucide-react'
-import { useEffect, useId, useRef, useState, type FormEvent } from 'react'
+import { useEffect, useEffectEvent, useId, useRef, useState, type FormEvent } from 'react'
 import { useT } from '../i18n'
 import { looksLikePostalCode, lookupPostalCode, type Place } from '../places/postalCode'
-import { Button, TextInput } from '../ui/fields'
+import { Button, Field, TextInput } from '../ui/fields'
 import { HelpLabel } from '../ui/HelpLabel'
 
 interface LocationRowProps {
@@ -31,7 +31,7 @@ type Lookup =
  * up and fills in the town and country, or offers the matches to choose from.
  */
 export function LocationRow({ location, knownCountries, onSave }: LocationRowProps) {
-  const { t, language } = useT()
+  const { t } = useT()
   const [editing, setEditing] = useState(false)
   const labelId = useId()
   const helpId = useId()
@@ -66,7 +66,6 @@ export function LocationRow({ location, knownCountries, onSave }: LocationRowPro
           labelId={labelId}
           helpId={helpId}
           initial={location ?? ''}
-          language={language}
           knownCountries={knownCountries}
           onCancel={() => setEditing(false)}
           onSave={(next, country) => {
@@ -82,32 +81,98 @@ export function LocationRow({ location, knownCountries, onSave }: LocationRowPro
   )
 }
 
+type LocationDraft = { text: string; country?: string }
+
+export function LocationField({
+  value,
+  knownCountries,
+  onChange,
+}: {
+  value: LocationDraft
+  knownCountries: string[]
+  onChange: (value: LocationDraft) => void
+}) {
+  const { t } = useT()
+  return (
+    <Field label={t('location.label')} hint={t('location.hint')}>
+      {(id, describedBy) => (
+        <LocationInput id={id} describedBy={describedBy} value={value} onChange={onChange} knownCountries={knownCountries} />
+      )}
+    </Field>
+  )
+}
+
 function LocationEditor({
   labelId,
   helpId,
   initial,
-  language,
   knownCountries,
   onSave,
   onCancel,
 }: {
   labelId: string
-  /** The "?" tooltip's text, which also describes the field. */
   helpId: string
   initial: string
-  language: string
   knownCountries: string[]
   onSave: (location: string, country: string | undefined) => void
   onCancel: () => void
 }) {
   const { t } = useT()
-  const [text, setText] = useState(initial)
+  const [value, setValue] = useState<LocationDraft>({ text: initial })
+  const submit = (event: FormEvent) => {
+    event.preventDefault()
+    onSave(value.text, value.country)
+  }
+
+  return (
+    <form onSubmit={submit} className="flex flex-col gap-2 pl-6">
+      <LocationInput
+        labelId={labelId}
+        describedBy={helpId}
+        value={value}
+        onChange={setValue}
+        knownCountries={knownCountries}
+        onCancel={onCancel}
+      />
+      <div className="flex justify-end gap-2">
+        <Button variant="ghost" className="px-3 py-1.5" onClick={onCancel}>
+          {t('common.cancel')}
+        </Button>
+        <Button variant="primary" type="submit" className="px-3 py-1.5">
+          <Check className="size-4" aria-hidden />
+          {t('common.save')}
+        </Button>
+      </div>
+    </form>
+  )
+}
+
+function LocationInput({
+  id,
+  labelId,
+  describedBy,
+  value,
+  knownCountries,
+  onChange,
+  onCancel,
+}: {
+  id?: string
+  labelId?: string
+  describedBy?: string
+  value: LocationDraft
+  knownCountries: string[]
+  onChange: (value: LocationDraft) => void
+  onCancel?: () => void
+}) {
+  const { t, language } = useT()
+  const { text } = value
   const [lookup, setLookup] = useState<Lookup>({ state: 'idle' })
   const statusId = useId()
   /** The place the lookup filled in, which shouldn't be looked up again; cleared by typing. */
   const filledRef = useRef<Place | null>(null)
   // A string, so a new array with the same countries doesn't restart a lookup.
   const known = knownCountries.join(',')
+  const fillFromLookup = useEffectEvent((place: Place) => onChange({ text: place.label, country: place.countryCode }))
 
   useEffect(() => {
     const code = text.trim()
@@ -121,9 +186,10 @@ function LocationEditor({
       setLookup({ state: 'searching', code })
       lookupPostalCode(code, { language, knownCountries: known ? known.split(',') : [], signal: controller.signal })
         .then((places) => {
+          if (controller.signal.aborted) return
           if (places.length === 1) {
             filledRef.current = places[0]
-            setText(places[0].label)
+            fillFromLookup(places[0])
             setLookup({ state: 'filled', code })
           } else if (places.length > 1) {
             setLookup({ state: 'choose', code, places: places.slice(0, MAX_CHOICES) })
@@ -144,14 +210,8 @@ function LocationEditor({
 
   const choose = (place: Place) => {
     filledRef.current = place
-    setText(place.label)
+    onChange({ text: place.label, country: place.countryCode })
     setLookup({ state: 'filled', code: lookup.state === 'choose' ? lookup.code : '' })
-  }
-
-  const submit = (event: FormEvent) => {
-    event.preventDefault()
-    const filled = filledRef.current
-    onSave(text, filled && text.trim() === filled.label ? filled.countryCode : undefined)
   }
 
   const status =
@@ -168,25 +228,26 @@ function LocationEditor({
               : ''
 
   return (
-    <form onSubmit={submit} className="flex flex-col gap-2 pl-6">
+    <>
       <TextInput
+        id={id}
         aria-labelledby={labelId}
-        aria-describedby={`${helpId} ${statusId}`}
+        aria-describedby={[describedBy, statusId].filter(Boolean).join(' ')}
         value={text}
         onChange={(e) => {
           filledRef.current = null
-          setText(e.target.value)
+          onChange({ text: e.target.value })
         }}
         onKeyDown={(e) => {
           // Escape leaves the field, not the whole sheet.
-          if (e.key === 'Escape') {
+          if (e.key === 'Escape' && onCancel) {
             e.stopPropagation()
             onCancel()
           }
         }}
         placeholder={t('location.placeholder')}
         autoComplete="off"
-        autoFocus
+        autoFocus={!!onCancel}
       />
       {/* Kept even when empty, so screen readers announce lookups as they happen. */}
       <p id={statusId} role="status" className="text-xs text-stone-500 empty:hidden">
@@ -208,15 +269,6 @@ function LocationEditor({
           ))}
         </ul>
       )}
-      <div className="flex justify-end gap-2">
-        <Button variant="ghost" className="px-3 py-1.5" onClick={onCancel}>
-          {t('common.cancel')}
-        </Button>
-        <Button variant="primary" type="submit" className="px-3 py-1.5">
-          <Check className="size-4" aria-hidden />
-          {t('common.save')}
-        </Button>
-      </div>
-    </form>
+    </>
   )
 }

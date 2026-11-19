@@ -93,11 +93,13 @@ describe('settings', () => {
       siblingOrder: 'girls-first',
       nameOrder: 'family-first',
       highlightGender: true,
+      personCard: { location: false, lifeEvents: false, birthAndDeath: true, notes: true },
+      personCardOrder: ['notes', 'lifeEvents', 'birthAndDeath', 'location'],
       closeTab: 'ask',
       newTreeIn: 'replace',
       onStart: 'own-tree',
       fanGenerations: 5,
-    } as const
+    } satisfies typeof DEFAULT_SETTINGS
     await saveSettings(settings)
     expect(await loadSettings()).toEqual(settings)
   })

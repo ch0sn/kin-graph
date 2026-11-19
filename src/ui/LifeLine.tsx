@@ -13,8 +13,8 @@ type Translate = (key: MessageKey, params?: Params) => string
 
 interface LifeLineProps {
   person: Person
-  /** Also spells out the dates, e.g. in the person sheet. */
-  detailed?: boolean
+  /** Hide dates and render nothing when the age is unknown. */
+  ageOnly?: boolean
   className?: string
 }
 
@@ -23,12 +23,14 @@ interface LifeLineProps {
  * cross and the age they reached ("✝ 81"). The dates show on hover. When
  * the age can't be worked out, whatever dates are known show instead.
  */
-export function LifeLine({ person, detailed = false, className = '' }: LifeLineProps) {
+export function LifeLine({ person, ageOnly = false, className = '' }: LifeLineProps) {
   const { t } = useT()
   const deceased = isDeceased(person)
   const age = ageOf(person)
   const Icon = deceased ? Cross : Cake
-  const dates = datesText(person, t)
+  const dates = ageOnly ? null : datesText(person, t)
+
+  if (ageOnly && !age) return null
 
   if (!age && !deceased) {
     const years = lifeYears(person)
@@ -45,7 +47,6 @@ export function LifeLine({ person, detailed = false, className = '' }: LifeLineP
         <>
           <span className="sr-only">{deceased ? t('life.diedAged') : t('life.age')}</span>
           {formatAge(age)}
-          {detailed && dates && <span className="text-stone-400">&nbsp;· {dates}</span>}
         </>
       ) : (
         <>

@@ -7,7 +7,7 @@ import { PlaceField } from '../ui/PlaceField'
 import { Button, Field } from '../ui/fields'
 import { HelpLabel } from '../ui/HelpLabel'
 import { NameEditor } from './NameEditor'
-import { emptyName, type NameValues, type PersonValues } from './personValues'
+import { emptyName, type NameValues, type PersonErrors, type PersonValues } from './personValues'
 
 export { PlaceField }
 
@@ -127,6 +127,35 @@ export function OtherNamesEditor({
       </fieldset>
       {addRow}
     </div>
+  )
+}
+
+type VitalValues = Pick<PersonValues, 'birthDate' | 'birthPlace' | 'deceased' | 'deathDate' | 'deathPlace'>
+
+export function VitalFields({
+  values,
+  errors,
+  onChange,
+}: {
+  values: VitalValues
+  errors: PersonErrors
+  onChange: (patch: Partial<VitalValues>) => void
+}) {
+  const { t } = useT()
+  return (
+    <>
+      <DateField label={t('form.born')} value={values.birthDate} onChange={(date) => onChange({ birthDate: date })} error={errors.birthDate} qualifiers={false} />
+      <PlaceField label={t('form.birthPlace')} value={values.birthPlace} onChange={(place) => onChange({ birthPlace: place })} />
+      <DeceasedFields
+        deceased={values.deceased}
+        deathDate={values.deathDate}
+        deathPlace={values.deathPlace}
+        deathDateError={errors.deathDate}
+        onDeceased={(deceased) => onChange({ deceased })}
+        onDeathDate={(date) => onChange({ deathDate: date })}
+        onDeathPlace={(place) => onChange({ deathPlace: place })}
+      />
+    </>
   )
 }
 
