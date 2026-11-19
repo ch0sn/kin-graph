@@ -1,6 +1,6 @@
 import { ArrowLeft, ArrowUp, Baby, ChevronDown, ChevronRight, Eye, FileText, FileUp, Heart, Mars, Pencil, Plus, Trash, Users, Venus, X, type LucideIcon } from 'lucide-react'
 import { AnimatePresence, motion, useDragControls } from 'motion/react'
-import { createContext, useCallback, useContext, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
+import { createContext, useCallback, useContext, useEffect, useLayoutEffect, useRef, useState, type ReactNode, type Ref } from 'react'
 import { createPortal } from 'react-dom'
 import {
   addChild,
@@ -113,6 +113,7 @@ export interface OwnTree {
 interface PersonSheetProps {
   graph: FamilyGraph
   personId: PersonId | null
+  searchFocus: number
   onChange: (graph: FamilyGraph) => void
   onClose: () => void
   onSelectPerson: (id: PersonId) => void
@@ -129,6 +130,7 @@ const fanFits = () => window.matchMedia('(min-width: 640px)').matches
 export function PersonSheet({
   graph,
   personId,
+  searchFocus,
   onChange,
   onClose,
   onSelectPerson,
@@ -136,6 +138,10 @@ export function PersonSheet({
   perspectives,
   startWith,
 }: PersonSheetProps) {
+  const sheet = useRef<HTMLElement>(null)
+  useLayoutEffect(() => {
+    if (searchFocus > 0) sheet.current?.focus({ preventScroll: true })
+  }, [searchFocus])
   const live = personId ? graph.people[personId] : undefined
   // Kept while the fan folds, so clearing the selection does not take the card with it.
   const [held, setHeld] = useState(live)
@@ -158,7 +164,7 @@ export function PersonSheet({
   return (
     <AnimatePresence>
       {person && (
-        <Sheet key="sheet" label={fullName(person)} onClose={onClose}>
+        <Sheet key="sheet" sheetRef={sheet} label={fullName(person)} onClose={onClose}>
           {/* Keyed by person (and where it starts) so switching resets the view. */}
           <SheetBody
             key={`${person.id}:${startWith ?? ''}`}
@@ -186,10 +192,12 @@ export function PersonSheet({
 const SheetAnchorContext = createContext<HTMLElement | null>(null)
 
 function Sheet({
+  sheetRef,
   label,
   onClose,
   children,
 }: {
+  sheetRef: Ref<HTMLElement>
   label: string
   onClose: () => void
   children: ReactNode
@@ -209,8 +217,10 @@ function Sheet({
   return (
     <SheetAnchorContext.Provider value={anchor}>
       <motion.section
+        ref={sheetRef}
         role="dialog"
         aria-label={label}
+        tabIndex={-1}
         initial={{ y: '100%' }}
         animate={{ y: 0 }}
         exit={{ y: '100%' }}

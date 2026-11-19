@@ -83,6 +83,7 @@ interface FamilyTreeProps {
   highlightGender: boolean
   onToggleHighlightGender: () => void
   selectedId: PersonId | null
+  searchFocus: number
   onSelect: (id: PersonId | null) => void
   /** Where the view controls are drawn, outside the canvas; none are shown until it exists. */
   controlsSlot: HTMLElement | null
@@ -107,6 +108,7 @@ function FamilyTreeCanvas({
   highlightGender,
   onToggleHighlightGender,
   selectedId,
+  searchFocus,
   onSelect,
   controlsSlot,
   mobileControls,
@@ -128,10 +130,9 @@ function FamilyTreeCanvas({
   /** How far a pinch can zoom out. Whole tree lowers it so that framing stays reachable. */
   const [minZoom, setMinZoom] = useState(PINCH_MIN_ZOOM)
   const mobileZoom = Math.min(0.76, (viewportWidth || document.documentElement.clientWidth) / 530)
-  /** Whole tree keeps the camera until the open person changes. */
+  /** Whole tree keeps the camera until a person is selected or found again. */
   const overviewRef = useRef(false)
-  /** Who was selected when whole tree was asked for. */
-  const overviewSelection = useRef<PersonId | null>(null)
+  const overviewSelection = useRef({ id: selectedId, searchFocus })
   const fitWholeTreeRef = useRef<(duration: number) => void>(() => {})
 
   useEffect(() => {
@@ -205,7 +206,7 @@ function FamilyTreeCanvas({
   const fitWholeTree = useCallback(
     (duration: number) => {
       overviewRef.current = true
-      overviewSelection.current = selectedId
+      overviewSelection.current = { id: selectedId, searchFocus }
       if (!layout || !domNode) return
       const width = domNode.clientWidth
       const height = domNode.clientHeight
@@ -224,21 +225,22 @@ function FamilyTreeCanvas({
       }
       void setViewport(viewport, { duration })
     },
-    [layout, domNode, selectedId, setViewport, store],
+    [layout, domNode, selectedId, searchFocus, setViewport, store],
   )
 
   // Keep the selected person in view above the sheet, including after edits
   // move them. Whole tree is left alone until a different person is opened.
   useEffect(() => {
     if (!selectedId) return
-    if (overviewRef.current && selectedId === overviewSelection.current) return
+    if (overviewRef.current && selectedId === overviewSelection.current.id &&
+      searchFocus === overviewSelection.current.searchFocus) return
     overviewRef.current = false
     centerOn(selectedId, {
       zoom: Math.max(getZoom(), window.matchMedia(MOBILE).matches ? mobileZoom : 0.8),
       offsetY: viewportHeight * (0.5 - SELECTED_VIEWPORT_Y),
       duration: 500,
     })
-  }, [selectedId, centerOn, getZoom, mobileZoom, viewportHeight])
+  }, [selectedId, searchFocus, centerOn, getZoom, mobileZoom, viewportHeight])
 
   // The sheet closing, or the family moving, changes what "everyone" means.
   useEffect(() => {
