@@ -32,6 +32,7 @@ interface PersonFormProps {
   onSubmit: (person: NewPerson) => void
   /** Shows a Cancel button when given. */
   onCancel?: () => void
+  autoFocus?: boolean
   /** Relationship-specific options, shown below the person's details. */
   children?: ReactNode
 }
@@ -43,6 +44,7 @@ export function PersonForm({
   error,
   onSubmit,
   onCancel,
+  autoFocus = true,
   children,
 }: PersonFormProps) {
   const { t } = useT()
@@ -92,11 +94,7 @@ export function PersonForm({
 
   return (
     <form id={formId} onSubmit={submit} noValidate className="flex flex-col gap-4">
-      {/*
-        The portrait steps out of the sheet's left padding so its side gaps match.
-        Gender shares that grid and centers in the portrait's column.
-      */}
-      <div className="-ml-5 grid grid-cols-[0.5rem_auto_0.5rem_minmax(0,1fr)] gap-y-2">
+      <div className="grid grid-cols-[min(7rem,39%)_minmax(0,1fr)] gap-x-3 gap-y-4 sm:-ml-5 sm:grid-cols-[0.5rem_auto_0.5rem_minmax(0,1fr)] sm:gap-x-0 sm:gap-y-2">
         <PersonPhotoField photo={photo} given={values.names[0].given}>
           <NameEditor
             key={values.names[0].key}
@@ -105,7 +103,7 @@ export function PersonForm({
             shown
             layout="stack"
             error={errors.givenName}
-            autoFocus
+            autoFocus={autoFocus}
           />
         </PersonPhotoField>
 
@@ -151,7 +149,7 @@ export function PersonForm({
           {error}
         </p>
       )}
-      <FormActions formId={formId} submitLabel={submitLabel} onCancel={onCancel} busy={photo.busy} />
+      <FormActions formId={formId} submitLabel={submitLabel} onCancel={onCancel} busy={photo.busy} hideMobileCancel />
     </form>
   )
 }

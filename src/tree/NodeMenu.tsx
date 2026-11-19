@@ -1,6 +1,6 @@
 import type { LucideIcon } from 'lucide-react'
 import { useReducedMotion } from 'motion/react'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, type CSSProperties } from 'react'
 import { useT } from '../i18n'
 import { FAN_BOUNCE, FAN_DOT, clamp, discColumn, discHideX, fanDelay, springOf } from './discColumn'
 
@@ -14,6 +14,37 @@ export interface NodeMenuAction {
   /** Hover and screen-reader text. Longer than `label` when the action can't be used. */
   title: string
   onClick: () => void
+}
+
+export function NodeActionButton({
+  action,
+  tabIndex,
+  style,
+}: {
+  action: NodeMenuAction
+  tabIndex?: number
+  style?: CSSProperties
+}) {
+  return (
+    <button
+      type="button"
+      className="node-act nodrag nopan pointer-events-auto size-11"
+      data-tone={action.tone === 'danger' ? 'danger' : undefined}
+      aria-label={action.title}
+      title={action.title}
+      aria-disabled={!action.available || undefined}
+      tabIndex={tabIndex}
+      style={style}
+      onPointerDown={(event) => event.stopPropagation()}
+      onClick={(event) => {
+        event.stopPropagation()
+        if (action.available) action.onClick()
+      }}
+    >
+      <action.Icon size={16} strokeWidth={2} aria-hidden />
+      <span className="node-act-label hidden sm:block">{action.label}</span>
+    </button>
+  )
 }
 
 /** How many springs exist. Hooks cannot be created per action, so this is the ceiling. */
@@ -125,21 +156,16 @@ export function NodeFan({
   if (count === 0) return null
 
   return (
-    <div className="node-fan" role="toolbar" aria-label={t('sheet.tools')}>
+    <div className="node-fan hidden sm:block" role="toolbar" aria-label={t('sheet.tools')}>
       {actions.slice(0, count).map((action, i) => {
         const u = clamp(travel[i] / 100, 0, 1.4)
         const spot = spots[i]
         const x = hideX + (spot.x - hideX) * u
         const y = spot.y
         return (
-          <button
+          <NodeActionButton
             key={action.id}
-            type="button"
-            className="node-act nodrag nopan"
-            data-tone={action.tone === 'danger' ? 'danger' : undefined}
-            aria-label={action.title}
-            title={action.title}
-            aria-disabled={!action.available || undefined}
+            action={action}
             tabIndex={open ? 0 : -1}
             style={
               {
@@ -152,17 +178,9 @@ export function NodeFan({
                 '--lx': `${spot.nx * 30}px`,
                 '--ly': `${spot.ny * 30}px`,
                 pointerEvents: open && u > 0.45 ? 'auto' : 'none',
-              } as React.CSSProperties
+              } as CSSProperties
             }
-            onPointerDown={(e) => e.stopPropagation()}
-            onClick={(e) => {
-              e.stopPropagation()
-              if (action.available) action.onClick()
-            }}
-          >
-            <action.Icon size={16} strokeWidth={2} aria-hidden />
-            <span className="node-act-label">{action.label}</span>
-          </button>
+          />
         )
       })}
     </div>

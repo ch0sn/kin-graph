@@ -40,7 +40,7 @@ export function Avatar({
   const url = src === undefined ? stored : src
 
   return (
-    <div
+    <span
       aria-hidden
       className={[
         'flex shrink-0 items-center justify-center overflow-hidden rounded-xl font-serif',
@@ -58,6 +58,6 @@ export function Avatar({
       ) : (
         initials(person)
       )}
-    </div>
+    </span>
   )
 }
